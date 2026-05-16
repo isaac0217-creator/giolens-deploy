@@ -1,0 +1,14 @@
+{
+  "id": "reactivacion-spy-v1",
+  "pipeline_id": "252999",
+  "pipeline_name": "SPY · Seguridad Z87",
+  "task": "reactivation",
+  "status": "approved",
+  "approved_by": "isaac",
+  "approved_at": "2026-05-15T22:00:00.000Z",
+  "version": 1,
+  "content": "Hola [NOMBRE] 👷 Hace [DIAS_INACTIVO] días te interesaron los SPY Z87 (certificados ANSI Z87.1). ¿Sigue en pie? Si los quieres ya 📦 opticagiolens.com/products/spy-z87-ansi-estandar-negro — envío a todo México. ¿Personal o para un equipo de trabajo? Si es empresa, te preparo cotización con factura.",
+  "params": ["NOMBRE", "DIAS_INACTIVO"],
+  "notes": "URL online en el primer toque (PROMPT_M3 regla 2). 80.9% del pipeline cierra online, B2B es fuerte — preguntar siempre por empresa.",
+  "source": "PROMPT_M3 / api/webhook.js"
+}

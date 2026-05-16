@@ -1,0 +1,14 @@
+{
+  "id": "reactivacion-giosports-v1",
+  "pipeline_id": "755062",
+  "pipeline_name": "GioSports · Deportivo",
+  "task": "reactivation",
+  "status": "approved",
+  "approved_by": "isaac",
+  "approved_at": "2026-05-15T22:00:00.000Z",
+  "version": 1,
+  "content": "Hola [NOMBRE] 👋 Hace [DIAS_INACTIVO] días te interesaron los GioSports — buena elección 💪 ¿Para qué deporte los buscas? (ciclismo, béisbol, correr, montaña…) Con eso te confirmo modelo y precio exacto. Solar base desde $1,950 MXN, no necesitas receta 😉",
+  "params": ["NOMBRE", "DIAS_INACTIVO"],
+  "notes": "Re-abre con la pregunta de deporte (PROMPT_M2 regla 2) sin tocar el tema de receta. 53.9% del pipeline NO necesita prescripción.",
+  "source": "PROMPT_M2 / api/webhook.js"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "reactivacion-giovision-v1",
+  "pipeline_id": "273944",
+  "pipeline_name": "GioVision · Entintados",
+  "task": "reactivation",
+  "status": "approved",
+  "approved_by": "isaac",
+  "approved_at": "2026-05-15T22:00:00.000Z",
+  "version": 1,
+  "content": "Hola [NOMBRE] 👋 Hace [DIAS_INACTIVO] días te interesaron los lentes entintados. La promo sigue: armazón + micas sencillas entintadas desde $950 MXN 🔥 Los armazones son de buena calidad — pásate a probarlos en Plaza MAC, Zona Río, Local 10 (Lun-Sáb 10am-5pm). ¿Te queda algún día esta semana?",
+  "params": ["NOMBRE", "DIAS_INACTIVO"],
+  "notes": "Gancho promo $950 en el primer toque (PROMPT_M5 regla 2). Aclarar calidad del armazón pro-activamente (61.4% del pipeline duda de calidad).",
+  "source": "PROMPT_M5 / api/webhook.js"
+}

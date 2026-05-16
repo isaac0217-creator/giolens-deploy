@@ -1,0 +1,78 @@
+{
+  "motor": "giosports",
+  "pipeline_id": "755062",
+  "description": "Golden dataset para Motor #2 — GioSports (deportivos). Foco: NUNCA preguntar examen/graduación primero, SIEMPRE preguntar deporte. 53.9% no necesita prescripción.",
+  "cases": [
+    {
+      "id": "gs-01-bienvenida-preguntar-deporte",
+      "description": "Lead nuevo. Debe preguntar el deporte como primera pregunta, NO el examen ni la graduación.",
+      "input": {
+        "event": "new_lead",
+        "stage": "NUEVO",
+        "last_message": "Hola, vi los lentes deportivos en el anuncio",
+        "contact_name": "Diego"
+      },
+      "expected": {
+        "tool_should_be_called": ["send_message", "send_and_move"],
+        "message_should_mention": ["deporte", "actividad", "ciclismo", "béisbol", "correr", "montaña"],
+        "message_should_NOT_mention": ["examen de vista", "graduación"]
+      }
+    },
+    {
+      "id": "gs-02-menciona-ciclismo",
+      "description": "Lead dice que es para ciclismo. Debe dar opciones de precio empezando por el solar base sin asumir graduación.",
+      "input": {
+        "event": "incoming_message",
+        "stage": "BOT ACTIVO",
+        "last_message": "Son para ciclismo, ando todos los fines de semana",
+        "contact_name": "Pablo"
+      },
+      "expected": {
+        "tool_should_be_called": ["send_message", "send_and_move"],
+        "message_should_mention": ["1,950", "$1,950", "ciclismo", "solar"]
+      }
+    },
+    {
+      "id": "gs-03-lead-foraneo-online",
+      "description": "Lead de otra ciudad. Debe ofrecer compra online opticagiolens.com.",
+      "input": {
+        "event": "incoming_message",
+        "stage": "COTIZADO",
+        "last_message": "Yo estoy en Guadalajara, hacen envíos?",
+        "contact_name": "Sergio"
+      },
+      "expected": {
+        "tool_should_be_called": ["send_message", "send_and_move"],
+        "message_should_mention": ["opticagiolens.com", "envío", "nacional", "México"]
+      }
+    },
+    {
+      "id": "gs-04-tiene-graduacion-recspecs",
+      "description": "Lead aclara que SÍ tiene graduación. Debe ofrecer RecSpecs o examen gratis.",
+      "input": {
+        "event": "incoming_message",
+        "stage": "COTIZADO",
+        "last_message": "Es para béisbol pero uso lentes, tengo graduación",
+        "contact_name": "Andrés"
+      },
+      "expected": {
+        "tool_should_be_called": ["send_message", "send_and_move"],
+        "message_should_mention": ["RecSpecs", "3,950", "$3,950", "graduación"]
+      }
+    },
+    {
+      "id": "gs-05-confirma-visita-plaza-mac",
+      "description": "Lead confirma visita. Debe mover a VISITA CONFIRMADA y mencionar Plaza MAC.",
+      "input": {
+        "event": "incoming_message",
+        "stage": "CTA VISITA",
+        "last_message": "Va, paso el sábado a la 1pm",
+        "contact_name": "Hugo"
+      },
+      "expected": {
+        "tool_should_be_called": ["send_and_move", "move_stage"],
+        "stage_should_move_to": ["VISITA CONFIRMADA"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "motor": "spy-z87",
+  "pipeline_id": "252999",
+  "description": "Golden dataset para Motor #3 — SPY Z87 (seguridad industrial). Foco: 80.9% quiere online (dar URL en 2do mensaje), B2B fuerte (preguntar empresa/personal), ANSI Z87.1 como diferenciador.",
+  "cases": [
+    {
+      "id": "sz-01-bienvenida-ansi-b2b",
+      "description": "Lead nuevo. Debe mencionar ANSI Z87.1 y preguntar si es para empresa o personal.",
+      "input": {
+        "event": "new_lead",
+        "stage": "NUEVO",
+        "last_message": "Quiero información de los SPY Z87",
+        "contact_name": "Ricardo"
+      },
+      "expected": {
+        "tool_should_be_called": ["send_message", "send_and_move"],
+        "message_should_mention": ["ANSI Z87", "ANSI", "Z87.1", "empresa", "personal"]
+      }
+    },
+    {
+      "id": "sz-02-segundo-mensaje-debe-dar-url",
+      "description": "Lead aclara uso personal sin graduación. Debe dar precio Y URL online en este 2do mensaje.",
+      "input": {
+        "event": "incoming_message",
+        "stage": "NECESIDAD DETECTADA ",
+        "last_message": "Es para uso personal, sin graduación",
+        "contact_name": "Mario"
+      },
+      "expected": {
+        "tool_should_be_called": ["send_message", "send_and_move"],
+        "message_should_mention": ["opticagiolens.com", "spy-z87", "2,999", "$2,999"]
+      }
+    },
+    {
+      "id": "sz-03-b2b-empresa-volumen",
+      "description": "Lead menciona equipo de trabajo. Debe preguntar cuántos y mencionar cotización con factura.",
+      "input": {
+        "event": "incoming_message",
+        "stage": "NECESIDAD DETECTADA ",
+        "last_message": "Es para mi equipo de obra, somos varios",
+        "contact_name": "Empresario"
+      },
+      "expected": {
+        "tool_should_be_called": ["send_message", "send_and_move"],
+        "message_should_mention": ["volumen", "factura", "empresa", "cuántos", "cotización"]
+      }
+    },
+    {
+      "id": "sz-04-tiene-receta",
+      "description": "Lead tiene receta. Debe ofrecer enviar archivo o examen gratis y mencionar tiempo de entrega.",
+      "input": {
+        "event": "incoming_message",
+        "stage": "SÍNTOMA",
+        "last_message": "Sí uso lentes, tengo mi receta de hace 6 meses",
+        "contact_name": "Fernando"
+      },
+      "expected": {
+        "tool_should_be_called": ["send_message", "send_and_move"],
+        "message_should_mention": ["receta", "archivo", "examen", "3-5", "días"]
+      }
+    },
+    {
+      "id": "sz-05-pide-pago-factura",
+      "description": "Lead pregunta método de pago, contexto empresarial. Debe mover a 'metodo de pago' (lowercase).",
+      "input": {
+        "event": "incoming_message",
+        "stage": "COTIZcion",
+        "last_message": "Cómo es el pago? Necesitamos factura para la empresa",
+        "contact_name": "Lic. Vargas"
+      },
+      "expected": {
+        "tool_should_be_called": ["send_and_move", "move_stage"],
+        "stage_should_move_to": ["metodo de pago"]
+      }
+    }
+  ]
+}

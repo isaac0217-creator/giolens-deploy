@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Panel de Aprobaciones · GIOCORE</title>
+<style>
+  /* ============================================================
+     GIOLENS · Panel de Aprobaciones (widget standalone)
+     Estética coherente con dashboard (Liquid Glass light theme).
+     Sin dependencias externas. Self-contained.
+     ============================================================ */
+  *{margin:0;padding:0;box-sizing:border-box}
+
+  :root{
+    --glass-bg:        rgba(255,255,255,0.62);
+    --glass-bg-strong: rgba(255,255,255,0.78);
+    --glass-border:    rgba(255,255,255,0.78);
+    --glass-blur:      blur(20px) saturate(1.6);
+    --glass-shadow:    0 8px 32px rgba(99,102,241,0.10), 0 2px 8px rgba(0,0,0,0.06);
+    --glass-shine:     inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -1px 0 rgba(255,255,255,0.20);
+
+    --c-text:       #0f172a;
+    --c-text-soft:  #475569;
+    --c-text-mute:  #94a3b8;
+    --c-line:       #e2e8f0;
+    --c-line-soft:  #f1f5f9;
+
+    --c-blue:    #2563eb;  --c-blue-bg:    #eff6ff;  --c-blue-bd:    #bfdbfe;
+    --c-green:   #16a34a;  --c-green-bg:   #f0fdf4;  --c-green-bd:   #bbf7d0;
+    --c-amber:   #d97706;  --c-amber-bg:   #fffbeb;  --c-amber-bd:   #fde68a;
+    --c-red:     #dc2626;  --c-red-bg:     #fef2f2;  --c-red-bd:     #fecaca;
+    --c-purple:  #7c3aed;  --c-purple-bg:  #f5f3ff;  --c-purple-bd:  #ddd6fe;
+    --c-slate:   #475569;  --c-slate-bg:   #f1f5f9;  --c-slate-bd:   #e2e8f0;
+  }
+
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    background:
+      radial-gradient(1100px 700px at 12% -10%, rgba(139,92,246,0.10), transparent 60%),
+      radial-gradient(900px 600px at 110% 0%, rgba(56,189,248,0.10), transparent 55%),
+      linear-gradient(160deg, #f7f8fc 0%, #eef0f6 35%, #f2f3f8 65%, #f8f9fb 100%);
+    background-attachment:fixed;
+    color:var(--c-text);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* ─────────────────────── HEADER ─────────────────────── */
+  header{
+    background: rgba(248,250,252,0.72);
+    backdrop-filter: blur(24px) saturate(1.8);
+    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+    border-bottom: 1px solid rgba(255,255,255,0.6);
+    padding:16px 24px;
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.8), 0 4px 24px rgba(99,102,241,0.08);
+    position:sticky; top:0; z-index:50;
+  }
+  .h-left{display:flex;align-items:center;gap:14px}
+  .h-icon{
+    width:42px;height:42px;border-radius:13px;
+    background: linear-gradient(135deg, rgba(99,102,241,0.9), rgba(139,92,246,0.9), rgba(56,189,248,0.8));
+    display:flex;align-items:center;justify-content:center;font-size:20px;
+    box-shadow: 0 4px 16px rgba(99,102,241,0.4), inset 0 1px 0 rgba(255,255,255,0.4);
+    border: 1px solid rgba(255,255,255,0.3); color:#fff;
+  }
+  .h-title{font-size:18px;font-weight:700;color:#0f172a;letter-spacing:-0.01em}
+  .h-sub{font-size:12px;color:#64748b;margin-top:2px}
+
+  .counters{display:flex;gap:8px;flex-wrap:wrap}
+  .pill{
+    padding:6px 13px;border-radius:999px;font-size:12px;font-weight:700;
+    border:1px solid var(--glass-border);
+    background:var(--glass-bg-strong);
+    backdrop-filter: blur(10px);
+    color:var(--c-text-soft);
+    display:inline-flex;align-items:center;gap:7px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.85), 0 2px 8px rgba(0,0,0,0.05);
+  }
+  .pill .num{color:var(--c-text);font-size:13px}
+  .pill.pend{background:rgba(255,251,235,0.85);color:#92400e;border-color:rgba(253,230,138,0.8)}
+  .pill.appr{background:rgba(240,253,244,0.85);color:#15803d;border-color:rgba(187,247,208,0.7)}
+  .pill.rej {background:rgba(254,242,242,0.85);color:#991b1b;border-color:rgba(254,202,202,0.7)}
+  .dot-live{width:7px;height:7px;border-radius:50%;background:#16a34a;box-shadow:0 0 0 0 rgba(22,163,74,.45);animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(22,163,74,.45)}70%{box-shadow:0 0 0 8px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
+
+  /* ─────────────────────── TOOLBAR ─────────────────────── */
+  .toolbar{
+    margin:18px 24px 0;
+    display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+  }
+  .filters{display:flex;gap:6px;background:rgba(255,255,255,0.55);border:1px solid var(--glass-border);
+           border-radius:12px;padding:4px;backdrop-filter:blur(12px);
+           box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), 0 2px 10px rgba(0,0,0,0.04)}
+  .filter-btn{
+    border:none;background:transparent;cursor:pointer;
+    padding:7px 14px;border-radius:9px;font-size:13px;font-weight:600;color:var(--c-text-soft);
+    transition: all .2s ease;
+  }
+  .filter-btn:hover{background:rgba(99,102,241,0.06);color:var(--c-text)}
+  .filter-btn.active{
+    background:linear-gradient(135deg, rgba(99,102,241,0.95), rgba(139,92,246,0.95));
+    color:#fff;
+    box-shadow: 0 4px 12px rgba(99,102,241,0.25), inset 0 1px 0 rgba(255,255,255,0.4);
+  }
+  .filter-btn .count{
+    margin-left:6px;font-size:11px;padding:1px 7px;border-radius:999px;
+    background:rgba(255,255,255,0.45);color:inherit;
+  }
+  .filter-btn:not(.active) .count{background:rgba(15,23,42,0.07)}
+
+  .search{
+    flex:1;max-width:280px;
+    border:1px solid var(--glass-border);
+    background:var(--glass-bg-strong);
+    border-radius:10px;padding:9px 14px;font-size:13px;color:var(--c-text);
+    outline:none;backdrop-filter:blur(10px);
+    transition:all .2s ease;
+  }
+  .search:focus{border-color:#a5b4fc;box-shadow:0 0 0 3px rgba(99,102,241,0.15)}
+
+  /* ─────────────────────── LAYOUT ─────────────────────── */
+  .main{
+    display:grid;
+    grid-template-columns: minmax(0,1fr) 340px;
+    gap:18px;
+    padding:18px 24px 40px;
+  }
+  @media(max-width:1100px){ .main{grid-template-columns:1fr} .sidebar{order:2} }
+
+  /* ─────────────────────── CARDS ─────────────────────── */
+  .card{
+    background:var(--glass-bg);
+    backdrop-filter:var(--glass-blur);
+    -webkit-backdrop-filter:var(--glass-blur);
+    border:1px solid var(--glass-border);
+    border-radius:14px;
+    box-shadow:var(--glass-shadow), var(--glass-shine);
+    margin-bottom:12px;
+    overflow:hidden;
+    transition: transform .2s ease, box-shadow .2s ease;
+  }
+  .card:hover{box-shadow: 0 10px 36px rgba(99,102,241,0.13), 0 2px 8px rgba(0,0,0,0.07), var(--glass-shine)}
+
+  .card.crit{ border-left:4px solid var(--c-red) }
+  .card.high{ border-left:4px solid var(--c-amber) }
+  .card.med { border-left:4px solid var(--c-blue) }
+  .card.low { border-left:4px solid var(--c-slate) }
+  .card.info{ border-left:4px solid var(--c-purple) }
+
+  .card.done{opacity:.78}
+
+  .row{padding:14px 16px;display:flex;gap:12px;align-items:flex-start}
+  .row + .row{border-top:1px solid var(--c-line-soft)}
+
+  .badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+  .badge{
+    font-size:11px;font-weight:700;padding:3px 9px;border-radius:8px;
+    display:inline-flex;align-items:center;gap:5px;line-height:1;
+  }
+  .b-agent.optim   {background:var(--c-red-bg);   color:var(--c-red);    border:1px solid var(--c-red-bd)}
+  .b-agent.creativ {background:var(--c-amber-bg); color:var(--c-amber);  border:1px solid var(--c-amber-bd)}
+  .b-agent.analist {background:var(--c-green-bg); color:var(--c-green);  border:1px solid var(--c-green-bd)}
+  .b-agent.giocore {background:var(--c-purple-bg);color:var(--c-purple); border:1px solid var(--c-purple-bd)}
+
+  .b-sev.crit{background:var(--c-red-bg);   color:var(--c-red);    border:1px solid var(--c-red-bd)}
+  .b-sev.high{background:var(--c-amber-bg); color:var(--c-amber);  border:1px solid var(--c-amber-bd)}
+  .b-sev.med {background:var(--c-blue-bg);  color:var(--c-blue);   border:1px solid var(--c-blue-bd)}
+  .b-sev.low {background:var(--c-slate-bg); color:var(--c-slate);  border:1px solid var(--c-slate-bd)}
+  .b-sev.info{background:var(--c-purple-bg);color:var(--c-purple); border:1px solid var(--c-purple-bd)}
+
+  .b-state.approved{background:var(--c-green-bg);color:var(--c-green);border:1px solid var(--c-green-bd)}
+  .b-state.rejected{background:var(--c-red-bg);  color:var(--c-red);  border:1px solid var(--c-red-bd)}
+  .b-state.draft   {background:var(--c-slate-bg);color:var(--c-slate);border:1px solid var(--c-slate-bd)}
+
+  .meta{font-size:11px;color:var(--c-text-mute);margin-left:auto;white-space:nowrap}
+
+  .title{font-size:15px;font-weight:700;color:var(--c-text);line-height:1.35;margin-bottom:4px;letter-spacing:-0.005em}
+  .desc{font-size:13px;color:var(--c-text-soft);line-height:1.5}
+
+  .kpi-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:9px}
+  .kpi{
+    background: rgba(255,255,255,0.5);
+    border:1px solid rgba(226,232,240,0.7);
+    border-radius:10px;padding:7px 11px;min-width:120px;
+  }
+  .kpi-label{font-size:10px;color:var(--c-text-mute);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+  .kpi-val{font-size:14px;font-weight:700;color:var(--c-text);margin-top:2px}
+  .kpi-val.pos{color:var(--c-green)}
+  .kpi-val.neg{color:var(--c-red)}
+
+  .actions{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
+
+  .btn{
+    border:none;cursor:pointer;font-family:inherit;
+    padding:7px 14px;border-radius:10px;font-size:12.5px;font-weight:600;
+    display:inline-flex;align-items:center;gap:6px;
+    transition: all .2s ease;
+    background: rgba(255,255,255,0.7);
+    border:1px solid var(--glass-border);
+    color:var(--c-text-soft);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .btn:hover{transform:translateY(-1px); box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 4px 12px rgba(0,0,0,0.08)}
+  .btn:active{transform:translateY(0)}
+  .btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+  .btn-approve{
+    background:linear-gradient(135deg, rgba(34,197,94,0.95), rgba(22,163,74,0.95));
+    color:#fff;border-color: rgba(255,255,255,0.4);
+    box-shadow: 0 3px 12px rgba(22,163,74,0.30), inset 0 1px 0 rgba(255,255,255,0.4);
+    text-shadow: 0 1px 1px rgba(0,0,0,0.15);
+  }
+  .btn-approve:hover:not(:disabled){box-shadow:0 6px 18px rgba(22,163,74,.40), inset 0 1px 0 rgba(255,255,255,0.5)}
+  .btn-reject{
+    background:linear-gradient(135deg, rgba(248,113,113,0.95), rgba(220,38,38,0.95));
+    color:#fff;border-color: rgba(255,255,255,0.4);
+    box-shadow: 0 3px 12px rgba(220,38,38,0.30), inset 0 1px 0 rgba(255,255,255,0.4);
+    text-shadow: 0 1px 1px rgba(0,0,0,0.15);
+  }
+  .btn-reject:hover:not(:disabled){box-shadow:0 6px 18px rgba(220,38,38,.40), inset 0 1px 0 rgba(255,255,255,0.5)}
+  .btn-detail{color:var(--c-blue)}
+  .btn-detail:hover{background:var(--c-blue-bg)}
+
+  /* ─────────────────────── EXPAND PANEL ─────────────────────── */
+  .detail{
+    display:none;
+    padding:14px 16px;
+    border-top:1px solid var(--c-line-soft);
+    background: linear-gradient(180deg, rgba(248,250,252,0.7), rgba(255,255,255,0.4));
+  }
+  .card.open .detail{display:block}
+  .card.open .chev{transform:rotate(180deg)}
+  .chev{transition:transform .2s ease;display:inline-block}
+
+  .detail h4{
+    font-size:11px;font-weight:700;color:var(--c-text-mute);
+    text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;margin-top:14px;
+    display:flex;align-items:center;gap:6px;
+  }
+  .detail h4:first-child{margin-top:0}
+
+  .json{
+    background:#0f172a;color:#e2e8f0;
+    border-radius:10px;padding:14px;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size:12px;line-height:1.5;
+    overflow-x:auto;white-space:pre;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+  .json .k{color:#7dd3fc}
+  .json .s{color:#86efac}
+  .json .n{color:#fda4af}
+  .json .b{color:#fde047}
+
+  .evidence-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+  .ev-card{
+    background:#fff;border:1px solid var(--c-line);
+    border-radius:10px;padding:10px 12px;
+  }
+  .ev-label{font-size:10px;color:var(--c-text-mute);text-transform:uppercase;font-weight:700;letter-spacing:.05em}
+  .ev-val{font-size:15px;font-weight:700;color:var(--c-text);margin-top:3px}
+  .ev-trend{font-size:11px;margin-top:2px}
+  .ev-trend.up{color:var(--c-green)}
+  .ev-trend.dn{color:var(--c-red)}
+
+  .rollback{
+    background:var(--c-amber-bg);
+    border:1px solid var(--c-amber-bd);
+    border-radius:10px;padding:11px 13px;
+    font-size:13px;color:#78350f;line-height:1.5;
+  }
+  .rollback code{
+    background:rgba(255,255,255,0.7);
+    padding:2px 6px;border-radius:5px;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;font-size:12px;
+  }
+
+  .timeline{padding-left:18px;border-left:2px solid var(--c-line)}
+  .tl-ev{position:relative;padding:6px 0 6px 14px;font-size:12.5px;color:var(--c-text-soft)}
+  .tl-ev:before{
+    content:'';position:absolute;left:-23px;top:11px;
+    width:9px;height:9px;border-radius:50%;background:#fff;border:2px solid #94a3b8;
+  }
+  .tl-ev.ok:before{border-color:var(--c-green)}
+  .tl-ev.warn:before{border-color:var(--c-amber)}
+  .tl-ev.err:before{border-color:var(--c-red)}
+  .tl-time{font-size:11px;color:var(--c-text-mute);margin-left:8px}
+
+  .comment-box{
+    width:100%;
+    padding:10px 13px;
+    border:1px solid var(--c-line);
+    border-radius:10px;
+    background:#fff;
+    font-family:inherit;font-size:13px;color:var(--c-text);
+    resize:vertical;min-height:64px;
+    outline:none;
+    transition: border .15s ease;
+  }
+  .comment-box:focus{border-color:#a5b4fc;box-shadow:0 0 0 3px rgba(99,102,241,0.13)}
+  .comment-saved{font-size:11px;color:var(--c-text-mute);margin-top:4px}
+
+  .empty{
+    text-align:center;padding:50px 20px;color:var(--c-text-mute);
+    font-size:14px;
+  }
+  .empty .ico{font-size:38px;margin-bottom:12px;opacity:.5}
+
+  /* ─────────────────────── SIDEBAR ─────────────────────── */
+  .sidebar{display:flex;flex-direction:column;gap:14px}
+  .side{
+    background:var(--glass-bg);
+    backdrop-filter:var(--glass-blur);
+    -webkit-backdrop-filter:var(--glass-blur);
+    border:1px solid var(--glass-border);
+    border-radius:14px;
+    box-shadow:var(--glass-shadow), var(--glass-shine);
+    padding:14px 16px;
+  }
+  .side-h{
+    font-size:11px;font-weight:700;color:var(--c-text-mute);
+    text-transform:uppercase;letter-spacing:.08em;margin-bottom:11px;
+    display:flex;align-items:center;gap:7px;
+  }
+  .side-h .dot{width:7px;height:7px;border-radius:50%;background:#6366f1}
+
+  .recent{display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto}
+  .rec{
+    display:flex;align-items:flex-start;gap:9px;
+    padding:8px 10px;border-radius:9px;background:rgba(255,255,255,0.5);
+    border:1px solid rgba(226,232,240,0.6);font-size:12.5px;
+  }
+  .rec-ico{
+    width:22px;height:22px;border-radius:6px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;
+  }
+  .rec-ico.ok{background:var(--c-green-bg);color:var(--c-green)}
+  .rec-ico.no{background:var(--c-red-bg);  color:var(--c-red)}
+  .rec-text{flex:1;line-height:1.35;color:var(--c-text-soft)}
+  .rec-text b{color:var(--c-text);font-weight:600}
+  .rec-time{font-size:10px;color:var(--c-text-mute);margin-top:2px}
+
+  .cap-list{display:flex;flex-direction:column;gap:10px}
+  .cap-row{font-size:12px}
+  .cap-head{display:flex;justify-content:space-between;margin-bottom:3px;color:var(--c-text-soft)}
+  .cap-head b{color:var(--c-text);font-weight:600}
+  .bar{height:7px;background:var(--c-line-soft);border-radius:99px;overflow:hidden;position:relative}
+  .bar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#3b82f6,#8b5cf6);transition:width .4s ease}
+  .bar-fill.warn{background:linear-gradient(90deg,#f59e0b,#dc2626)}
+  .bar-fill.crit{background:linear-gradient(90deg,#dc2626,#991b1b)}
+
+  .kill-side{display:flex;flex-direction:column;gap:8px}
+  .kill-btn{
+    border:none;cursor:pointer;font-family:inherit;font-weight:700;
+    padding:12px 16px;border-radius:11px;font-size:13px;
+    background:linear-gradient(135deg, #ef4444, #b91c1c);color:#fff;
+    box-shadow: 0 4px 14px rgba(220,38,38,0.32), inset 0 1px 0 rgba(255,255,255,0.3);
+    text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+    transition: all .2s ease;
+    display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+  .kill-btn:hover{transform:translateY(-1px); box-shadow:0 6px 20px rgba(220,38,38,.45)}
+  .kill-btn.paused{
+    background:linear-gradient(135deg, #22c55e, #15803d);
+    box-shadow: 0 4px 14px rgba(22,163,74,0.32), inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+  .kill-status{font-size:11.5px;color:var(--c-text-soft);text-align:center}
+  .kill-status.paused{color:var(--c-red);font-weight:700}
+
+  /* ─────────────────────── MODAL ─────────────────────── */
+  .modal-bg{
+    display:none;position:fixed;inset:0;z-index:200;
+    background:rgba(15,23,42,0.45);
+    backdrop-filter:blur(8px);
+    align-items:center;justify-content:center;padding:20px;
+  }
+  .modal-bg.show{display:flex}
+  .modal{
+    background:#fff;border-radius:14px;max-width:440px;width:100%;
+    padding:22px;box-shadow:0 20px 60px rgba(0,0,0,0.30);
+    border:1px solid var(--c-line);
+  }
+  .modal h3{font-size:17px;font-weight:700;color:var(--c-text);margin-bottom:8px}
+  .modal p{font-size:13.5px;color:var(--c-text-soft);line-height:1.55;margin-bottom:16px}
+  .modal-actions{display:flex;gap:8px;justify-content:flex-end}
+
+  /* ─────────────────────── TOAST ─────────────────────── */
+  .toast{
+    position:fixed;bottom:24px;right:24px;z-index:300;
+    background:#0f172a;color:#fff;
+    padding:11px 18px;border-radius:11px;
+    font-size:13px;font-weight:600;
+    box-shadow:0 10px 30px rgba(0,0,0,0.25);
+    transform:translateY(100px); opacity:0;
+    transition: all .3s cubic-bezier(.34,1.56,.64,1);
+  }
+  .toast.show{transform:translateY(0); opacity:1}
+  .toast.ok{background:linear-gradient(135deg,#16a34a,#15803d)}
+  .toast.no{background:linear-gradient(135deg,#dc2626,#991b1b)}
+
+  /* ─────────────────────── PRINT ─────────────────────── */
+  @media print{
+    body{background:#fff !important}
+    header{position:static;box-shadow:none;border-bottom:2px solid #000;background:#fff !important}
+    .toolbar, .sidebar, .actions, .kill-btn, .filter-btn, .search{display:none !important}
+    .main{grid-template-columns:1fr !important; padding:8px 0 !important}
+    .card{
+      break-inside:avoid;background:#fff !important;backdrop-filter:none !important;
+      border:1px solid #94a3b8 !important; box-shadow:none !important; margin-bottom:16px !important;
+    }
+    .card .detail{display:block !important; background:#fff !important}
+    .json{background:#f8fafc !important;color:#0f172a !important;border:1px solid #cbd5e1}
+    .json .k,.json .s,.json .n,.json .b{color:#0f172a}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="h-left">
+    <div class="h-icon">G</div>
+    <div>
+      <div class="h-title">Panel de Aprobaciones · GIOCORE</div>
+      <div class="h-sub">Widget standalone · agentes humanos-en-el-bucle</div>
+    </div>
+  </div>
+  <div class="counters">
+    <div class="pill"><span class="dot-live"></span>Live</div>
+    <div class="pill pend"><span class="num" id="cnt-pend">0</span> pendientes</div>
+    <div class="pill appr"><span class="num" id="cnt-appr">0</span> aprobadas hoy</div>
+    <div class="pill rej"> <span class="num" id="cnt-rej">0</span> rechazadas hoy</div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="filters" id="filters">
+    <button class="filter-btn active" data-filter="pending">Pendientes <span class="count" id="f-pending">0</span></button>
+    <button class="filter-btn" data-filter="approved">Aprobadas <span class="count" id="f-approved">0</span></button>
+    <button class="filter-btn" data-filter="rejected">Rechazadas <span class="count" id="f-rejected">0</span></button>
+    <button class="filter-btn" data-filter="all">Todas <span class="count" id="f-all">0</span></button>
+  </div>
+  <input id="search" class="search" placeholder="Buscar por título, agente, descripción…" />
+</div>
+
+<div class="main">
+  <div id="list"></div>
+
+  <aside class="sidebar">
+    <div class="side">
+      <div class="side-h"><span class="dot"></span>Acciones recientes</div>
+      <div class="recent" id="recent"></div>
+    </div>
+
+    <div class="side">
+      <div class="side-h"><span class="dot" style="background:#f59e0b"></span>Cost cap usage hoy</div>
+      <div class="cap-list" id="caps"></div>
+    </div>
+
+    <div class="side">
+      <div class="side-h"><span class="dot" style="background:#ef4444"></span>Kill switch</div>
+      <div class="kill-side">
+        <button class="kill-btn" id="kill-btn" onclick="confirmKill()">
+          <span id="kill-ico">⏸</span> <span id="kill-text">Pausar TODOS los agentes</span>
+        </button>
+        <div class="kill-status" id="kill-status">Agentes activos · operando con normalidad</div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- Modal Kill Switch -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h3 id="modal-title">¿Pausar TODOS los agentes?</h3>
+    <p id="modal-body">
+      Esta acción detendrá inmediatamente la ejecución de los agentes Analista,
+      Optimización y Creativo. Las propuestas pendientes permanecerán visibles
+      pero ningún nuevo cambio se aplicará hasta reactivar.
+    </p>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-reject" id="modal-confirm">Sí, pausar todo</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   STATE
+   ============================================================ */
+const LS_KEY = 'gl_approvals_demo_state';
+const now = Date.now();
+const min = (m) => now - m*60*1000;
+const hr  = (h) => now - h*60*60*1000;
+
+const DEFAULT_PROPOSALS = [
+  {
+    id: 'opt-001',
+    agent: 'optim', agentLabel: 'Optimización',
+    severity: 'high',
+    requiresApproval: true,
+    createdAt: min(3),
+    title: 'Aumentar +$500 MXN/día Holbrook',
+    desc: 'Adset "Holbrook prueba 4" sostiene CPR $48 con frecuencia 1.4. Ventana ROAS 7d = 3.2x. Recomienda escalar +$500/día.',
+    costImpact: '+$500 MXN/día',
+    expected: 'ROAS 3.0x · +12 leads/día',
+    payload: {
+      action: 'update_adset_budget',
+      adset_id: '120217684621480123',
+      portfolio: 'NEW_HOLBROOK_V11',
+      from_mxn_day: 800, to_mxn_day: 1300,
+      reason: 'CPR estable bajo target + ROAS 7d positivo',
+      cost_cap_pct: 12.5,
+    },
+    evidence: [
+      { label: 'CPR 7d', val: '$48 MXN', trend: '-22%', up: true },
+      { label: 'ROAS 7d', val: '3.2x',    trend: '+0.4', up: true },
+      { label: 'Frecuencia', val: '1.4',   trend: 'normal', up: null },
+      { label: 'Leads 7d',  val: '94',     trend: '+18%', up: true },
+    ],
+    rollback: 'Revertir budget a <code>800 MXN/día</code> via API Meta. Ventana automática 24h si CPR>$70.',
+    timeline: [
+      { t: hr(48), text: 'Adset alcanzó CPR target ($60) por primera vez', kind:'ok' },
+      { t: hr(24), text: 'CPR sostenido <$55 durante 24h', kind:'ok' },
+      { t: hr(6),  text: 'Optimizador detecta patrón de escalado seguro', kind:'ok' },
+      { t: min(3), text: 'Propuesta generada · esperando aprobación', kind:'warn' },
+    ],
+  },
+  {
+    id: 'opt-002',
+    agent: 'optim', agentLabel: 'Optimización',
+    severity: 'med',
+    requiresApproval: true,
+    createdAt: min(12),
+    title: 'Pausar adset "Holbrook prueba 3" por CPR alto',
+    desc: 'CPR 7d = $186 (target $60). Gasto acumulado $3,200 MXN sin conversiones. Recomienda pausar.',
+    costImpact: '-$400 MXN/día (ahorro)',
+    expected: 'Reasignación a adsets ganadores',
+    payload: {
+      action: 'pause_adset',
+      adset_id: '120217684621480121',
+      portfolio: 'NEW_HOLBROOK_V11',
+      reason: 'CPR 3.1x sobre target + 0 leads en 7d',
+    },
+    evidence: [
+      { label: 'CPR 7d',   val: '$186 MXN', trend: '+210%', up: false },
+      { label: 'Leads 7d', val: '0',        trend: 'sin tracción', up: false },
+      { label: 'Gastado',  val: '$3,200',   trend: 'sin retorno', up: false },
+    ],
+    rollback: 'Reactivar adset con <code>status=ACTIVE</code>. Histórico se preserva.',
+    timeline: [
+      { t: hr(72), text: 'Adset lanzado con CTR esperado', kind:'ok' },
+      { t: hr(24), text: 'CPR sube a $150 (alarma soft)',   kind:'warn' },
+      { t: min(12),text: 'CPR sostenido >$180 24h · propuesta de pausa', kind:'err' },
+    ],
+  },
+  {
+    id: 'crea-001',
+    agent: 'creativ', agentLabel: 'Creativo',
+    severity: 'low',
+    requiresApproval: true,
+    state: 'draft',
+    createdAt: min(28),
+    title: '3 nuevas variantes de script para GioSports basadas en patrón ganador',
+    desc: 'Patrón ganador detectado (hook "para deportistas que sudan"). 3 variantes generadas listas para review.',
+    costImpact: '$0 (generación interna)',
+    expected: '+CTR esperado 0.4-0.7%',
+    payload: {
+      action: 'create_creatives',
+      portfolio: 'NEW_GIOSPORTS_V11',
+      pattern: 'hook_sudor_v2',
+      count: 3,
+      variants: ['variant_a_15s','variant_b_15s','variant_c_30s'],
+    },
+    evidence: [
+      { label: 'Patrón base', val: 'hook sudor', trend: 'CTR 2.1%', up: true },
+      { label: 'Variantes',   val: '3',          trend: 'listas',   up: null },
+    ],
+    rollback: 'Borrar drafts. No tocan adsets activos.',
+    timeline: [
+      { t: hr(36), text: 'Analista identifica patrón ganador', kind:'ok' },
+      { t: min(28), text: 'Creativo genera 3 variantes (draft)', kind:'ok' },
+    ],
+  },
+  {
+    id: 'crea-002',
+    agent: 'creativ', agentLabel: 'Creativo',
+    severity: 'med',
+    requiresApproval: true,
+    createdAt: min(55),
+    title: 'Plantilla reactivación SPY Z87 — leads estancados >5 días',
+    desc: 'Detectados 23 leads en pipeline NUEVO con >5 días sin interacción. Plantilla WhatsApp lista para campaña reactivación.',
+    costImpact: '$0 (orgánico WhatsApp)',
+    expected: 'Recuperar 4-6 leads → cotización',
+    payload: {
+      action: 'send_reactivation_template',
+      template_id: 'reactivacion_spy_z87_v1',
+      audience: 'pipeline_nuevo_stalled_5d',
+      count: 23,
+    },
+    evidence: [
+      { label: 'Leads estancados', val: '23',    trend: '+5 vs ayer', up: false },
+      { label: 'Edad media',       val: '7.2 días', trend: 'crítico', up: false },
+      { label: 'Tasa esperada',    val: '20-30%', trend: 'histórico', up: null },
+    ],
+    rollback: 'Plantilla es one-shot; no se puede deshacer el envío. Si falla, sin penalización en métrica entrega.',
+    timeline: [
+      { t: hr(120), text: 'Primer lead entra a pipeline NUEVO sin movimiento', kind:'warn' },
+      { t: hr(24),  text: 'Conteo de estancados pasa de 18 a 23', kind:'warn' },
+      { t: min(55), text: 'Creativo prepara plantilla reactivación', kind:'ok' },
+    ],
+  },
+  {
+    id: 'ana-001',
+    agent: 'analist', agentLabel: 'Analista',
+    severity: 'crit',
+    requiresApproval: false,
+    createdAt: min(8),
+    title: '🔴 CRÍTICO: Dama Luxury sin leads en pipeline NUEVO >24h',
+    desc: 'Cero entradas al pipeline NUEVO de Dama Luxury en últimas 24h. Anomalía significativa (histórico: 4-7 leads/día).',
+    costImpact: 'N/A (alerta informativa)',
+    expected: 'Investigación requerida',
+    payload: {
+      action: 'anomaly_alert',
+      pipeline: 'DAMA_NUEVO',
+      observed: 0,
+      baseline_24h: 5.4,
+      z_score: -3.2,
+    },
+    evidence: [
+      { label: 'Leads 24h',   val: '0',     trend: 'esperado: 5-7', up: false },
+      { label: 'Z-score',     val: '-3.2',  trend: 'crítico',       up: false },
+      { label: 'Ultimo lead', val: '27h',   trend: 'hace',          up: false },
+    ],
+    rollback: 'Esta alerta es solo informativa. No se aplica acción automática.',
+    timeline: [
+      { t: hr(27), text: 'Último lead entró a pipeline DAMA NUEVO', kind:'ok' },
+      { t: hr(12), text: 'Sin entradas por 12h (alerta soft)', kind:'warn' },
+      { t: min(8), text: 'Anomalía confirmada · Z = -3.2', kind:'err' },
+    ],
+  },
+  {
+    id: 'ana-002',
+    agent: 'analist', agentLabel: 'Analista',
+    severity: 'med',
+    requiresApproval: true,
+    createdAt: min(45),
+    title: 'Recomienda redirigir presupuesto: +$200 Dama → −$200 GioVision',
+    desc: 'Dama Luxury ROAS 7d = 4.2x (mejor del portafolio). GioVision ROAS 7d = 1.4x (subóptimo). Reasignar $200/día mejora ROI estimado +18%.',
+    costImpact: 'Neutral (reasignación)',
+    expected: 'ROI portafolio +18%',
+    payload: {
+      action: 'reallocate_budget',
+      from: { portfolio: 'NEW_GIOVISION_V11', delta_mxn: -200 },
+      to:   { portfolio: 'NEW_DAMA_V11',     delta_mxn: +200 },
+      reason: 'Diferencia ROAS 3.0x → reasignación de eficiencia',
+    },
+    evidence: [
+      { label: 'Dama ROAS',     val: '4.2x', trend: '+0.5', up: true },
+      { label: 'GioVision ROAS',val: '1.4x', trend: '-0.3', up: false },
+      { label: 'Δ ROI estimado',val: '+18%', trend: 'proyectado', up: true },
+    ],
+    rollback: 'Revertir budgets a estado anterior. Ventana automática 48h si ROI proyectado no se cumple.',
+    timeline: [
+      { t: hr(168),text: 'Análisis semanal completo', kind:'ok' },
+      { t: min(45),text: 'Recomendación de reasignación generada', kind:'ok' },
+    ],
+  },
+  {
+    id: 'opt-003',
+    agent: 'optim', agentLabel: 'Optimización',
+    severity: 'med',
+    requiresApproval: true,
+    createdAt: min(90),
+    title: 'Cambio de target: ampliar edad 35-55 → 35-65 en Dama',
+    desc: 'Audiencias edad 55-65 en lookalikes muestran CTR superior (+0.6%). Ampliar rango para escalar audiencia disponible.',
+    costImpact: 'Neutral (mismo budget)',
+    expected: '+30% audiencia · CTR proyectado +0.6%',
+    payload: {
+      action: 'update_targeting',
+      adset_id: '120217684621480125',
+      portfolio: 'NEW_DAMA_V11',
+      change: { age_max: { from: 55, to: 65 } },
+    },
+    evidence: [
+      { label: 'CTR 55-65 (LAL)', val: '2.8%', trend: '+0.6 vs 35-55', up: true },
+      { label: 'Audiencia actual',val: '120K',  trend: '+30% tras ajuste', up: true },
+    ],
+    rollback: 'Revertir age_max a 55 via API Meta. Sin penalización en delivery.',
+    timeline: [
+      { t: hr(168), text: 'Test piloto en LAL 55-65 muestra CTR superior', kind:'ok' },
+      { t: min(90), text: 'Optimizador propone ampliar producción', kind:'ok' },
+    ],
+  },
+  {
+    id: 'crea-003',
+    agent: 'creativ', agentLabel: 'Creativo',
+    severity: 'low',
+    requiresApproval: true,
+    state: 'draft',
+    createdAt: min(140),
+    title: 'Variante anuncio fotocromático para retargeting',
+    desc: 'Audiencia retargeting (visitaron pero no compraron) requiere mensaje diferente. Variante creativa "fotocromático = 2 lentes en 1" lista.',
+    costImpact: '$0 (generación interna)',
+    expected: 'CTR retargeting +0.3-0.5%',
+    payload: {
+      action: 'create_creative',
+      portfolio: 'NEW_HOLBROOK_V11',
+      audience_type: 'retargeting_30d',
+      angle: 'fotocromatico_doble_uso',
+    },
+    evidence: [
+      { label: 'CTR retargeting actual', val: '1.1%', trend: 'flat', up: null },
+      { label: 'Visitantes 30d sin compra', val: '4,200', trend: 'audiencia disponible', up: true },
+    ],
+    rollback: 'Borrar draft. No afecta campañas activas.',
+    timeline: [
+      { t: hr(96),  text: 'Analista detecta retargeting estancado',  kind:'warn' },
+      { t: min(140),text: 'Creativo genera variante (draft)',         kind:'ok' },
+    ],
+  },
+];
+
+/* ─── Estado persistente ─── */
+let STATE = loadState();
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw){
+      const s = JSON.parse(raw);
+      // Asegurar shape esperado
+      if(!s.proposals) s.proposals = DEFAULT_PROPOSALS;
+      if(!s.recent)    s.recent    = [];
+      if(typeof s.killed === 'undefined') s.killed = false;
+      if(!s.filter)    s.filter    = 'pending';
+      return s;
+    }
+  }catch(e){}
+  return {
+    proposals: DEFAULT_PROPOSALS.map(p => ({...p, state: p.state || 'pending', comment: ''})),
+    recent: [],
+    killed: false,
+    filter: 'pending',
+    search: '',
+  };
+}
+
+function saveState(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(STATE)); }catch(e){}
+}
+
+/* ─── Helpers ─── */
+function timeAgo(ts){
+  const s = Math.floor((Date.now() - ts)/1000);
+  if(s < 60)    return `hace ${s}s`;
+  if(s < 3600)  return `hace ${Math.floor(s/60)} min`;
+  if(s < 86400) return `hace ${Math.floor(s/3600)} h`;
+  return `hace ${Math.floor(s/86400)} d`;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+function prettyJson(obj){
+  const json = JSON.stringify(obj, null, 2);
+  return escapeHtml(json)
+    .replace(/("(\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, (m) => {
+      let cls = 'n';
+      if (/^"/.test(m)) cls = /:$/.test(m) ? 'k' : 's';
+      else if (/true|false/.test(m)) cls = 'b';
+      else if (/null/.test(m)) cls = 'b';
+      return `<span class="${cls}">${m}</span>`;
+    });
+}
+
+const sevIcon = { crit:'⛔', high:'⚠', med:'●', low:'○', info:'ℹ' };
+const sevLabel = { crit:'Crítico', high:'Alto', med:'Medio', low:'Bajo', info:'Info' };
+const agentIcon = { optim:'⚙', creativ:'✦', analist:'∿', giocore:'⌬' };
+
+/* ─── Counts ─── */
+function recomputeCounts(){
+  let pend=0, appr=0, rej=0, draft=0;
+  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  STATE.proposals.forEach(p=>{
+    if(p.state === 'pending' || p.state === 'draft') pend++;
+    if(p.state === 'approved' && (p.decidedAt||0) >= todayStart.getTime()) appr++;
+    if(p.state === 'rejected' && (p.decidedAt||0) >= todayStart.getTime()) rej++;
+  });
+  document.getElementById('cnt-pend').textContent = pend;
+  document.getElementById('cnt-appr').textContent = appr;
+  document.getElementById('cnt-rej').textContent  = rej;
+
+  // Filter counts
+  const counts = {pending:0, approved:0, rejected:0, all: STATE.proposals.length};
+  STATE.proposals.forEach(p=>{
+    if(p.state === 'pending' || p.state === 'draft') counts.pending++;
+    else if(counts[p.state] !== undefined) counts[p.state]++;
+  });
+  document.getElementById('f-pending').textContent  = counts.pending;
+  document.getElementById('f-approved').textContent = counts.approved;
+  document.getElementById('f-rejected').textContent = counts.rejected;
+  document.getElementById('f-all').textContent      = counts.all;
+}
+
+/* ─── Render: list ─── */
+function renderList(){
+  const list = document.getElementById('list');
+  const q = (STATE.search||'').toLowerCase().trim();
+  const items = STATE.proposals.filter(p => {
+    if(STATE.filter === 'pending'  && !(p.state === 'pending' || p.state === 'draft')) return false;
+    if(STATE.filter === 'approved' && p.state !== 'approved') return false;
+    if(STATE.filter === 'rejected' && p.state !== 'rejected') return false;
+    if(q){
+      const hay = (p.title + ' ' + p.desc + ' ' + p.agentLabel).toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  items.sort((a,b) => {
+    const sevOrder = {crit:0, high:1, med:2, low:3, info:4};
+    const sa = sevOrder[a.severity] ?? 9;
+    const sb = sevOrder[b.severity] ?? 9;
+    if(sa !== sb) return sa - sb;
+    return b.createdAt - a.createdAt;
+  });
+
+  if(items.length === 0){
+    list.innerHTML = `
+      <div class="card"><div class="empty">
+        <div class="ico">∅</div>
+        <div>No hay propuestas que coincidan con el filtro.</div>
+      </div></div>`;
+    return;
+  }
+
+  list.innerHTML = items.map(p => renderCard(p)).join('');
+  // Bind expandable
+  list.querySelectorAll('[data-toggle]').forEach(btn=>{
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = btn.getAttribute('data-toggle');
+      const card = document.querySelector(`[data-card="${id}"]`);
+      card.classList.toggle('open');
+    });
+  });
+}
+
+function renderCard(p){
+  const isInfo = !p.requiresApproval;
+  const decided = p.state === 'approved' || p.state === 'rejected';
+  const sevCls = isInfo && p.severity === 'crit' ? 'crit' : p.severity;
+  const stateBadge = p.state === 'approved' ? `<span class="badge b-state approved">✓ Aprobado</span>`
+                   : p.state === 'rejected' ? `<span class="badge b-state rejected">✗ Rechazado</span>`
+                   : p.state === 'draft'    ? `<span class="badge b-state draft">borrador</span>`
+                   : '';
+
+  return `
+  <div class="card ${sevCls} ${decided ? 'done':''}" data-card="${p.id}">
+    <div class="row">
+      <div style="flex:1;min-width:0">
+        <div class="badges">
+          <span class="badge b-agent ${p.agent}">${agentIcon[p.agent]||'•'} ${escapeHtml(p.agentLabel)}</span>
+          <span class="badge b-sev ${p.severity}">${sevIcon[p.severity]||'•'} ${sevLabel[p.severity]||p.severity}</span>
+          ${isInfo ? `<span class="badge b-sev info">solo informativa</span>` : ''}
+          ${stateBadge}
+          <span class="meta">${timeAgo(p.createdAt)}</span>
+        </div>
+        <div class="title">${escapeHtml(p.title)}</div>
+        <div class="desc">${escapeHtml(p.desc)}</div>
+        <div class="kpi-row">
+          <div class="kpi">
+            <div class="kpi-label">Costo / impacto</div>
+            <div class="kpi-val">${escapeHtml(p.costImpact)}</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Resultado esperado</div>
+            <div class="kpi-val">${escapeHtml(p.expected)}</div>
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        ${ decided || isInfo ? '' : `
+          <button class="btn btn-approve" onclick="decide('${p.id}','approved')">✓ Aprobar</button>
+          <button class="btn btn-reject"  onclick="decide('${p.id}','rejected')">✗ Rechazar</button>
+        `}
+        <button class="btn btn-detail" data-toggle="${p.id}">
+          📋 Detalle <span class="chev">▾</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="detail">
+      <h4>Evidencia</h4>
+      <div class="evidence-grid">
+        ${p.evidence.map(e => `
+          <div class="ev-card">
+            <div class="ev-label">${escapeHtml(e.label)}</div>
+            <div class="ev-val">${escapeHtml(e.val)}</div>
+            <div class="ev-trend ${e.up === true ? 'up' : e.up === false ? 'dn' : ''}">${escapeHtml(e.trend||'')}</div>
+          </div>`).join('')}
+      </div>
+
+      <h4>Payload de la propuesta</h4>
+      <pre class="json">${prettyJson(p.payload)}</pre>
+
+      <h4>Plan de rollback</h4>
+      <div class="rollback">${p.rollback}</div>
+
+      <h4>Timeline</h4>
+      <div class="timeline">
+        ${p.timeline.map(ev => `
+          <div class="tl-ev ${ev.kind||''}">
+            ${escapeHtml(ev.text)} <span class="tl-time">${timeAgo(ev.t)}</span>
+          </div>`).join('')}
+        ${ p.decidedAt ? `
+          <div class="tl-ev ${p.state === 'approved' ? 'ok' : 'err'}">
+            <b>${p.state === 'approved' ? 'Aprobado' : 'Rechazado'}</b>
+            ${p.comment ? `· "${escapeHtml(p.comment)}"` : ''}
+            <span class="tl-time">${timeAgo(p.decidedAt)}</span>
+          </div>` : ''}
+      </div>
+
+      <h4>Comentario del aprobador</h4>
+      <textarea class="comment-box" placeholder="Opcional: razones, contexto, notas para el equipo…"
+        ${decided ? 'disabled':''}
+        oninput="updateComment('${p.id}', this.value)">${escapeHtml(p.comment||'')}</textarea>
+      ${ p.comment && decided ? `<div class="comment-saved">Comentario guardado al ${p.state === 'approved' ? 'aprobar' : 'rechazar'}.</div>` : ''}
+    </div>
+  </div>`;
+}
+
+/* ─── Render: sidebar ─── */
+function renderRecent(){
+  const div = document.getElementById('recent');
+  if(STATE.recent.length === 0){
+    div.innerHTML = '<div style="font-size:12px;color:var(--c-text-mute);text-align:center;padding:14px 0">Sin decisiones recientes.</div>';
+    return;
+  }
+  div.innerHTML = STATE.recent.slice(0,10).map(r => `
+    <div class="rec">
+      <div class="rec-ico ${r.decision === 'approved' ? 'ok':'no'}">
+        ${r.decision === 'approved' ? '✓' : '✗'}
+      </div>
+      <div class="rec-text">
+        ${r.decision === 'approved' ? 'Aprobaste' : 'Rechazaste'}
+        <b>${escapeHtml(r.title)}</b>
+        <div class="rec-time">${timeAgo(r.at)} · ${escapeHtml(r.agentLabel)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderCaps(){
+  // Cost cap demo: por agente
+  const caps = [
+    { agent: 'Optimización', cur: 1850, max: 2500 },
+    { agent: 'Creativo',     cur: 320,  max: 800  },
+    { agent: 'Analista',     cur: 90,   max: 200  },
+    { agent: 'GIOCORE',      cur: 410,  max: 1000 },
+  ];
+  document.getElementById('caps').innerHTML = caps.map(c=>{
+    const pct = Math.min(100, Math.round(c.cur/c.max*100));
+    const cls = pct >= 90 ? 'crit' : pct >= 70 ? 'warn' : '';
+    return `
+      <div class="cap-row">
+        <div class="cap-head"><b>${c.agent}</b><span>$${c.cur} / $${c.max}</span></div>
+        <div class="bar"><div class="bar-fill ${cls}" style="width:${pct}%"></div></div>
+      </div>`;
+  }).join('');
+}
+
+function renderKill(){
+  const btn  = document.getElementById('kill-btn');
+  const ico  = document.getElementById('kill-ico');
+  const txt  = document.getElementById('kill-text');
+  const st   = document.getElementById('kill-status');
+  if(STATE.killed){
+    btn.classList.add('paused');
+    ico.textContent = '▶';
+    txt.textContent = 'Reactivar TODOS los agentes';
+    st.textContent  = '⏸ Agentes pausados · sin ejecución autónoma';
+    st.classList.add('paused');
+  } else {
+    btn.classList.remove('paused');
+    ico.textContent = '⏸';
+    txt.textContent = 'Pausar TODOS los agentes';
+    st.textContent  = 'Agentes activos · operando con normalidad';
+    st.classList.remove('paused');
+  }
+}
+
+/* ─── Actions ─── */
+function decide(id, decision){
+  const p = STATE.proposals.find(x => x.id === id);
+  if(!p) return;
+  p.state = decision;
+  p.decidedAt = Date.now();
+  STATE.recent.unshift({
+    decision, title: p.title, agentLabel: p.agentLabel, at: Date.now(), id: p.id,
+  });
+  STATE.recent = STATE.recent.slice(0,30);
+  saveState();
+  renderAll();
+  toast(decision === 'approved' ? `✓ Aprobado: ${p.title}` : `✗ Rechazado: ${p.title}`, decision === 'approved' ? 'ok' : 'no');
+}
+
+function updateComment(id, value){
+  const p = STATE.proposals.find(x => x.id === id);
+  if(!p) return;
+  p.comment = value;
+  saveState();
+}
+
+function setFilter(f){
+  STATE.filter = f;
+  saveState();
+  document.querySelectorAll('.filter-btn').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-filter') === f);
+  });
+  renderList();
+}
+
+function confirmKill(){
+  document.getElementById('modal-title').textContent = STATE.killed
+    ? '¿Reactivar TODOS los agentes?'
+    : '¿Pausar TODOS los agentes?';
+  document.getElementById('modal-body').innerHTML = STATE.killed
+    ? 'Los agentes Analista, Optimización y Creativo retomarán su ejecución autónoma. Las propuestas pendientes seguirán requiriendo aprobación.'
+    : 'Esta acción detendrá inmediatamente la ejecución de los agentes Analista, Optimización y Creativo. Las propuestas pendientes permanecerán visibles pero ningún nuevo cambio se aplicará hasta reactivar.';
+  const btn = document.getElementById('modal-confirm');
+  btn.textContent = STATE.killed ? 'Sí, reactivar' : 'Sí, pausar todo';
+  btn.className   = STATE.killed ? 'btn btn-approve' : 'btn btn-reject';
+  btn.onclick = () => {
+    STATE.killed = !STATE.killed;
+    saveState();
+    renderKill();
+    closeModal();
+    toast(STATE.killed ? '⏸ Agentes pausados' : '▶ Agentes reactivados', STATE.killed ? 'no' : 'ok');
+  };
+  document.getElementById('modal').classList.add('show');
+}
+
+function closeModal(){
+  document.getElementById('modal').classList.remove('show');
+}
+
+/* ─── Toast ─── */
+let toastTimer;
+function toast(msg, kind=''){
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast show ${kind}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+/* ─── Render all ─── */
+function renderAll(){
+  recomputeCounts();
+  renderList();
+  renderRecent();
+  renderCaps();
+  renderKill();
+}
+
+/* ─── Init ─── */
+document.querySelectorAll('.filter-btn').forEach(b => {
+  b.addEventListener('click', () => setFilter(b.getAttribute('data-filter')));
+});
+document.getElementById('search').addEventListener('input', e => {
+  STATE.search = e.target.value;
+  renderList();
+});
+document.getElementById('modal').addEventListener('click', e => {
+  if(e.target.id === 'modal') closeModal();
+});
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape') closeModal();
+});
+
+// Aplicar filtro inicial
+document.querySelectorAll('.filter-btn').forEach(b => {
+  b.classList.toggle('active', b.getAttribute('data-filter') === STATE.filter);
+});
+
+renderAll();
+
+// Refresh "hace X" timestamps cada 30s
+setInterval(() => {
+  recomputeCounts();
+  renderList();
+  renderRecent();
+}, 30000);
+
+// Atajo: tecla R para reset demo state
+document.addEventListener('keydown', e => {
+  if(e.key === 'r' && (e.metaKey || e.ctrlKey) && e.shiftKey){
+    e.preventDefault();
+    if(confirm('¿Reset estado demo (borrar localStorage)?')){
+      localStorage.removeItem(LS_KEY);
+      STATE = loadState();
+      renderAll();
+      toast('Estado demo reseteado');
+    }
+  }
+});
+</script>
+
+</body>
+</html>

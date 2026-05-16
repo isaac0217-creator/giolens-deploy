@@ -1,0 +1,14 @@
+{
+  "id": "reactivacion-dama-v1",
+  "pipeline_id": "94103",
+  "pipeline_name": "Dama · Luxury",
+  "task": "reactivation",
+  "status": "approved",
+  "approved_by": "isaac",
+  "approved_at": "2026-05-15T22:00:00.000Z",
+  "version": 1,
+  "content": "Hola [NOMBRE] ✨ Hace [DIAS_INACTIVO] días estabas viendo nuestra colección Dama. Nos llegaron piezas nuevas de Michael Kors y Versace que creo que te van a encantar. ¿Te apartamos un horario esta semana para que las pruebes con asesoría de imagen? Incluye examen de vista gratis.",
+  "params": ["NOMBRE", "DIAS_INACTIVO"],
+  "notes": "Tono consultora de moda, sin presión (PROMPT_M4 regla 1). Michael Kors es la marca #1 solicitada (103 menciones). Reforzar valor, NO bajar precio.",
+  "source": "PROMPT_M4 / api/webhook.js"
+}

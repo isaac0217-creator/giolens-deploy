@@ -1,0 +1,80 @@
+{
+  "motor": "dama-luxury",
+  "pipeline_id": "94103",
+  "description": "Golden dataset para Motor #4 — Dama Luxury. Foco: consultoría de imagen (no venta directa), NUNCA bajar precio, preguntar marca/estilo antes que precio. Marca #1: Michael Kors.",
+  "cases": [
+    {
+      "id": "dl-01-bienvenida-marca-estilo",
+      "description": "Lead nueva. Debe preguntar marca o estilo, NO preguntar presupuesto ni bajar precio.",
+      "input": {
+        "event": "new_lead",
+        "stage": "NUEVO",
+        "last_message": "Hola, vi los armazones para dama",
+        "contact_name": "Sofía"
+      },
+      "expected": {
+        "tool_should_be_called": ["send_message", "send_and_move"],
+        "message_should_mention": ["marca", "estilo", "Michael Kors", "Versace", "Prada"],
+        "message_should_NOT_mention": ["barato", "descuento", "rebaja"]
+      }
+    },
+    {
+      "id": "dl-02-pide-michael-kors",
+      "description": "Lead pide Michael Kors específicamente. Debe confirmar que tienen y cotizar con valor.",
+      "input": {
+        "event": "incoming_message",
+        "stage": "BOT ACTIVO",
+        "last_message": "Quiero ver los Michael Kors que tengan",
+        "contact_name": "Andrea"
+      },
+      "expected": {
+        "tool_should_be_called": ["send_message", "send_and_move"],
+        "message_should_mention": ["Michael Kors", "3,500", "$3,500", "examen", "gratis"]
+      }
+    },
+    {
+      "id": "dl-03-objeta-precio-NO-bajar",
+      "description": "Lead objeta el precio. NUNCA debe ofrecer descuento, SÍ reforzar valor (asesoría, marca original, garantía).",
+      "input": {
+        "event": "incoming_message",
+        "stage": "PRECIO ENTREGADO",
+        "last_message": "Está muy caro, no tienen algo más económico?",
+        "contact_name": "Patricia"
+      },
+      "expected": {
+        "tool_should_be_called": ["send_message", "send_and_move"],
+        "message_should_mention": ["original", "asesoría", "garantía", "examen", "valor", "incluye"],
+        "message_should_NOT_mention": ["descuento", "rebaja", "te lo bajo", "promoción especial"]
+      }
+    },
+    {
+      "id": "dl-04-confirma-visita-vip",
+      "description": "Lead confirma visita. Debe mover a VISITA CONFIRMADA con tono elegante.",
+      "input": {
+        "event": "incoming_message",
+        "stage": "CTA VISITA",
+        "last_message": "Sí, paso el viernes en la tarde",
+        "contact_name": "Lic. Mendoza"
+      },
+      "expected": {
+        "tool_should_be_called": ["send_and_move", "move_stage"],
+        "stage_should_move_to": ["VISITA CONFIRMADA"]
+      }
+    },
+    {
+      "id": "dl-05-pregunta-pago-meses",
+      "description": "Lead pregunta forma de pago. Debe mover a MÉTODO DE PAGO y mencionar opciones (meses sin intereses si aplica).",
+      "input": {
+        "event": "incoming_message",
+        "stage": "PRECIO ENTREGADO",
+        "last_message": "Aceptan tarjeta? Meses sin intereses?",
+        "contact_name": "Vanessa"
+      },
+      "expected": {
+        "tool_should_be_called": ["send_and_move", "move_stage", "send_message"],
+        "stage_should_move_to": ["MÉTODO DE PAGO"],
+        "message_should_mention": ["tarjeta", "meses", "pago", "transferencia"]
+      }
+    }
+  ]
+}

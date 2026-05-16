@@ -1,0 +1,17 @@
+{
+  "name": "giolens-dashboard",
+  "version": "1.0.0",
+  "description": "GioLens Vision Care CRM Dashboard",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "vercel": "^37.0.0"
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "motor": "giovision",
+  "pipeline_id": "273944",
+  "description": "Golden dataset para Motor #5 — GioVision (entintados/fotocromáticos). Foco: mencionar PROMO $950 de entrada, aclarar calidad del armazón (61.4% duda), explicar diferencia entintado vs fotocromático.",
+  "cases": [
+    {
+      "id": "gv-01-bienvenida-promo-950",
+      "description": "Lead nuevo. Debe mencionar la PROMO $950 (gancho principal) en el primer mensaje.",
+      "input": {
+        "event": "new_lead",
+        "stage": "NUEVO",
+        "last_message": "Hola, vi los lentes entintados",
+        "contact_name": "Jorge"
+      },
+      "expected": {
+        "tool_should_be_called": ["send_message", "send_and_move"],
+        "message_should_mention": ["$950", "950", "promo", "promoción", "armazón"]
+      }
+    },
+    {
+      "id": "gv-02-duda-calidad-armazon",
+      "description": "Lead duda de la calidad del armazón en promo. Debe aclarar proactivamente que son de calidad e invitar a verlos en tienda.",
+      "input": {
+        "event": "incoming_message",
+        "stage": "PRECIO",
+        "last_message": "Esos armazones de $950 no serán muy corrientes? Se ven baratos?",
+        "contact_name": "Lupita"
+      },
+      "expected": {
+        "tool_should_be_called": ["send_message", "send_and_move"],
+        "message_should_mention": ["calidad", "tienda", "buena", "probar", "ver"]
+      }
+    },
+    {
+      "id": "gv-03-diferencia-entintado-fotocromatico",
+      "description": "Lead pregunta diferencia entre entintado y fotocromático. Debe explicarla brevemente.",
+      "input": {
+        "event": "incoming_message",
+        "stage": "PRECIO",
+        "last_message": "Cuál es la diferencia entre entintado y fotocromático?",
+        "contact_name": "Daniela"
+      },
+      "expected": {
+        "tool_should_be_called": ["send_message", "send_and_move"],
+        "message_should_mention": ["entintado", "fotocromático", "color fijo", "cambia", "luz", "claro", "oscuro"]
+      }
+    },
+    {
+      "id": "gv-04-manejar-recomienda-fotocromatico",
+      "description": "Lead menciona uso al volante/manejar. Debe recomendar fotocromático directamente.",
+      "input": {
+        "event": "incoming_message",
+        "stage": "PRECIO",
+        "last_message": "Los quiero para manejar, paso mucho tiempo en el coche",
+        "contact_name": "Eduardo"
+      },
+      "expected": {
+        "tool_should_be_called": ["send_message", "send_and_move"],
+        "message_should_mention": ["fotocromático", "manejar", "cambia", "3,500", "$3,500"]
+      }
+    },
+    {
+      "id": "gv-05-confirma-visita-ubicacion",
+      "description": "Lead confirma visita y/o pide ubicación. Debe mover a VISITA CONFIRMADA o UBICACIÓN con Plaza MAC.",
+      "input": {
+        "event": "incoming_message",
+        "stage": "PROMOCIÓN",
+        "last_message": "Va, paso mañana, dónde están?",
+        "contact_name": "Karla"
+      },
+      "expected": {
+        "tool_should_be_called": ["send_and_move", "move_stage", "send_message"],
+        "stage_should_move_to": ["UBICACIÓN", "VISITA CONFIRMADA"],
+        "message_should_mention": ["Plaza MAC", "Zona Río", "Local 10", "Tijuana"]
+      }
+    }
+  ]
+}

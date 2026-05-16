@@ -1,0 +1,14 @@
+{
+  "id": "reactivacion-holbrook-v1",
+  "pipeline_id": "216977",
+  "pipeline_name": "Justin · Holbrook · Litebeam",
+  "task": "reactivation",
+  "status": "approved",
+  "approved_by": "isaac",
+  "approved_at": "2026-05-15T22:00:00.000Z",
+  "version": 1,
+  "content": "Hola [NOMBRE] 👋 Vi que andabas viendo los Holbrook hace [DIAS_INACTIVO] días. ¿Te viene mejor pasar hoy en la tarde o mañana en la mañana para tu examen de vista (gratis) y verlos en persona? 📍 Plaza MAC, Zona Río, Local 10.",
+  "params": ["NOMBRE", "DIAS_INACTIVO"],
+  "notes": "Cierre con pregunta de opciones cerradas (PROMPT_M1 regla 4). Examen gratis es el hook principal del pipeline 216977.",
+  "source": "PROMPT_M1 / api/webhook.js"
+}

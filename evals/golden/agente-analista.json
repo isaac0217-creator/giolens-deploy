@@ -1,0 +1,80 @@
+{
+  "motor": "agente-analista",
+  "agent_id": "analista",
+  "description": "Golden dataset para Agente Fase 3 — Analista. Input: KPIs simulados de pipelines. Expected: insights mínimos + menciones temáticas.",
+  "cases": [
+    {
+      "id": "an-01-cpr-alto-spy",
+      "description": "CPR alto en SPY Z87. Debe detectar y proponer optimización del pipeline 252999.",
+      "input": {
+        "pipelineIds": ["252999"],
+        "mockKpis": {
+          "252999": { "leads": 150, "cpr": 22.40, "ventas": 3, "conversion": 0.02, "online_clicks": 12 }
+        }
+      },
+      "expected": {
+        "insights_count_at_least": 1,
+        "insights_should_mention": ["CPR", "SPY", "252999", "conversión", "online", "URL"]
+      }
+    },
+    {
+      "id": "an-02-conversion-baja-dama",
+      "description": "Dama Luxury con muchas cotizaciones pero baja conversión. Debe sugerir revisar manejo de objeción de precio.",
+      "input": {
+        "pipelineIds": ["94103"],
+        "mockKpis": {
+          "94103": { "leads": 80, "cpr": 23.53, "cotizados": 60, "ventas": 4, "objeciones_precio": 28 }
+        }
+      },
+      "expected": {
+        "insights_count_at_least": 1,
+        "insights_should_mention": ["precio", "objeción", "Dama", "94103", "conversión", "valor"]
+      }
+    },
+    {
+      "id": "an-03-giosports-deportivos-altos",
+      "description": "GioSports volumen alto pero muchos leads piden envío fuera de Tijuana. Debe sugerir flujo de online.",
+      "input": {
+        "pipelineIds": ["755062"],
+        "mockKpis": {
+          "755062": { "leads": 320, "cpr": 10.29, "ventas_presencial": 28, "consultas_envio": 95 }
+        }
+      },
+      "expected": {
+        "insights_count_at_least": 1,
+        "insights_should_mention": ["envío", "online", "foráneo", "GioSports", "755062", "nacional"]
+      }
+    },
+    {
+      "id": "an-04-comparativa-multi-pipeline",
+      "description": "Comparativa multi-pipeline. Debe destacar al menos un ganador y un foco de mejora.",
+      "input": {
+        "pipelineIds": ["216977", "755062", "94103", "273944"],
+        "mockKpis": {
+          "216977": { "leads": 200, "cpr": 8.64, "ventas": 22 },
+          "755062": { "leads": 320, "cpr": 10.29, "ventas": 28 },
+          "94103":  { "leads": 80,  "cpr": 23.53, "ventas": 4 },
+          "273944": { "leads": 110, "cpr": 27.78, "ventas": 9 }
+        }
+      },
+      "expected": {
+        "insights_count_at_least": 2,
+        "insights_should_mention": ["Justin", "Holbrook", "Dama", "GioVision", "GioSports", "mejor", "ganador", "peor", "optimizar"]
+      }
+    },
+    {
+      "id": "an-05-giovision-promo-no-convierte",
+      "description": "GioVision con muchos clicks en promo $950 pero poca conversión a venta. Debe sugerir aclarar calidad armazón.",
+      "input": {
+        "pipelineIds": ["273944"],
+        "mockKpis": {
+          "273944": { "leads": 110, "cpr": 27.78, "ventas": 5, "abandono_post_promo": 60, "menciones_calidad_armazon": 38 }
+        }
+      },
+      "expected": {
+        "insights_count_at_least": 1,
+        "insights_should_mention": ["calidad", "armazón", "promo", "$950", "GioVision", "273944", "abandono"]
+      }
+    }
+  ]
+}
