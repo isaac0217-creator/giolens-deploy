@@ -49,6 +49,7 @@ create table if not exists public.gl_kv (
   user_id     text not null default 'system',
   key         text not null,
   value       jsonb not null default '{}'::jsonb,
+  created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now(),
   primary key (user_id, key)
 );
@@ -118,8 +119,7 @@ declare
   deleted_count integer;
 begin
   delete from public.gl_timeseries
-   where ts < now() - interval '30 days'
-  returning 1 into deleted_count;
+   where ts < now() - interval '30 days';
   get diagnostics deleted_count = row_count;
   return coalesce(deleted_count, 0);
 end;
@@ -128,10 +128,9 @@ $$;
 -- Job pg_cron: corre cada día a las 03:15. Idempotente (re-agenda si ya existe).
 do $$
 begin
-  perform cron.unschedule('gl_timeseries_purge_old')
-   where exists (select 1 from cron.job where jobname = 'gl_timeseries_purge_old');
-exception when others then
-  null;
+  if exists (select 1 from cron.job where jobname = 'gl_timeseries_purge_old') then
+    perform cron.unschedule('gl_timeseries_purge_old');
+  end if;
 end;
 $$;
 

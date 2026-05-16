@@ -78,10 +78,10 @@ async function wapPost(path, body) {
   }
 }
 
-/** Parsea "2026-05-11 17:28:28" (ISO sin tz) a Unix ms — tratado como UTC para cálculos relativos */
+/** Parsea "2026-05-11 17:28:28" (Wapify devuelve fechas en CST = UTC-6) a Unix ms */
 function parseWapifyDate(str) {
   if (!str) return 0;
-  return new Date(str.replace(' ', 'T') + 'Z').getTime();
+  return new Date(str.replace(' ', 'T') + '-06:00').getTime();
 }
 
 /** Obtiene leads de un pipeline con updated_at en los últimos N ms */

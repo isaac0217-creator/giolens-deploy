@@ -18,10 +18,15 @@ const WAPIFY_BASE   = 'https://ap.whapify.ai/api';
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const MODEL         = 'claude-haiku-4-5';
 
+// CPRs: snapshot manual del 2026-05-16. Refrescar manualmente hasta que Fase 1
+// Sprint 2 implemente lectura dinámica desde Meta Insights API.
+// Maestro v12 §07 Hallazgo 6: "CPRs hardcoded desfasados vs valores reales".
+// Para refrescar: ver scripts/refresh-cpr.sh (TODO Fase 1 Sprint 2).
+const CPR_SNAPSHOT_DATE = '2026-05-16';
 const PIPELINES = [
-  { id: '216977', name: 'Justin · Holbrook', cpr: '$8.64' },
+  { id: '216977', name: 'Justin · Holbrook', cpr: '$8.64'  },
   { id: '755062', name: 'GioSports',         cpr: '$10.29' },
-  { id: '252999', name: 'SPY Z87',           cpr: '$9.10' },
+  { id: '252999', name: 'SPY Z87',           cpr: '$9.10'  },
   { id: '94103',  name: 'Dama · Luxury',     cpr: '$12.50' },
   { id: '273944', name: 'GioVision',         cpr: '$11.20' },
 ];

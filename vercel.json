@@ -4,7 +4,10 @@
     "api/pipeline-summary.js":   { "maxDuration": 60 },
     "api/predictor.js":          { "maxDuration": 60 },
     "api/microseg.js":           { "maxDuration": 60 },
-    "api/arbitraje.js":          { "maxDuration": 60 }
+    "api/arbitraje.js":          { "maxDuration": 60 },
+    "api/webhook.js":            { "maxDuration": 60 },
+    "api/copiloto.js":           { "maxDuration": 60 },
+    "api/auto-prompt.js":        { "maxDuration": 60 }
   },
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/public/index.html" }
