@@ -64,6 +64,26 @@ if ! command -v curl >/dev/null 2>&1; then
 fi
 ok "curl disponible"
 
+if ! command -v jq >/dev/null 2>&1; then
+  err "jq no encontrado. Necesario para validar payloads en smoke tests."
+  err "  Mac: brew install jq"
+  err "  Linux: apt-get install jq | yum install jq"
+  exit 1
+fi
+ok "jq disponible ($(jq --version))"
+
+# Verificar que los archivos staged existen (pre-creados en sesión Code 16 may PM)
+STAGED_DIR="$REPO_ROOT/scripts/sprint1-staged"
+for staged in text-utils.js state.js; do
+  if [ ! -f "$STAGED_DIR/$staged" ]; then
+    err "Falta archivo staged: $STAGED_DIR/$staged"
+    err "Sin esto, los Pasos 5 y 6 no pueden automatizar."
+    err "Recuperar con: git checkout HEAD -- scripts/sprint1-staged/"
+    exit 1
+  fi
+done
+ok "Archivos staged presentes (text-utils.js + state.js)"
+
 # ----- Paso 1 · Aplicar SQL Supabase (manual) -------------------------------
 step 1 "Aplicar SQL Supabase schema"
 
@@ -125,34 +145,40 @@ for f in auto-prompt.js clean-message.js; do
   fi
 done
 
-# ----- Paso 5 · Crear /api/text-utils.js (manual) ---------------------------
-step 5 "Crear /api/text-utils.js"
+# ----- Paso 5 · Instalar /api/text-utils.js (automático desde staged) -------
+step 5 "Instalar /api/text-utils.js (fusión auto-prompt + clean-message)"
 
 if [ -f "api/text-utils.js" ]; then
-  ok "api/text-utils.js ya existe — saltando"
-else
-  echo "  ACCIÓN MANUAL requerida: este endpoint fusiona auto-prompt+clean-message."
-  echo "  Debe exponer router por query param ?op=clean|prompt y delegar a la"
-  echo "  lógica de los backups en api/_backup/."
-  echo ""
-  echo "  Cuando esté listo, ejecuta:"
-  echo "    rm api/auto-prompt.js api/clean-message.js"
-  ask "¿api/text-utils.js creado y los 2 originales eliminados?"
+  warn "api/text-utils.js ya existe — sobreescribiendo con versión staged (idempotente)"
 fi
-ok "Paso 5 confirmado"
+cp "$STAGED_DIR/text-utils.js" "api/text-utils.js"
+ok "api/text-utils.js instalado desde staged ($(wc -l < api/text-utils.js | tr -d ' ') líneas)"
 
-# ----- Paso 6 · Crear /api/state.js (manual) --------------------------------
-step 6 "Crear /api/state.js"
+# Sanity: node --check antes de eliminar los originales
+if ! node --check api/text-utils.js >/dev/null 2>&1; then
+  err "api/text-utils.js NO pasa node --check. Aborto antes de eliminar originales."
+  exit 1
+fi
+ok "Sintaxis JS válida"
+
+# Eliminar los 2 archivos fusionados (idempotente con -f)
+rm -f api/auto-prompt.js api/clean-message.js
+ok "api/auto-prompt.js y api/clean-message.js eliminados (backups en api/_backup/)"
+
+# ----- Paso 6 · Instalar /api/state.js (automático desde staged) ------------
+step 6 "Instalar /api/state.js (Supabase-backed kv + timeseries)"
 
 if [ -f "api/state.js" ]; then
-  ok "api/state.js ya existe — saltando"
-else
-  echo "  ACCIÓN MANUAL requerida: endpoint Supabase-backed (gl_kv + gl_timeseries)."
-  echo "  Router por ?op=kv-get|kv-set|ts-append|ts-read."
-  echo "  Usa createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)."
-  ask "¿api/state.js creado?"
+  warn "api/state.js ya existe — sobreescribiendo con versión staged (idempotente)"
 fi
-ok "Paso 6 confirmado"
+cp "$STAGED_DIR/state.js" "api/state.js"
+ok "api/state.js instalado desde staged ($(wc -l < api/state.js | tr -d ' ') líneas)"
+
+if ! node --check api/state.js >/dev/null 2>&1; then
+  err "api/state.js NO pasa node --check. Aborto."
+  exit 1
+fi
+ok "Sintaxis JS válida"
 
 # ----- Paso 7 · Slot Vercel = 12 --------------------------------------------
 step 7 "Validar slot Vercel /api/*.js = 12"
@@ -182,15 +208,23 @@ PROD_URL="${PROD_URL:-https://giolens.vercel.app}"
 echo "  PROD_URL = $PROD_URL  (override con: export PROD_URL=...)"
 
 echo ""
-echo "  9.1 /api/text-utils?op=clean&text=test"
+echo "  9.1 /api/text-utils?op=clean&text=hola##ESTADO:TEST##"
 HTTP_CODE=$(curl -s -o /tmp/giolens_text_utils.out -w '%{http_code}' \
-  "$PROD_URL/api/text-utils?op=clean&text=test" || echo "000")
-if [ "$HTTP_CODE" = "200" ]; then
-  ok "  text-utils 200 OK"
-else
+  --get --data-urlencode 'op=clean' --data-urlencode 'text=hola##ESTADO:TEST##' \
+  "$PROD_URL/api/text-utils" || echo "000")
+if [ "$HTTP_CODE" != "200" ]; then
   err "  text-utils respondió HTTP $HTTP_CODE (esperaba 200)"
   err "  Body: $(head -c 200 /tmp/giolens_text_utils.out)"
   err "  Revisa logs: vercel logs --prod"
+  exit 1
+fi
+# Validar payload: debe tener { "clean": "hola" } (sin el tag)
+CLEAN_VAL=$(jq -r '.clean // "MISSING"' /tmp/giolens_text_utils.out)
+if [ "$CLEAN_VAL" = "hola" ]; then
+  ok "  text-utils 200 OK con clean=\"hola\" (tag eliminado correctamente)"
+else
+  err "  text-utils 200 pero payload incorrecto. Esperaba clean=\"hola\", got: \"$CLEAN_VAL\""
+  err "  Body completo: $(cat /tmp/giolens_text_utils.out)"
   exit 1
 fi
 
@@ -198,17 +232,32 @@ echo ""
 echo "  9.2 /api/state?op=kv-get&key=ai_context"
 HTTP_CODE=$(curl -s -o /tmp/giolens_state.out -w '%{http_code}' \
   "$PROD_URL/api/state?op=kv-get&key=ai_context" || echo "000")
-if [ "$HTTP_CODE" = "200" ]; then
-  if head -c 500 /tmp/giolens_state.out | grep -q '{'; then
-    ok "  state 200 OK con JSON"
-  else
-    err "  state 200 pero el body no parece JSON: $(head -c 200 /tmp/giolens_state.out)"
-    exit 1
-  fi
-else
+if [ "$HTTP_CODE" != "200" ]; then
   err "  state respondió HTTP $HTTP_CODE (esperaba 200)"
   err "  Body: $(head -c 200 /tmp/giolens_state.out)"
   exit 1
+fi
+# Validar payload: debe tener { "key": "ai_context", "found": true, "value": {} }
+# (seeded como objeto vacío en el SQL schema sección 7)
+KEY_VAL=$(jq -r '.key // "MISSING"' /tmp/giolens_state.out)
+FOUND_VAL=$(jq -r '.found // false' /tmp/giolens_state.out)
+if [ "$KEY_VAL" = "ai_context" ] && [ "$FOUND_VAL" = "true" ]; then
+  ok "  state 200 OK con key=ai_context, found=true"
+else
+  err "  state 200 pero payload incorrecto. key=\"$KEY_VAL\" found=\"$FOUND_VAL\""
+  err "  Body completo: $(cat /tmp/giolens_state.out)"
+  err "  Verifica que el SQL schema (SECCIÓN 7) se aplicó correctamente"
+  exit 1
+fi
+
+echo ""
+echo "  9.3 /api/text-utils?op=prompt — health check sin POST (debe devolver 405)"
+HTTP_CODE=$(curl -s -o /tmp/giolens_prompt_get.out -w '%{http_code}' \
+  "$PROD_URL/api/text-utils?op=prompt" || echo "000")
+if [ "$HTTP_CODE" = "405" ]; then
+  ok "  text-utils?op=prompt rechaza GET correctamente (405)"
+else
+  warn "  text-utils?op=prompt respondió $HTTP_CODE (esperaba 405). Verificar."
 fi
 
 # ----- Paso 10 · Evals ------------------------------------------------------
