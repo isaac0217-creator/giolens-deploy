@@ -18,17 +18,49 @@ const WAPIFY_BASE   = 'https://ap.whapify.ai/api';
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const MODEL         = 'claude-haiku-4-5';
 
-// CPRs: snapshot manual del 2026-05-16. Refrescar manualmente hasta que Fase 1
-// Sprint 2 implemente lectura dinámica desde Meta Insights API.
-// Maestro v12 §07 Hallazgo 6: "CPRs hardcoded desfasados vs valores reales".
-// Para refrescar: ver scripts/refresh-cpr.sh (TODO Fase 1 Sprint 2).
+/**
+ * R-06 (risk_register_sprint1.md) cierre: lectura dinámica de CPR con fallback.
+ *
+ * Prioridad de resolución:
+ *   1. Env var por pipeline: CPR_PIPELINE_216977 etc. (override manual rápido)
+ *   2. Knowledge base Supabase (category='cpr_baseline'): cuando Sprint 1 cierre
+ *      y app_config esté disponible vía /api/state?op=kv-get o RPC directo. (TODO Fase 2)
+ *   3. Fallback hardcoded: snapshot manual del 2026-05-16.
+ *
+ * Refrescar valores fallback:
+ *   - Manual (corto plazo): editar FALLBACK_CPR_BASELINE abajo + git commit
+ *   - Override rápido sin deploy: setear env var CPR_PIPELINE_<ID> en Vercel
+ *   - Automático (largo plazo Fase 2): cron que update knowledge_base desde Meta API
+ */
 const CPR_SNAPSHOT_DATE = '2026-05-16';
+const FALLBACK_CPR_BASELINE = {
+  '216977': '$8.64',
+  '755062': '$10.29',
+  '252999': '$9.10',
+  '94103':  '$12.50',
+  '273944': '$11.20',
+};
+
+function getCPR(pipelineId) {
+  // 1. Env var override (no requiere redeploy si solo se cambia el value)
+  const envKey = `CPR_PIPELINE_${pipelineId}`;
+  const fromEnv = process.env[envKey];
+  if (fromEnv) return fromEnv.startsWith('$') ? fromEnv : `$${fromEnv}`;
+
+  // 2. TODO Fase 2: lectura dinámica de knowledge_base
+  //    const fromKB = await getFromKnowledgeBase('cpr_baseline', pipelineId);
+  //    if (fromKB) return fromKB;
+
+  // 3. Fallback hardcoded
+  return FALLBACK_CPR_BASELINE[pipelineId] || '$0.00';
+}
+
 const PIPELINES = [
-  { id: '216977', name: 'Justin · Holbrook', cpr: '$8.64'  },
-  { id: '755062', name: 'GioSports',         cpr: '$10.29' },
-  { id: '252999', name: 'SPY Z87',           cpr: '$9.10'  },
-  { id: '94103',  name: 'Dama · Luxury',     cpr: '$12.50' },
-  { id: '273944', name: 'GioVision',         cpr: '$11.20' },
+  { id: '216977', name: 'Justin · Holbrook', get cpr() { return getCPR('216977'); } },
+  { id: '755062', name: 'GioSports',         get cpr() { return getCPR('755062'); } },
+  { id: '252999', name: 'SPY Z87',           get cpr() { return getCPR('252999'); } },
+  { id: '94103',  name: 'Dama · Luxury',     get cpr() { return getCPR('94103'); } },
+  { id: '273944', name: 'GioVision',         get cpr() { return getCPR('273944'); } },
 ];
 
 // Etapas por posición en el funnel (inicio / mitad / cierre)
@@ -66,6 +98,13 @@ const H48  = 48  * 3600_000;
 const D7   = 7   * 86400_000;
 const D14  = 14  * 86400_000;
 
+/**
+ * Parsea "2026-05-10 16:40:21" de Wapify a Unix ms.
+ * Wapify devuelve wallclock CST (UTC-6) sin timezone marker.
+ * R-07 (risk_register_sprint1.md) cierre: backend produce Unix ms UTC inherente;
+ * frontend convierte a CST con toLocaleString('es-MX') automáticamente.
+ * NO cambiar a 'Z' — eso introduciría off-by-6h porque Wapify NO devuelve UTC.
+ */
 function parseWapDate(str) {
   if (!str) return 0;
   return new Date(str.replace(' ', 'T') + '-06:00').getTime();
