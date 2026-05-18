@@ -76,3 +76,14 @@ export async function applyApprovedProposal(proposalId, proposal, approval) {
 }
 
 export default executeOptimizacionDailyRun;
+
+
+// ═══ Sprint 1 wiring · Supabase smoke read (no activa shadow) ═══════════════
+// Wiring agregado 18 may PM (briefing §3 #2). El agente NO usa Supabase en
+// runtime todavía — esto es solo para que cuando arranquemos Frente C,
+// el cliente esté validado y las queries específicas al rol estén documentadas.
+// TODO Frente C: reemplazar dynamic import por static import al top + usar
+// logAgentRun + publishAgentMessage en el handler real.
+export async function pingSupabase() {
+  const { readAppConfig } = await import('../_shared/db.js'); return await readAppConfig('cost_caps');
+}

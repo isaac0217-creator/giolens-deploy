@@ -131,4 +131,11 @@ export function _resetForTests() {
   _daily.clear();
 }
 
-export default { calcUSD, track, callTracked, getDailyCost, getDailyStats, checkCap, _resetForTests };
+// Alias backward-compat para Analista/QA que pasan objeto único en lugar de
+// (agentName, usage, model). Adapta el shape y delega a `track`. cost_usd y ts
+// son ignorados (track los calcula internamente desde usage).
+export function trackCost({ agent, model, usage, cost_usd, ts } = {}) {
+  return track(agent, usage, model);
+}
+
+export default { calcUSD, track, trackCost, callTracked, getDailyCost, getDailyStats, checkCap, _resetForTests };

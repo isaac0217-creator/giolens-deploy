@@ -100,4 +100,9 @@ export function buildSystemBlock(systemPrompt) {
   return [block];
 }
 
+// Alias backward-compat: los 6 agentes Fase 3 (Frente B) importan `callClaude`.
+// Se mantiene `callAnthropic` como nombre canónico + este alias para no
+// tener que tocar los 6 graph.js + sus tests.
+export { callAnthropic as callClaude };
+
 export default callAnthropic;

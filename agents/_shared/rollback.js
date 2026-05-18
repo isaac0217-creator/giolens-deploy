@@ -94,4 +94,8 @@ function _registerDefaults() {
 
 _registerDefaults();
 
+// Alias backward-compat: optimizacion/tools.js importa `registerRollback`
+// (nombre más descriptivo cuando se usa fuera del contexto de este módulo).
+export { register as registerRollback };
+
 export default { register, has, executeRollback, _resetForTests };
