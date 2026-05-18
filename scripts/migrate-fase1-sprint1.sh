@@ -180,19 +180,24 @@ if ! node --check api/state.js >/dev/null 2>&1; then
 fi
 ok "Sintaxis JS válida"
 
-# ----- Paso 7 · Slot Vercel = 12 --------------------------------------------
-step 7 "Validar slot Vercel /api/*.js = 12"
+# ----- Paso 7 · Slot Vercel = 11 (post-Frente B fusión reactivation→webhook) --
+step 7 "Validar slot Vercel /api/*.js = 11"
 
+# Estado esperado post-Sprint 1:
+# - Frente B (18 may) fusionó reactivation-check.js → webhook.js (12 → 11)
+# - Sprint 1 Paso 5 fusionó auto-prompt + clean-message → text-utils (-1)
+# - Sprint 1 Paso 6 agregó state.js (+1)
+# Total: 11 - 1 + 1 = 11
 COUNT=$(ls api/*.js 2>/dev/null | wc -l | tr -d ' ')
 echo "  Archivos en /api/*.js: $COUNT"
-if [ "$COUNT" -ne 12 ]; then
-  err "Slot Vercel desbalanceado: hay $COUNT archivos, debería haber 12."
+if [ "$COUNT" -ne 11 ]; then
+  err "Slot Vercel desbalanceado: hay $COUNT archivos, debería haber 11."
   err "Lista actual:"
   ls api/*.js
-  err "Acción: fusiona o elimina hasta dejarlo en 12. NO continuar."
+  err "Acción: revisar diff con git status. NO continuar."
   exit 1
 fi
-ok "Slot Vercel correcto (12/12)"
+ok "Slot Vercel correcto (11/12 · libre 1 slot para conversation-intel.js futuro)"
 
 # ----- Paso 8 · Deploy ------------------------------------------------------
 step 8 "Deploy a producción"
