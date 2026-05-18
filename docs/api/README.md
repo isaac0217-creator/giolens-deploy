@@ -30,11 +30,16 @@ Documentación operativa de los endpoints serverless desplegados en Vercel para 
 | 7 | [`/api/reactivation-check`](./reactivation-check.md) | GET, POST, OPTIONS | Cron de reactivación — leads sin responder entre 4-12 min | `WAPIFY_TOKEN` (llama internamente a `/api/copiloto`) | 60 s |
 | 8 | [`/api/pipeline-summary`](./pipeline-summary.md) | GET, OPTIONS | CRM summary + journey + metrics (3 modos) — fusionado con `crm-metrics` | `WAPIFY_TOKEN` server-side | 60 s |
 | 9 | [`/api/meta`](./meta.md) | GET, OPTIONS | Datos Meta Ads (overview / campaign / daily) | `META_TOKEN` server-side | 10 s |
-| 10 | [`/api/proxy`](./proxy.md) | GET, OPTIONS | Proxy autenticado a Wapify REST (whitelist de rutas) | `WAPIFY_TOKEN` + origen permitido | 10 s |
-| 11 | [`/api/token-status`](./token-status.md) | GET, OPTIONS | Health check — fechas de expiración de tokens (no expone los tokens) | Pública | 10 s |
-| 12 | [`/api/clean-message`](./clean-message.md) | GET, POST | Utility — elimina tags `##ESTADO:...##` del output de GPT antes de enviar a Wapify | Pública | 10 s |
+| 10 | [`/api/token-status`](./token-status.md) | GET, OPTIONS | Health check — fechas de expiración de tokens (no expone los tokens) | Pública | 10 s |
+| 11 | [`/api/clean-message`](./clean-message.md) | GET, POST | Utility — elimina tags `##ESTADO:...##` del output de GPT antes de enviar a Wapify | Pública | 10 s |
 
-Total: **12/12 slots Vercel Hobby**.
+> ⚠️ **Este README requiere refresh post-Sprint 1 (Cowork backlog).** Cambios materiales no reflejados todavía:
+> - `auto-prompt` + `clean-message` fusionados en `text-utils` (`?op=clean|prompt`)
+> - `reactivation-check` fusionado en `webhook` (`?mode=cron`)
+> - Nuevo endpoint `state` (Supabase-backed kv + ts via `app_config` + `audit_log`)
+> - `proxy.js` eliminado 18 may PM (legacy v9 sin callers vivos) — slot libre
+> - Plan actual: **Vercel Pro** (no Hobby), timeout real 60 s en 8 funciones
+> - Slot actual: **10/12** (queda 2 libres)
 
 ---
 
@@ -43,7 +48,7 @@ Total: **12/12 slots Vercel Hobby**.
 ### Endpoints con secretos server-side
 Nunca filtran tokens al cliente. Las variables `WAPIFY_TOKEN`, `META_TOKEN`, `ANTHROPIC_API_KEY` se leen vía `process.env` y se inyectan en cabeceras (`X-ACCESS-TOKEN`, `x-api-key`, `access_token` query).
 
-- `webhook`, `predictor`, `microseg`, `arbitraje`, `pipeline-summary`, `meta`, `proxy`, `reactivation-check`
+- `webhook`, `predictor`, `microseg`, `arbitraje`, `pipeline-summary`, `meta`, `reactivation-check`
 
 ### Endpoints con Claude (Anthropic) — modelo Haiku 4.5
 Todos usan `claude-haiku-4-5` vía `https://api.anthropic.com/v1/messages` con `anthropic-version: 2023-06-01`.
@@ -57,7 +62,7 @@ Los endpoints que envían `system` con `cache_control: { type: 'ephemeral' }` (c
 - `clean-message` — utility sin secretos, llamado por Wapify HTTP Action
 
 ### Validación de origen
-Solo `/api/proxy` valida `origin`/`referer` contra whitelist (`giolens-dashboard.vercel.app`, `localhost:3000`, `localhost:5000`). El resto envía `Access-Control-Allow-Origin: *`.
+Ningún endpoint actual valida `origin`/`referer` contra whitelist. Todos envían `Access-Control-Allow-Origin: *`. (Validación había vivido en `/api/proxy`, eliminado 18 may PM por ser legacy sin callers.)
 
 ---
 
@@ -74,7 +79,6 @@ Solo `/api/proxy` valida `origin`/`referer` contra whitelist (`giolens-dashboard
 | `reactivation-check` | — | ✅ | — | `/api/copiloto` |
 | `pipeline-summary` | — | ✅ | — | — |
 | `meta` | ✅ | — | — | — |
-| `proxy` | — | ✅ | — | — |
 | `token-status` | — | — | — | — |
 | `clean-message` | — | — | — | — |
 
@@ -89,7 +93,7 @@ Solo `/api/proxy` valida `origin`/`referer` contra whitelist (`giolens-dashboard
 
 | Variable | Usada por | Notas |
 |----------|-----------|-------|
-| `WAPIFY_TOKEN` | webhook, predictor, microseg, proxy, pipeline-summary, reactivation-check | Token API Wapify (X-ACCESS-TOKEN) |
+| `WAPIFY_TOKEN` | webhook, predictor, microseg, pipeline-summary, reactivation-check | Token API Wapify (X-ACCESS-TOKEN) |
 | `META_TOKEN` | meta, predictor, arbitraje | Token Meta Graph (long-lived, ~60 días) |
 | `META_TOKEN_EXPIRES` | token-status | Fecha ISO `YYYY-MM-DD` de vencimiento Meta token |
 | `ANTHROPIC_API_KEY` | webhook, auto-prompt, copiloto, predictor, microseg, arbitraje | Clave de Anthropic API |
