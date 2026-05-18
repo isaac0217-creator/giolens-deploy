@@ -11,7 +11,11 @@
  *   3. Tasa de respuesta baja (<20% de leads tienen actividad reciente)
  *
  * Claude Haiku genera diagnóstico + acción recomendada por pipeline.
+ *
+ * Observabilidad: Sentry wrap automático (errores + crash) vía withSentry.
  */
+
+import { withSentry } from '../agents/_shared/sentry.js';
 
 const WAPIFY_TOKEN  = process.env.WAPIFY_TOKEN;
 const WAPIFY_BASE   = 'https://ap.whapify.ai/api';
@@ -189,7 +193,7 @@ Responde SOLO en este JSON sin texto adicional:
 
 // ─── HANDLER ───
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
 
   if (req.method === 'GET') {
@@ -243,3 +247,6 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: e.message });
   }
 }
+
+// Wrap con Sentry (no-op silencioso si SENTRY_DSN no está seteado)
+export default withSentry(handler, { endpoint: 'predictor' });

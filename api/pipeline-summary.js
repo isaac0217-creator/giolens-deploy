@@ -30,6 +30,8 @@
  *       classifyStage normaliza acentos y usa METODO.*PAGO para cubrir ambos.
  */
 
+import { withSentry } from '../agents/_shared/sentry.js';
+
 const WAPIFY_TOKEN = process.env.WAPIFY_TOKEN;
 const WAPIFY_BASE  = 'https://ap.whapify.ai/api';
 
@@ -207,7 +209,7 @@ async function summaryForPipeline(pid, journey) {
   };
 }
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -240,3 +242,6 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: err.message });
   }
 }
+
+// Wrap con Sentry (no-op silencioso si SENTRY_DSN no está seteado)
+export default withSentry(handler, { endpoint: 'pipeline-summary' });

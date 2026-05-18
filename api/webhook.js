@@ -2,7 +2,12 @@
  * GioLens — Webhook Principal + 5 Motores Claude
  * URL: https://giolens-dashboard.vercel.app/api/webhook
  * Registrar en Wapify → claudeNOVA (ID 278215)
+ *
+ * Observabilidad: Sentry wrap automático (errores + crash) vía withSentry.
+ * Logs estructurados console.log siguen presentes para Vercel logs.
  */
+
+import { withSentry, captureException } from '../agents/_shared/sentry.js';
 
 const WAPIFY_TOKEN = process.env.WAPIFY_TOKEN;
 const WAPIFY_BASE  = 'https://ap.whapify.ai/api';
@@ -951,7 +956,7 @@ async function handleReactivationCron(req, res) {
 // dominante (>1000 POST/día vs 288 cron/día) y no controla query params →
 // default = webhook. Cron usa ?mode=cron (declarativo vercel.json) o el
 // header automático x-vercel-cron.
-export default async function handler(req, res) {
+async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Vercel-Cron');
@@ -964,3 +969,6 @@ export default async function handler(req, res) {
   if (isCron) return handleReactivationCron(req, res);
   return handleWapifyWebhook(req, res);
 }
+
+// Wrap con Sentry (no-op silencioso si SENTRY_DSN no está seteado)
+export default withSentry(handler, { endpoint: 'webhook' });

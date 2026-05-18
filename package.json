@@ -11,6 +11,7 @@
     "deploy": "vercel --prod"
   },
   "dependencies": {
+    "@sentry/node": "^10.53.1",
     "@supabase/supabase-js": "^2.106.0"
   },
   "devDependencies": {
