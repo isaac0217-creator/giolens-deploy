@@ -110,7 +110,7 @@ webhook ────► lead.message_received ──► (reset timers de scan-re
 | `copiloto.js` | **COEXISTE** — llamada interna de `send-reactivation` (paso 1) | Refactor futuro: convertir en módulo importable |
 | `meta.js`, `token-status.js` | **COEXISTE** — endpoints de lectura para dashboard | |
 | `predictor.js`, `pipeline-summary.js` | **COEXISTE** — read-only API | |
-| `clean-message.js`, `proxy.js` | **COEXISTE** — utilitarios | |
+| `clean-message.js` | **FUSIONADO** en `text-utils.js?op=clean` (Sprint 1) — utility pública | `proxy.js` eliminado 18 may PM (legacy v9 sin callers) |
 
 ---
 
