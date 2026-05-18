@@ -674,18 +674,14 @@ function extractIds(payload) {
   };
 }
 
-// ─── MAIN HANDLER ───
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-
-  if (req.method === 'OPTIONS') return res.status(200).end();
-
+// ─── WEBHOOK HANDLER (Wapify reactivo · POST de eventos) ───
+async function handleWapifyWebhook(req, res) {
   if (req.method === 'GET') {
     return res.status(200).json({
       status: 'ok',
       service: 'GioLens 5 Motores — Claude Engine',
       motors: { '216977': 'Justin/Holbrook ✅', '755062': 'GioSports ✅', '252999': 'SPY Z87 ✅', '94103': 'Dama ✅', '273944': 'GioVision ✅' },
+      cron_endpoint: '?mode=cron · reactivation check fusionado (sustituye /api/reactivation-check)',
       timestamp: new Date().toISOString(),
     });
   }
@@ -734,4 +730,237 @@ export default async function handler(req, res) {
     console.error('[WEBHOOK] Error en motor:', err.message, err.stack?.slice(0, 300));
     return res.status(200).json({ received: true, error: err.message });
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REACTIVATION CRON · fusionado de api/reactivation-check.js (18 may Frente B)
+// ═══════════════════════════════════════════════════════════════════════════
+// Plan de fusión: scripts/PLAN-fusion-reactivation-webhook.md
+// Trigger: Vercel Cron via ?mode=cron (declarado en vercel.json) o header
+// X-Vercel-Cron (header automático de cron jobs).
+//
+// LÓGICA (preservada de reactivation-check.js):
+//   1. updated_at < 15 min (pre-filtro barato)
+//   2. La etapa NO es terminal
+//   3. Bot ya respondió (last_sent > last_interaction)
+//   4. Silencio entre 4 y 12 minutos
+//
+// SEGURIDAD: REACTIVATION_DRY_RUN=true por default (regla §22 NUNCA cambiar
+// sin Isaac). MAX_SENDS_PER_RUN=5 cap duro de envíos por ejecución.
+
+const REACTIVATION_TERMINAL_STAGES = new Set([
+  'VISITA CONFIRMADA', 'visita confirmada',
+  'FUERA DE CATÁLOGO', 'fuera del flujo', 'FUERA DEL FLUJO',
+  'CATCH-ALL',
+]);
+const REACTIVATION_PIPELINES = ['216977', '755062', '252999', '94103', '273944'];
+const REACTIVATION_MIN_SILENCE_MS       =  4 * 60 * 1000;
+const REACTIVATION_MAX_SILENCE_MS       = 12 * 60 * 1000;
+const REACTIVATION_OPPORTUNITY_WINDOW_MS = 15 * 60 * 1000;
+const REACTIVATION_MAX_SENDS_PER_RUN    = 5;
+const REACTIVATION_DRY_RUN = process.env.REACTIVATION_DRY_RUN !== 'false';
+
+/**
+ * Parsea "2026-05-11 17:28:28" de Wapify a Unix ms.
+ * Wapify devuelve wallclock CST sin timezone marker.
+ * R-07 mitigación: -06:00 produce Unix ms inherente UTC; frontend convierte
+ * a CST con toLocaleString('es-MX'). NO cambiar a 'Z'.
+ */
+function parseWapifyDate(str) {
+  if (!str) return 0;
+  return new Date(str.replace(' ', 'T') + '-06:00').getTime();
+}
+
+async function getRecentLeads(pipelineId, windowMs) {
+  const cutoff = Date.now() - windowMs;
+  const recent = [];
+  let offset = 0;
+
+  for (let page = 0; page < 20; page++) {
+    const r = await wapFetch(`pipelines/${pipelineId}/opportunities?limit=100&offset=${offset}`);
+    const batch = r?.data || [];
+    if (batch.length === 0) break;
+
+    for (const opp of batch) {
+      const updatedMs = parseWapifyDate(opp.updated_at);
+      if (updatedMs >= cutoff && !REACTIVATION_TERMINAL_STAGES.has(opp.stage?.name)) {
+        recent.push(opp);
+      }
+    }
+
+    const lastUpdated = parseWapifyDate(batch[batch.length - 1]?.updated_at);
+    if (lastUpdated < cutoff) break;
+
+    if (batch.length < 100) break;
+    offset += 100;
+  }
+
+  return recent;
+}
+
+async function needsReactivation(contactId) {
+  const contact = await wapFetch(`contacts/${contactId}`);
+  if (!contact) return { needs: false, reason: 'contact_fetch_failed' };
+
+  const lastInteraction = Number(contact.last_interaction || 0);
+  const lastSent        = Number(contact.last_sent        || 0);
+
+  if (!lastInteraction) return { needs: false, reason: 'no_last_interaction' };
+
+  const silenceMs = Date.now() - lastInteraction;
+  const botAlreadyReplied = lastSent > lastInteraction;
+  const inWindow = silenceMs >= REACTIVATION_MIN_SILENCE_MS && silenceMs <= REACTIVATION_MAX_SILENCE_MS;
+
+  if (botAlreadyReplied && inWindow) {
+    return {
+      needs: true,
+      silenceMin: Math.round(silenceMs / 60000 * 10) / 10,
+      lastInteraction,
+      lastSent,
+      contact,
+    };
+  }
+
+  return {
+    needs: false,
+    reason: !botAlreadyReplied ? 'lead_message_is_newest'
+      : silenceMs < REACTIVATION_MIN_SILENCE_MS ? 'too_soon' : 'window_expired',
+    silenceMin: Math.round(silenceMs / 60000 * 10) / 10,
+  };
+}
+
+async function getCopilotoScript(pipelineId, stageName, contactId) {
+  try {
+    const baseUrl = process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : 'http://localhost:3000';
+
+    const r = await fetch(`${baseUrl}/api/copiloto`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pipeline_id: pipelineId, stage_name: stageName, contact_id: contactId }),
+    });
+    if (!r.ok) return null;
+    return r.json();
+  } catch { return null; }
+}
+
+async function sendReactivationMessage(contactId, text) {
+  if (REACTIVATION_DRY_RUN) {
+    console.log(`[DRY_RUN] Would send to ${contactId}: "${text.slice(0, 80)}"`);
+    return { dry_run: true };
+  }
+  return wapFetch(`contacts/${contactId}/send`, {
+    method: 'POST',
+    body: JSON.stringify({ message: text, type: 'text' }),
+  });
+}
+
+async function handleReactivationCron(req, res) {
+  if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
+
+  const startTime = Date.now();
+  console.log(`[REACTIVATION] Inicio. dry_run=${REACTIVATION_DRY_RUN}`);
+
+  const report = {
+    started_at:  new Date().toISOString(),
+    dry_run:     REACTIVATION_DRY_RUN,
+    pipelines:   {},
+    candidates:  [],
+    sent:        [],
+    skipped:     [],
+    errors:      [],
+    total_sent:  0,
+  };
+
+  let totalSent = 0;
+
+  for (const pid of REACTIVATION_PIPELINES) {
+    if (totalSent >= REACTIVATION_MAX_SENDS_PER_RUN) {
+      console.log(`[REACTIVATION] Cap de ${REACTIVATION_MAX_SENDS_PER_RUN} envíos alcanzado — deteniendo`);
+      break;
+    }
+
+    try {
+      const recentLeads = await getRecentLeads(pid, REACTIVATION_OPPORTUNITY_WINDOW_MS);
+      report.pipelines[pid] = { recent_leads: recentLeads.length };
+      console.log(`[REACTIVATION] Pipeline ${pid}: ${recentLeads.length} leads recientes`);
+
+      for (const opp of recentLeads) {
+        if (totalSent >= REACTIVATION_MAX_SENDS_PER_RUN) break;
+
+        const contactId = opp.contact_id;
+        const stageName = opp.stage?.name || 'NUEVO';
+
+        try {
+          const check = await needsReactivation(contactId);
+
+          if (!check.needs) {
+            report.skipped.push({ contact_id: contactId, stage: stageName, pipeline: pid, reason: check.reason, silence_min: check.silenceMin });
+            continue;
+          }
+
+          const copiloto = await getCopilotoScript(pid, stageName, contactId);
+          const scriptText = copiloto?.script || copiloto?.alternativa || null;
+
+          if (!scriptText) {
+            report.errors.push({ contact_id: contactId, error: 'copiloto_no_script' });
+            continue;
+          }
+
+          const contactName = check.contact?.first_name || '';
+          const finalScript = contactName
+            ? scriptText.replace(/\[nombre\]/gi, contactName)
+            : scriptText;
+
+          report.candidates.push({ contact_id: contactId, stage: stageName, pipeline: pid, silence_min: check.silenceMin, script_preview: finalScript.slice(0, 80) });
+
+          const sendResult = await sendReactivationMessage(contactId, finalScript);
+
+          report.sent.push({ contact_id: contactId, stage: stageName, pipeline: pid, silence_min: check.silenceMin, urgencia: copiloto?.urgencia || 'media', send_result: sendResult });
+
+          totalSent++;
+          console.log(`[REACTIVATION] Enviado a ${contactId} (${stageName}, ${check.silenceMin}min silencio)`);
+
+          await new Promise(r => setTimeout(r, 500));
+
+        } catch (err) {
+          report.errors.push({ contact_id: contactId, error: err.message });
+        }
+      }
+
+    } catch (err) {
+      console.error(`[REACTIVATION] Error en pipeline ${pid}:`, err.message);
+      report.errors.push({ pipeline: pid, error: err.message });
+    }
+  }
+
+  report.total_sent  = totalSent;
+  report.duration_ms = Date.now() - startTime;
+  report.finished_at = new Date().toISOString();
+
+  console.log(`[REACTIVATION] Fin. Enviados: ${totalSent}. Candidatos: ${report.candidates.length}. Tiempo: ${report.duration_ms}ms`);
+
+  return res.status(200).json(report);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUTER PRINCIPAL · webhook reactivo vs cron proactivo
+// ═══════════════════════════════════════════════════════════════════════════
+// Plan F (scripts/PLAN-fusion-reactivation-webhook.md): Wapify es caller
+// dominante (>1000 POST/día vs 288 cron/día) y no controla query params →
+// default = webhook. Cron usa ?mode=cron (declarativo vercel.json) o el
+// header automático x-vercel-cron.
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Vercel-Cron');
+
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  const isCron = req.query?.mode === 'cron'
+              || req.headers['x-vercel-cron'] === '1';
+
+  if (isCron) return handleReactivationCron(req, res);
+  return handleWapifyWebhook(req, res);
 }

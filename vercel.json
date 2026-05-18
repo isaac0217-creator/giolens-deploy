@@ -1,6 +1,5 @@
 {
   "functions": {
-    "api/reactivation-check.js": { "maxDuration": 60 },
     "api/pipeline-summary.js":   { "maxDuration": 60 },
     "api/predictor.js":          { "maxDuration": 60 },
     "api/microseg.js":           { "maxDuration": 60 },
@@ -9,6 +8,9 @@
     "api/copiloto.js":           { "maxDuration": 60 },
     "api/auto-prompt.js":        { "maxDuration": 60 }
   },
+  "crons": [
+    { "path": "/api/webhook?mode=cron", "schedule": "*/5 * * * *" }
+  ],
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/public/index.html" }
   ]
