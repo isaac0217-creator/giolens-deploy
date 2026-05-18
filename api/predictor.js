@@ -47,9 +47,16 @@ async function wapGet(path) {
   return r.json();
 }
 
+/**
+ * Parsea "2026-05-10 16:40:21" de Wapify a Unix ms.
+ * Wapify devuelve wallclock CST (UTC-6) sin timezone marker.
+ * R-07 (risk_register_sprint1.md) cierre: backend produce Unix ms en UTC inherente
+ * (sumando -06:00 al parse → el resultado son ms UTC correctos);
+ * frontend convierte a CST con toLocaleString('es-MX') automáticamente.
+ * NO cambiar a 'Z' — eso introduciría off-by-6h porque Wapify NO devuelve UTC.
+ */
 function parseWapifyDate(str) {
   if (!str) return 0;
-  // Wapify devuelve "2026-05-10 16:40:21" en CST (UTC-6)
   return new Date(str.replace(' ', 'T') + '-06:00').getTime();
 }
 

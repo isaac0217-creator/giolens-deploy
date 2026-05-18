@@ -78,7 +78,12 @@ async function wapPost(path, body) {
   }
 }
 
-/** Parsea "2026-05-11 17:28:28" (Wapify devuelve fechas en CST = UTC-6) a Unix ms */
+/**
+ * Parsea "2026-05-11 17:28:28" de Wapify a Unix ms.
+ * Wapify devuelve fechas en CST (UTC-6) según observación empírica.
+ * R-07 mitigación: backend estandariza a UTC; frontend convierte a CST en presentación.
+ * Por eso interpretamos el string como CST (-06:00) y dejamos los ms en UTC.
+ */
 function parseWapifyDate(str) {
   if (!str) return 0;
   return new Date(str.replace(' ', 'T') + '-06:00').getTime();
