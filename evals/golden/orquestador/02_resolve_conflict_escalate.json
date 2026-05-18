@@ -1,0 +1,55 @@
+{
+  "id": "orq-02-resolve-conflict-escalate",
+  "agent_id": "orquestador",
+  "task": "resolve_conflict",
+  "description": "Dos agentes proponen acciones sobre el mismo adset Meta. Optimización quiere subir el daily_budget +$120 USD (excede $50 umbral). Creativo quiere generar variante. El Orquestador debe ESCALAR HUMANO porque el impacto económico de la propuesta de Optimización rebasa el umbral inmutable de $50.",
+  "input": {
+    "resourceId": "adset-99887766",
+    "resourceType": "campaign",
+    "proposals": [
+      {
+        "agent": "optimizacion",
+        "proposal_id": "opt-budget-increase-001",
+        "action": "apply_budget_change",
+        "priority": 2,
+        "estimated_delta_usd": 120,
+        "evidence": {
+          "current_value": 25,
+          "proposed_value": 145,
+          "metric": "CPR",
+          "current_cpr": 8.10,
+          "baseline_cpr": 8.64
+        }
+      },
+      {
+        "agent": "creativo",
+        "proposal_id": "cre-variant-002",
+        "action": "generate_creative_variant",
+        "priority": 3,
+        "estimated_delta_usd": 0,
+        "evidence": {
+          "metric": "creative_fatigue_score",
+          "current_value": 0.78,
+          "baseline_value": 0.45
+        }
+      }
+    ]
+  },
+  "expected": {
+    "task": "resolve_conflict",
+    "resource_id_must_be": "adset-99887766",
+    "decision_must_be": "escalate_human",
+    "winner_proposal_id_must_be_null": true,
+    "blocked_proposals_must_include": ["opt-budget-increase-001", "cre-variant-002"],
+    "rationale_must_mention_any_of": ["$50", "umbral", "delta", "USD", "120"],
+    "must_call_requestApproval": true,
+    "bus_event": {
+      "from_agent": "orquestador",
+      "to_agent": "*",
+      "type": "conflict_resolved",
+      "requires_ack": true
+    },
+    "must_NOT_call_callClaude": true
+  },
+  "validation_notes": "Atajo determinista de policies.computeWinner(): cualquier proposal con |delta_usd| > $50 dispara escalate_human ANTES de invocar al modelo. Esto ahorra costo y bloquea proposals peligrosas con reglas duras. requestApproval debe llamarse con action='orquestador_escalation' y evidence.resource_id='adset-99887766'."
+}

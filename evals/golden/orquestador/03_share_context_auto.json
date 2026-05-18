@@ -1,0 +1,41 @@
+{
+  "id": "orq-03-share-context-auto",
+  "agent_id": "orquestador",
+  "task": "share_context",
+  "description": "Analista detecta fatiga creativa en el adset SPY Z87 y comparte el insight con target_agents='auto'. El Orquestador debe inferir destinatarios por heurística: insight.type contiene 'fatigue' → creativo + optimizacion. NO debe enviarse al Analista (source) ni a sí mismo (orquestador). Debe emitir un context_shared por destinatario al bus.",
+  "input": {
+    "sourceAgent": "analista",
+    "insight": {
+      "type": "creative_fatigue_detected",
+      "payload": {
+        "ad_id": "23859123456789012",
+        "pipeline_id": "252999",
+        "fatigue_score": 0.82,
+        "ctr_decline_pct": -37,
+        "days_running": 18,
+        "detected_at": "2026-05-18T08:42:00Z"
+      }
+    },
+    "targetAgents": "auto"
+  },
+  "expected": {
+    "task": "share_context",
+    "delivered_to_must_include": ["creativo", "optimizacion"],
+    "delivered_to_must_NOT_include": ["analista", "orquestador", "qa", "desarrollador"],
+    "context_msg_ids_count_must_equal_delivered_to_count": true,
+    "context_msg_ids_must_each_start_with": "ctx-",
+    "skipped_can_be_empty": true,
+    "bus_events": {
+      "count_must_equal_delivered_to_count": true,
+      "each_must_be": {
+        "from_agent": "orquestador",
+        "type": "context_shared",
+        "requires_ack": false
+      },
+      "to_agent_must_be_one_of_delivered_to": true,
+      "payload_must_contain_source_agent": "analista",
+      "payload_must_contain_insight_type": "creative_fatigue_detected"
+    }
+  },
+  "validation_notes": "Heurística determinista (inferTargetsForInsight). 'creative_fatigue_detected' contiene 'fatigue' → match con creativo+optimizacion. Como el insight payload NO contiene severity='critical', analista NO se agrega. Como sourceAgent='analista', si por error la heurística lo incluyera, graph.js lo filtra (skipped). El test exige que se emita UN evento al bus por cada destinatario en delivered_to."
+}

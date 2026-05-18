@@ -1,0 +1,30 @@
+{
+  "id": "orq-01-schedule-simple",
+  "agent_id": "orquestador",
+  "task": "schedule_run",
+  "description": "Encolar la corrida diaria del Analista (cron 09:00 local). Priority P4 (scheduled_analysis). target_agent='analista', task='daily_run', sin dependencias. El Orquestador debe normalizar priority a 4, estimar estimated_start_at ~+60min, justificar en una frase y emitir status='queued'.",
+  "input": {
+    "targetAgent": "analista",
+    "task": "daily_run",
+    "params": { "period": "last_24h" },
+    "priority": "P4",
+    "reason": "cron diario 09:00 — análisis matutino de los 5 pipelines GioLens"
+  },
+  "expected": {
+    "task": "schedule_run",
+    "target_agent_must_be": "analista",
+    "priority_must_be": 4,
+    "status_must_be": "queued",
+    "scheduled_id_must_start_with": "sched-analista-",
+    "estimated_start_at_must_be_iso8601": true,
+    "justification_must_mention_any_of": ["cron", "diario", "matutino", "pipelines"],
+    "bus_event": {
+      "from_agent": "orquestador",
+      "to_agent": "analista",
+      "type": "task_scheduled",
+      "requires_ack": true
+    },
+    "must_not_call_other_agents": true
+  },
+  "validation_notes": "Caso baseline P4. graph.js fuerza estimated_start_at desde la prioridad (P4 → +60 min) si el modelo no lo emite o lo emite mal. Las normalizaciones (priority 'P4' → 4) deben suceder. NO debe haber llamadas a apply_budget_change ni a executeAnalistaDailyRun — el Orquestador solo emite events al bus."
+}
