@@ -1,0 +1,24 @@
+{
+  "id": "dev-02-generate-fix-regex",
+  "agent_id": "desarrollador",
+  "task": "generate_fix",
+  "description": "Generate fix para regex_mismatch en parser de CPR (string 'CPR: $8.64' vs 'cpr=8.64'). Desarrollador debe emitir un patch atómico que normalice la captura, agregar al menos 1 test, y status=draft + requires_approval=true.",
+  "input": {
+    "filePath": "agents/analista/graph.js",
+    "currentContent": "// fragmento simplificado para el golden\nfunction parseCPR(line) {\n  const m = line.match(/CPR:\\s*\\$([0-9.]+)/);\n  return m ? Number(m[1]) : null;\n}\n\nexport { parseCPR };\n",
+    "diagnosis": "El regex /CPR:\\s*\\$([0-9.]+)/ no captura el formato 'cpr=8.64' que aparece en logs nuevos de Wapify desde el 2026-05-10.",
+    "rootCause": "regex_mismatch"
+  },
+  "expected": {
+    "task": "generate_fix",
+    "file_path": "agents/analista/graph.js",
+    "patch_old_should_contain": ["CPR:", "match"],
+    "patch_new_should_contain_any_of": ["cpr", "i", "|"],
+    "tests_to_add_count_at_least": 1,
+    "tests_to_add_names_should_mention": ["cpr", "regex", "parse"],
+    "status_must_be": "draft",
+    "requires_approval_must_be": true,
+    "rollback_plan_should_mention": ["revertir", "revert", "patch"]
+  },
+  "validation_notes": "El golden no exige un regex exacto (hay varias soluciones válidas: case-insensitive flag, alternancia con |, regex separada). Solo exige que el patch nuevo contemple el formato 'cpr=' además del original, y que agregue cobertura de tests."
+}

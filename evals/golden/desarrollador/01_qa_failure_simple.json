@@ -1,0 +1,28 @@
+{
+  "id": "dev-01-qa-failure-simple",
+  "agent_id": "desarrollador",
+  "task": "analyze_qa_failure",
+  "description": "QA reporta null_dereference simple en pickInsight del Analista. Severity medium, archivo no-sensible. Desarrollador debe diagnosticar y sugerir patch atómico con confianza alta y requires_human=false.",
+  "input": {
+    "qaIssue": {
+      "test_name": "analista.test.js > pickInsight > matches fatigue metric",
+      "expected": "fatiga_creativa con severity=high seleccionada",
+      "actual": "devuelve null (TypeError al evaluar i.metric.toLowerCase)",
+      "error_trace": "TypeError: Cannot read properties of null (reading 'toLowerCase')\n  at fatigueMetrics.some (agents/analista/graph.js:54:24)\n  at Array.find (<anonymous>)\n  at pickInsight (agents/analista/graph.js:51:32)",
+      "severity": "medium"
+    }
+  },
+  "expected": {
+    "task": "analyze_qa_failure",
+    "root_cause_must_be_in": ["null_dereference", "schema_mismatch"],
+    "suggested_files_must_include_any_of": [
+      "agents/analista/graph.js"
+    ],
+    "suggested_patches_count_at_least": 1,
+    "confidence_at_least": 0.6,
+    "requires_human_should_be": false,
+    "diagnosis_should_mention": ["metric", "null", "pickInsight"],
+    "must_not_touch_sensitive": true
+  },
+  "validation_notes": "Como severity='medium' y el archivo afectado (agents/analista/graph.js) NO está en SENSITIVE_PATHS, requires_human debe ser false (asumiendo confidence>=0.6). Si el modelo eleva requires_human=true sin razón, golden falla."
+}

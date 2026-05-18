@@ -1,0 +1,45 @@
+{
+  "id": "dev-03-create-pr-stub",
+  "agent_id": "desarrollador",
+  "task": "create_pull_request",
+  "description": "Crear PR stub a partir de un fix payload. Verifica que pr_url SIEMPRE inicie con 'stub://', título conventional commits ≤72 chars, body con 6 secciones, reviewers default ['isaac'], status='open'.",
+  "input": {
+    "branchName": "fix/analista-regex-cpr-26may",
+    "baseBranch": "main",
+    "fixPayload": {
+      "task": "generate_fix",
+      "file_path": "agents/analista/graph.js",
+      "patch": {
+        "old": "const m = line.match(/CPR:\\s*\\$([0-9.]+)/);",
+        "new": "const m = line.match(/(?:CPR:\\s*\\$|cpr=)([0-9.]+)/i);"
+      },
+      "tests_to_add": [
+        { "name": "parseCPR captures cpr= format", "rationale": "regresión Wapify 2026-05-10" }
+      ],
+      "rollback_plan": "Revertir patch y correr `npm test agents/analista`; si falla, restaurar regex original.",
+      "status": "draft",
+      "requires_approval": true
+    },
+    "qaIssueRef": "qa-issue-regex-cpr-001"
+  },
+  "expected": {
+    "task": "create_pull_request",
+    "pr_url_must_start_with": "stub://",
+    "pr_url_must_not_contain": ["github.com", "gitlab.com", "bitbucket.org"],
+    "title_max_chars": 72,
+    "title_should_start_with_any_of": ["fix(", "fix:"],
+    "title_should_mention": ["analista", "cpr", "regex"],
+    "body_markdown_should_contain_sections": [
+      "Resumen",
+      "Causa raíz",
+      "Cambios",
+      "Cómo probar",
+      "Rollback",
+      "Riesgo"
+    ],
+    "files_changed_must_include": ["agents/analista/graph.js"],
+    "status_must_be": "open",
+    "reviewers_must_include": ["isaac"]
+  },
+  "validation_notes": "Defense-in-depth: graph.js fuerza pr_url='stub://...' aunque el modelo intente devolver una URL real, fuerza reviewers=['isaac'] si está vacío, y trunca title si excede 72 chars. Este golden valida que el output post-overrides cumpla. No exige que body_markdown tenga formato perfecto, solo que mencione las 6 secciones (substring match)."
+}
