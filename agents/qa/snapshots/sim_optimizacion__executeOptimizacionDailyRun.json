@@ -1,0 +1,13 @@
+{
+  "motor": "sim_optimizacion",
+  "case_id": "executeOptimizacionDailyRun",
+  "saved_at": "2026-05-19T17:29:54.708Z",
+  "output": {
+    "proposals": [],
+    "validated": [],
+    "blocked": [],
+    "cost_usd": 0,
+    "latency_ms": 1,
+    "errors": []
+  }
+}

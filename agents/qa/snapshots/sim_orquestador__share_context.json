@@ -1,0 +1,42 @@
+{
+  "motor": "sim_orquestador",
+  "case_id": "share_context",
+  "saved_at": "2026-05-19T17:29:54.713Z",
+  "output": {
+    "share": {
+      "task": "share_context",
+      "context_msg_ids": [
+        "ctx-optimizacion-1779211794713-0"
+      ],
+      "delivered_to": [
+        "optimizacion"
+      ],
+      "skipped": []
+    },
+    "cost_usd": 0,
+    "latency_ms": 0,
+    "error": null,
+    "bus_msgs": [
+      {
+        "from_agent": "orquestador",
+        "to_agent": "optimizacion",
+        "type": "context_shared",
+        "payload": {
+          "context_msg_id": "ctx-optimizacion-1779211794713-0",
+          "source_agent": "analista",
+          "insight": {
+            "type": "cpr_spike",
+            "payload": {
+              "pipeline_id": "216977"
+            }
+          }
+        },
+        "context_refs": [
+          "ctx-optimizacion-1779211794713-0"
+        ],
+        "requires_ack": false,
+        "created_at": "2026-05-19T17:29:54.713Z"
+      }
+    ]
+  }
+}

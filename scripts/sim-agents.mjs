@@ -8,14 +8,21 @@
  *                       sintéticas. NO consume tokens, no toca red.
  *   live (--live)   — pasa fetch real, requiere ANTHROPIC_API_KEY.
  *
+ * Flags adicionales:
+ *   --write-baseline — además de verificar, guarda el output static-mode
+ *                      como snapshot baseline en /agents/qa/snapshots/
+ *                      (clave: sim_{agent}__{label}). NO sobreescribe
+ *                      snapshots existentes (audit-safe).
+ *
  * Reglas:
- *   - NO modifica nada en /agents.
+ *   - NO modifica nada en /agents (excepto /agents/qa/snapshots con flag).
  *   - NO commitea. Solo imprime reporte a stdout.
  *   - Si un import revienta, marca ❌ y continúa con los siguientes.
  *
  * Uso:
- *   node scripts/sim-agents.mjs           # modo static
- *   node scripts/sim-agents.mjs --live    # modo live
+ *   node scripts/sim-agents.mjs                     # modo static
+ *   node scripts/sim-agents.mjs --live              # modo live
+ *   node scripts/sim-agents.mjs --write-baseline    # genera baselines
  *   node scripts/sim-agents.mjs --only=analista,qa
  *   node scripts/sim-agents.mjs --verbose
  */
@@ -23,6 +30,7 @@
 import { pathToFileURL } from 'node:url';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { saveSnapshot } from '../agents/qa/runners/regression.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(__dirname, '..');
@@ -31,6 +39,7 @@ const REPO = resolve(__dirname, '..');
 const argv = process.argv.slice(2);
 const FLAG_LIVE    = argv.includes('--live');
 const FLAG_VERBOSE = argv.includes('--verbose') || argv.includes('-v');
+const FLAG_WRITE_BASELINE = argv.includes('--write-baseline');
 const ONLY = (() => {
   const a = argv.find((x) => x.startsWith('--only='));
   if (!a) return null;
@@ -468,7 +477,7 @@ async function runOne(spec, ctl) {
   }
 
   for (const run of spec.runs) {
-    const rec = { label: run.label, runtimeOk: false, jsonOk: false, shapeOk: false, err: null };
+    const rec = { label: run.label, runtimeOk: false, jsonOk: false, shapeOk: false, err: null, snapshot: null };
     try {
       if (ctl) ctl.setNextSampleKey(run.shapeKey || spec.schemaKey);
       const out = await run.invoke(mod);
@@ -479,6 +488,17 @@ async function runOne(spec, ctl) {
 
       // Shape: validar con el predicado declarado en el spec.
       try { rec.shapeOk = !!run.shapeCheck(out); } catch { rec.shapeOk = false; }
+
+      // Si --write-baseline + run exitoso, guardar como snapshot baseline.
+      // Prefijo `sim_` para distinguir de snapshots futuros de motores reales.
+      if (FLAG_WRITE_BASELINE && rec.runtimeOk && rec.jsonOk && rec.shapeOk) {
+        try {
+          const r = await saveSnapshot(`sim_${spec.name}`, run.label, out, { overwrite: false });
+          rec.snapshot = r.created ? 'created' : 'exists';
+        } catch (err) {
+          rec.snapshot = `error:${err.message}`;
+        }
+      }
 
       if (FLAG_VERBOSE) {
         const preview = JSON.stringify(out)?.slice(0, 180);
@@ -528,14 +548,21 @@ function printReport(mode) {
 
   // Resumen agregado.
   let total = 0, passed = 0;
+  let snapsCreated = 0, snapsExisted = 0, snapsErrored = 0;
   for (const r of RESULTS) {
     if (!r.importOk) { total++; continue; }
     for (const x of r.runs) {
       total++;
       if (x.runtimeOk && x.jsonOk && x.shapeOk) passed++;
+      if (x.snapshot === 'created') snapsCreated++;
+      else if (x.snapshot === 'exists') snapsExisted++;
+      else if (x.snapshot && x.snapshot.startsWith('error')) snapsErrored++;
     }
   }
   console.log(`\n  ${passed}/${total} runs verde.`);
+  if (FLAG_WRITE_BASELINE) {
+    console.log(`  snapshots: ${snapsCreated} creados · ${snapsExisted} ya existían · ${snapsErrored} errors`);
+  }
   return { total, passed };
 }
 

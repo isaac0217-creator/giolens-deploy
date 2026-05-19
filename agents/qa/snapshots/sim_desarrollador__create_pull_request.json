@@ -1,0 +1,17 @@
+{
+  "motor": "sim_desarrollador",
+  "case_id": "create_pull_request",
+  "saved_at": "2026-05-19T17:29:54.710Z",
+  "output": {
+    "draft": null,
+    "approval": {
+      "approved": false,
+      "by": "system",
+      "at": "2026-05-19T17:29:54.710Z",
+      "note": "draft inválido"
+    },
+    "cost_usd": 0,
+    "latency_ms": 0,
+    "error": "parse_failed_or_invalid_shape"
+  }
+}

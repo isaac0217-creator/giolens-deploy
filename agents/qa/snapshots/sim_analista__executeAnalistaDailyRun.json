@@ -1,0 +1,12 @@
+{
+  "motor": "sim_analista",
+  "case_id": "executeAnalistaDailyRun",
+  "saved_at": "2026-05-19T17:29:54.698Z",
+  "output": {
+    "insights": [],
+    "cost_usd": 0,
+    "latency_ms": 13,
+    "published": 0,
+    "errors": []
+  }
+}

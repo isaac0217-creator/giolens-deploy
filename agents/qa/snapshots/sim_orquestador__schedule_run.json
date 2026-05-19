@@ -1,0 +1,11 @@
+{
+  "motor": "sim_orquestador",
+  "case_id": "schedule_run",
+  "saved_at": "2026-05-19T17:29:54.712Z",
+  "output": {
+    "schedule": null,
+    "cost_usd": 0,
+    "latency_ms": 0,
+    "error": "parse_failed_or_invalid_shape"
+  }
+}

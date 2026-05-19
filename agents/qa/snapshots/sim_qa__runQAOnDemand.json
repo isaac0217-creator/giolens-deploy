@@ -1,0 +1,16 @@
+{
+  "motor": "sim_qa",
+  "case_id": "runQAOnDemand",
+  "saved_at": "2026-05-19T17:29:54.703Z",
+  "output": {
+    "summary": {
+      "total": 30,
+      "passed": 30,
+      "failed": 0,
+      "blockers": 0
+    },
+    "findings": [],
+    "cost_usd": 0,
+    "latency_ms": 3
+  }
+}
