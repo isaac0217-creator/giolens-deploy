@@ -52,7 +52,9 @@ export const SENSITIVE_PATHS = [
  */
 export function isSensitivePath(path) {
   if (!path || typeof path !== 'string') return false;
-  const norm = path.replace(/^[./\\]+/, '');
+  // Quitar prefijos relativos `./` o `../` (path traversal). NO quitar puntos
+  // sueltos — eso rompía el match para nombres bare tipo `.env`.
+  const norm = path.replace(/^(\.\.?[\/\\])+/, '');
   return SENSITIVE_PATHS.some((p) => norm.startsWith(p) || norm.includes(`/${p}`));
 }
 

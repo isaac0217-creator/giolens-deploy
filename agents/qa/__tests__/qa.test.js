@@ -128,11 +128,12 @@ describe('runQA', () => {
     expect(typeof result.cost_usd).toBe('number');
     expect(typeof result.latency_ms).toBe('number');
 
-    // publish llamado con type qa_report
+    // publish llamado con type qa_report (shape canónico anexos_B_C §B)
     expect(publish).toHaveBeenCalledTimes(1);
     expect(publish.mock.calls[0][0]).toMatchObject({
       type: 'qa_report',
-      from: 'qa',
+      from_agent: 'qa',
+      to_agent: 'orquestador',
     });
     expect(trackCost).toHaveBeenCalledTimes(1);
   });
@@ -154,8 +155,8 @@ describe('runQA', () => {
     expect(callClaude).toHaveBeenCalled();
     expect(blockerFinding.suggested_fix).toBeTruthy();
 
-    // El bus reporta severity blocker
-    expect(publish.mock.calls[0][0].severity).toBe('blocker');
+    // El bus reporta severity blocker (canon: payload.severity)
+    expect(publish.mock.calls[0][0].payload?.severity).toBe('blocker');
   });
 
   it('regression detects snapshot drift', async () => {

@@ -136,19 +136,21 @@ describe('runAnalista', () => {
     expect(publish).toHaveBeenCalledTimes(2);
     expect(result.published).toBe(2);
 
-    const publishedSeverities = publish.mock.calls.map((c) => c[0].severity);
+    // Shape canónico bus.publish (anexos_B_C §B): payload.severity
+    const publishedSeverities = publish.mock.calls.map((c) => c[0].payload?.severity);
     expect(publishedSeverities).toContain('high');
     expect(publishedSeverities).toContain('critical');
     expect(publishedSeverities).not.toContain('low');
 
-    // Cada mensaje publicado tiene la forma agent_message
+    // Cada mensaje publicado respeta el contrato canónico
     for (const call of publish.mock.calls) {
       expect(call[0]).toMatchObject({
         type: 'agent_message',
-        from: 'analista',
+        from_agent: 'analista',
+        to_agent: 'orquestador',
       });
       expect(call[0]).toHaveProperty('payload');
-      expect(call[0]).toHaveProperty('ts');
+      expect(call[0].payload).toHaveProperty('insight');
     }
   });
 
