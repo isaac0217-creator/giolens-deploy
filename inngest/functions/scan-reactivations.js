@@ -61,18 +61,13 @@ export default inngest.createFunction(
     let emitted = 0;
     for (const { pipeline_id, candidates } of perPipeline) {
       for (const c of candidates) {
-        await step.sendEvent?.(`emit-${c.contact_id}`, {
-          name: EVENTS.LEAD_SILENCE_DETECTED,
-          data: {
-            correlation_id: `scan-${startedAt}-${c.contact_id}`,
-            contact_id:       c.contact_id,
-            pipeline_id,
-            stage_name:       c.stage_name,
-            silence_ms:       c.silence_ms,
-            last_interaction: c.last_interaction,
-            last_sent:        c.last_sent,
-          },
-        }) ?? await inngest.send({
+        // P0 fix (audit Agent E 18 may noche tardía): el fallback
+        // `step.sendEvent?.(...) ?? await inngest.send(...)` rompía idempotencia
+        // bajo retry porque `inngest.send` directo NO es checkpointado por Inngest.
+        // Solo `step.sendEvent` es idempotente bajo retries. Si step no existe,
+        // significa que estamos en stub mode (sin Inngest activo) → no-op silencioso
+        // emitido vía `inngest.send` del stub (loggea, no envía).
+        await step.sendEvent(`emit-${c.contact_id}`, {
           name: EVENTS.LEAD_SILENCE_DETECTED,
           data: {
             correlation_id: `scan-${startedAt}-${c.contact_id}`,

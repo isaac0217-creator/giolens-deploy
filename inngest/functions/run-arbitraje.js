@@ -72,11 +72,13 @@ export default inngest.createFunction(
       return { run_id: startedAt, rows: scored.length };
     });
 
-    // Step 5: emitir fatigue para campañas en rojo
+    // Step 5: emitir fatigue para campañas en rojo — usar step.sendEvent
+    // (idempotencia bajo retry). Antes `inngest.send` directo → duplicaba
+    // eventos si el run reintentaba. Cierra P0 audit Agent E.
     let fatigueEmitted = 0;
     for (const s of scored) {
       if (s.semaforo === '🔴') {
-        await inngest.send({
+        await step.sendEvent(`emit-fatigue-${s.campaign_id}`, {
           name: EVENTS.CAMPAIGN_FATIGUE_DETECTED,
           data: {
             correlation_id: `arbitraje-${startedAt}-${s.campaign_id}`,

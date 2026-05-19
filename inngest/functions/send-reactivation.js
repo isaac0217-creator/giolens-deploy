@@ -65,8 +65,10 @@ export default inngest.createFunction(
       return { stub: true, status: 200 };
     });
 
-    // Step 4: emite reactivation_sent
-    await inngest.send({
+    // Step 4: emite reactivation_sent — usar step.sendEvent (idempotencia bajo retry).
+    // Antes usaba `inngest.send` directo → si el run reintentaba tras fallo,
+    // emitía evento duplicado → spam al lead. Cierra P0 audit Agent E.
+    await step.sendEvent('emit-reactivation-sent', {
       name: EVENTS.LEAD_REACTIVATION_SENT,
       data: {
         correlation_id,
