@@ -693,6 +693,22 @@ async function handleWapifyWebhook(req, res) {
 
   if (req.method !== 'POST') return res.status(405).end();
 
+  // P0 fix (audit api/security 18 may PM tardío): sin firma/secret, cualquiera
+  // que conozca la URL pública puede forjar payloads y disparar Claude tools
+  // (send_message, send_and_move) → spoof de mensajes WhatsApp a leads reales
+  // + DoS económico. Defensa: cuando WAPIFY_WEBHOOK_SECRET env está seteado,
+  // exigir header `x-wapify-secret` o `Authorization: Bearer <secret>`.
+  // Activación: setear env var en Vercel + configurar header en Wapify HTTP
+  // Action. Sin la env var → bypass (status quo, zero-downtime).
+  const expectedSecret = process.env.WAPIFY_WEBHOOK_SECRET;
+  if (expectedSecret) {
+    const headerSecret = req.headers['x-wapify-secret'];
+    const bearerSecret = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    if (headerSecret !== expectedSecret && bearerSecret !== expectedSecret) {
+      return res.status(401).json({ error: 'unauthorized webhook' });
+    }
+  }
+
   let payload;
   try {
     payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
