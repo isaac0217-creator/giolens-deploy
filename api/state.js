@@ -213,9 +213,25 @@ async function handleTsRead(req, res) {
 async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Api-Token');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // P0 fix (audit api/security 18 may PM tardío): endpoint usa SERVICE_ROLE_KEY
+  // (bypass RLS), permite escribir app_config y leer audit_log. Sin auth, riesgo
+  // de prompt poisoning + lectura PII. Cuando STATE_API_TOKEN se setea en env,
+  // exige header `x-api-token` matcheando para rutas que mutan o exponen PII.
+  // Si la env var no está, endpoint sigue abierto (activación gradual sin
+  // breaking change para callers existentes).
+  const expectedToken = process.env.STATE_API_TOKEN;
+  if (expectedToken) {
+    const op = String(req.query?.op || '').toLowerCase();
+    const isMutation = req.method === 'POST' && (op === 'kv-set' || op === 'ts-append');
+    const isPiiRead  = req.method === 'GET'  && op === 'ts-read';
+    if ((isMutation || isPiiRead) && req.headers['x-api-token'] !== expectedToken) {
+      return res.status(401).json({ error: 'unauthorized' });
+    }
+  }
 
   const op = String(req.query?.op || '').toLowerCase();
 

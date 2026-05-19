@@ -959,14 +959,24 @@ async function handleReactivationCron(req, res) {
 async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Vercel-Cron');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Vercel-Cron, Authorization');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const isCron = req.query?.mode === 'cron'
               || req.headers['x-vercel-cron'] === '1';
 
-  if (isCron) return handleReactivationCron(req, res);
+  if (isCron) {
+    // P0 fix (audit api/security 18 may PM tardío): Vercel cron declarado en
+    // vercel.json + CRON_SECRET env var hace que Vercel inyecte automáticamente
+    // `Authorization: Bearer ${CRON_SECRET}`. Sin este header, el cron es
+    // falsificable por cualquiera que conozca la URL pública → DoS económico.
+    const expected = process.env.CRON_SECRET;
+    if (expected && req.headers.authorization !== `Bearer ${expected}`) {
+      return res.status(401).json({ error: 'unauthorized cron' });
+    }
+    return handleReactivationCron(req, res);
+  }
   return handleWapifyWebhook(req, res);
 }
 
