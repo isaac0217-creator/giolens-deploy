@@ -139,4 +139,42 @@ export const EVENTS_EXPERIMENTAL = {
  * Consumido por: batch-auto-prompt.js.
  */
 
+// ─── Validator helper (C.0.11 Frente C · mitigación R4) ──────────────────────
+
+/** Set de todos los nombres de evento conocidos (canónicos + experimental). */
+const KNOWN_EVENT_NAMES = new Set([
+  ...Object.values(EVENTS),
+  ...Object.values(EVENTS_EXPERIMENTAL),
+]);
+
+/**
+ * Construye un evento Inngest validado.
+ *
+ * events.js documenta `correlation_id` como obligatorio en todo payload, pero
+ * hasta C.0.11 ningún emisor lo validaba (riesgo R4 del plan Frente C v2 —
+ * cascadas no rastreables). Este helper lo enforce: lanza si falta.
+ *
+ * @param {string} name  nombre del evento — debería ∈ EVENTS / EVENTS_EXPERIMENTAL
+ * @param {object} payload  data del evento; DEBE incluir `correlation_id` (string)
+ * @returns {{name:string, data:object}}  evento listo para inngest.send()
+ * @throws Error si name no es string, payload no es objeto, o falta correlation_id
+ */
+export function makeEvent(name, payload) {
+  if (!name || typeof name !== 'string') {
+    throw new Error('[makeEvent] name requerido (string)');
+  }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('[makeEvent] payload requerido (object)');
+  }
+  if (!payload.correlation_id || typeof payload.correlation_id !== 'string') {
+    throw new Error(`[makeEvent] payload.correlation_id obligatorio (string) para evento "${name}"`);
+  }
+  if (!KNOWN_EVENT_NAMES.has(name)) {
+    // No bloquea — el namespace giolens/agent.* del bridge es legítimo y no
+    // está en el catálogo. Solo avisa para detectar typos en eventos canónicos.
+    console.warn(`[makeEvent] evento "${name}" no está en EVENTS ni EVENTS_EXPERIMENTAL`);
+  }
+  return { name, data: { ...payload } };
+}
+
 export default EVENTS;

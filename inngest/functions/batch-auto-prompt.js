@@ -4,6 +4,13 @@
  * Reemplaza /api/auto-prompt cuando hay que generar N variantes en paralelo
  * (ej. tras campaign.fatigue_detected, o lote masivo desde dashboard).
  *
+ * ⏸ ESTADO (Frente C · decisión §3.2 opción C — D1 Chat 19 may): DIFERIDO A
+ *   FRENTE D. Este worker NO se wirea en Frente C. El evento experimental
+ *   CAMPAIGN_BATCH_VARIANT_REQUESTED permanece en EVENTS_EXPERIMENTAL (no se
+ *   promueve a EVENTS canónico). El endpoint síncrono /api/text-utils?op=prompt
+ *   cubre la generación de variantes hoy. Re-evaluar promoción/descarte en
+ *   Frente D. El stub se mantiene registrado para no romper el manifest Inngest.
+ *
  * Trigger: event `giolens/campaign.batch_variant_requested`
  * Concurrency: { key: 'event.data.pipeline_id', limit: 3 }
  * Retries: 2

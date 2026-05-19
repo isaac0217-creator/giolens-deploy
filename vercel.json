@@ -7,7 +7,8 @@
     "api/webhook.js":            { "maxDuration": 60 },
     "api/copiloto.js":           { "maxDuration": 60 },
     "api/text-utils.js":         { "maxDuration": 60 },
-    "api/state.js":              { "maxDuration": 60 }
+    "api/state.js":              { "maxDuration": 60 },
+    "api/inngest.js":            { "maxDuration": 300 }
   },
   "crons": [
     { "path": "/api/webhook?mode=cron", "schedule": "*/5 * * * *" }

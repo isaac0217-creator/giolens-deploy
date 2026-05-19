@@ -8,6 +8,8 @@
  */
 
 import { withSentry, captureException } from '../agents/_shared/sentry.js';
+import { inngest } from '../inngest/client.js';
+import { EVENTS, makeEvent } from '../inngest/events.js';
 
 const WAPIFY_TOKEN = process.env.WAPIFY_TOKEN;
 const WAPIFY_BASE  = 'https://ap.whapify.ai/api';
@@ -693,6 +695,39 @@ function extractIds(payload) {
   };
 }
 
+/**
+ * C.0.12 (Frente C): emite el evento Inngest LEAD_MESSAGE_RECEIVED en paralelo
+ * al flujo síncrono del webhook. Coexistencia, NO reemplazo — webhook.js sigue
+ * siendo el único entrypoint Wapify y su flujo síncrono no cambia.
+ *
+ * Mitigación R3 (plan Frente C v2): la emisión NUNCA debe bloquear el ack a
+ * Wapify. Promise.race con timeout 2s; si Inngest cuelga, se loggea y sigue.
+ * Sin INNGEST_EVENT_KEY el `inngest` importado es stub → no-op silencioso.
+ *
+ * @param {object} ids  salida de extractIds(payload)
+ * @returns {Promise<void>}  nunca rechaza
+ */
+async function emitLeadMessageReceived(ids) {
+  if (!process.env.INNGEST_EVENT_KEY) return; // stub mode — no emitir
+  try {
+    const event = makeEvent(EVENTS.LEAD_MESSAGE_RECEIVED, {
+      correlation_id: `wh-${Date.now()}-${ids.contact_id || 'unknown'}`,
+      contact_id:   ids.contact_id || '',
+      pipeline_id:  ids.pipeline_id || '',
+      stage_name:   ids.stage || '',
+      message_text: ids.last_message || '',
+      received_at:  Date.now(),
+      sender:       'lead',
+    });
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('inngest_emit_timeout_2s')), 2000),
+    );
+    await Promise.race([inngest.send(event), timeout]);
+  } catch (err) {
+    console.warn(`[WEBHOOK] emit LEAD_MESSAGE_RECEIVED falló (flujo síncrono OK): ${err.message}`);
+  }
+}
+
 // ─── WEBHOOK HANDLER (Wapify reactivo · POST de eventos) ───
 async function handleWapifyWebhook(req, res) {
   if (req.method === 'GET') {
@@ -749,7 +784,8 @@ async function handleWapifyWebhook(req, res) {
   // y exponía datos de leads (nombres, etapas, contact IDs) a cualquier usuario.
   // Para debug usar los logs de Vercel: vercel logs giolens-dashboard.vercel.app
 
-  const { pipeline_id, event, contact_id } = extractIds(payload);
+  const ids = extractIds(payload);
+  const { pipeline_id, event, contact_id } = ids;
   console.log(`[WEBHOOK] pipeline=${pipeline_id} event=${event} contact=${contact_id}`);
 
   if (!ANTHROPIC_KEY) {
@@ -767,11 +803,17 @@ async function handleWapifyWebhook(req, res) {
     return res.status(200).json({ received: true, action: 'ignored', pipeline: pipeline_id });
   }
 
+  // C.0.12 (Frente C): emite LEAD_MESSAGE_RECEIVED a Inngest en paralelo con el
+  // motor síncrono. emitLeadMessageReceived nunca rechaza (timeout 2s + catch).
+  const emitPromise = emitLeadMessageReceived(ids);
+
   try {
     const result = await motor(payload);
+    await emitPromise; // ya corrió en paralelo; await asegura el envío en serverless
     console.log(`[WEBHOOK] Motor [${pipeline_id}] completó:`, JSON.stringify(result));
     return res.status(200).json({ received: true, ts: Date.now(), result });
   } catch (err) {
+    await emitPromise;
     console.error('[WEBHOOK] Error en motor:', err.message, err.stack?.slice(0, 300));
     captureException(err, {
       tags: { endpoint: 'webhook', component: 'motor', pipeline_id: String(pipeline_id || 'unknown') },
@@ -907,6 +949,17 @@ async function sendReactivationMessage(contactId, text) {
 
 async function handleReactivationCron(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') return res.status(405).end();
+
+  // C.0.6 (Frente C · decisión §3.3 C — cutover con kill-switch): el cron Inngest
+  // `scan-reactivations` reemplazará este path en Wave 2. Mientras scan-reactivations
+  // sea stub (candidates:[]), el cron legacy queda ACTIVO por default — apagarlo
+  // ahora dejaría cero reactivaciones. Cuando Inngest esté wireado y validado:
+  // setear LEGACY_REACTIVATION_CRON=false (apaga este path sin redeploy) y retirar
+  // el cron de vercel.json.
+  if (process.env.LEGACY_REACTIVATION_CRON === 'false') {
+    console.log('[REACTIVATION] LEGACY_REACTIVATION_CRON=false → cron legacy desactivado (cutover a Inngest scan-reactivations)');
+    return res.status(200).json({ skipped: true, reason: 'legacy_cron_disabled', cutover: 'inngest:scan-reactivations' });
+  }
 
   const startTime = Date.now();
   console.log(`[REACTIVATION] Inicio. dry_run=${REACTIVATION_DRY_RUN}`);
