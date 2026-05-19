@@ -1,6 +1,7 @@
 /**
  * GioLens — state (Supabase-backed kv + timeseries)
  * URL: /api/state
+ * Observabilidad: Sentry wrap automático (errores + crash) vía withSentry.
  *
  * Router por ?op=
  *   ?op=kv-get       → lee app_config (GET ?key=...)
@@ -22,6 +23,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { withSentry } from '../agents/_shared/sentry.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -208,7 +210,7 @@ async function handleTsRead(req, res) {
 
 // ═══ Router principal ═══════════════════════════════════════════════════════
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -249,3 +251,6 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: err.message });
   }
 }
+
+// Wrap con Sentry (no-op silencioso si SENTRY_DSN no está seteado)
+export default withSentry(handler, { endpoint: 'state' });

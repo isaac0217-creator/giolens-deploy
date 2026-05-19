@@ -14,6 +14,8 @@
  * slot Vercel para api/state.js (Supabase-backed kv + timeseries).
  */
 
+import { withSentry } from '../agents/_shared/sentry.js';
+
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const MODEL = 'claude-haiku-4-5';
 
@@ -228,7 +230,7 @@ async function handlePrompt(req, res) {
 
 // ═══ Router principal ═══════════════════════════════════════════════════════
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -262,3 +264,6 @@ export default async function handler(req, res) {
     valid_ops: ['clean', 'prompt'],
   });
 }
+
+// Wrap con Sentry (no-op silencioso si SENTRY_DSN no está seteado)
+export default withSentry(handler, { endpoint: 'text-utils' });

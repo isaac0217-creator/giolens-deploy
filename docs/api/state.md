@@ -267,7 +267,9 @@ Tablas backing definidas en `agents/_shared/supabase-schema.sql` (313 líneas, 1
 
 ## Observabilidad
 
-Por ahora **no** envuelto en `withSentry` — el catch general del router captura errores y los devuelve como `500 { error: err.message }` + `console.error('[state]', err)`. Si se quiere agregar tracking dedicado de errores Supabase, envolver con `withSentry(handler, { endpoint: 'state' })` siguiendo el patrón de `webhook`/`copiloto`/`text-utils`.
+Envuelto en `withSentry(handler, { endpoint: 'state' })`. El catch general del router devuelve `500 { error: err.message }` + `console.error('[state]', err)`; cualquier excepción no atrapada por el try/catch interno la captura el wrapper Sentry. No-op silencioso cuando `SENTRY_DSN` no está configurada.
+
+Estado wrapper: ✅ activo. `SENTRY_DSN` configurada en Vercel Production (18 may 2026 PM tardío).
 
 ## Migración desde `localStorage`
 
