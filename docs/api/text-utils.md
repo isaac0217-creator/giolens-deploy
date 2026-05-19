@@ -186,9 +186,9 @@ Genera 3 variantes de mensaje (urgencia / valor / social_proof) para un `pipelin
 
 ## Observabilidad
 
-Envuelto en `withSentry(handler, { endpoint: 'text-utils' })`. Captura errores no manejados, crash y tags (`endpoint`, `method`, `op`). No-op cuando `SENTRY_DSN` no está configurada.
+Por ahora **no** envuelto en `withSentry` — los errores caen al manejo nativo de Vercel (crash → 500 genérico). Para agregar tracking dedicado, envolver con `withSentry(handler, { endpoint: 'text-utils' })` siguiendo el patrón de `webhook`/`predictor`/`pipeline-summary`.
 
-Estado wrapper: ✅ activo (Sentry DSN entregado y deployado 18 may 2026 noche).
+`SENTRY_DSN` ya está configurada en Vercel Production (18 may 2026), por lo que al envolver, el wrapper se activa automáticamente.
 
 ## Notas operativas
 
