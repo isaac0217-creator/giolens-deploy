@@ -1,0 +1,63 @@
+name: Tests
+# CI mínimo GIOCORE — cierra P0 tests/coverage (audit 18 may noche tardía).
+# Corre en cada push a main y en PRs. Falla rápido si:
+#   - syntax error en cualquier .js (node --check)
+#   - smoke ESM cross-module roto (regla §22 R-19)
+#   - tests vitest rojos
+#   - sim-agents harness rojo
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+
+      - name: Install dependencies
+        # `npm install` (no `npm ci`) porque package-lock.json puede estar
+        # desactualizado respecto a devDependencies recién agregadas
+        # (vitest, @vitest/coverage-v8). Vercel hace lo mismo internamente.
+        run: npm install
+
+      - name: Syntax check (node --check)
+        # Detecta syntax errors en JS/MJS antes de runtime.
+        run: |
+          set -e
+          for f in $(find api agents inngest scripts -type f \( -name "*.js" -o -name "*.mjs" \) 2>/dev/null); do
+            node --check "$f" || { echo "❌ Syntax error: $f"; exit 1; }
+          done
+          echo "✅ Syntax check passed"
+
+      - name: ESM runtime smoke (regla §22 · cierra R-19)
+        # node --check NO detecta imports cross-module rotos. Este smoke sí.
+        # Para cada uno de los 6 agentes verifica:
+        #   1) import('./agents/$a/index.js') resuelve
+        #   2) default export es función
+        # Si falla, indica P0 tipo R-19/R-19 BIS.
+        run: |
+          set -e
+          for a in analista qa creativo optimizacion desarrollador orquestador; do
+            node -e "import('./agents/$a/index.js').then(m => { if (typeof m.default !== 'function') { console.error('❌ $a default no es función'); process.exit(1); } console.log('✅ $a OK'); }).catch(e => { console.error('❌ $a import falló:', e.message); process.exit(1); })"
+          done
+
+      - name: Run vitest
+        # Suite de tests unitarios. Vitest devuelve exit 1 si algún test falla.
+        run: npm test
+
+      - name: Sim agents harness (static mode)
+        # End-to-end mock harness: 12 runs (6 agents × tasks declarados).
+        # Validador post-fix de R-19 BIS — si algún agent rompe, falla aquí.
+        run: npm run smoke:agents
