@@ -426,7 +426,18 @@ export async function shareContext({ sourceAgent, insight, targetAgents } = {}) 
   let resolvedTargets;
   let skipped = [];
 
-  if (targetAgents === 'auto' || targetAgents === undefined) {
+  // OVERRIDE M2 (D1 Chat 19may): una insight 'critical' del Analista NUNCA debe
+  // quedar sin destinatario. Fuerza targets ignorando el flag 'auto'. El filtro
+  // del paso 2 quita 'orquestador' (queda registrado en skipped) → entregables
+  // efectivos: qa + optimizacion. Cierra el loop lógico M2 (analista critical →
+  // inferTargets solo devolvía 'analista' → filtro source lo quitaba → nadie).
+  const isAnalistaCritical =
+    String(sourceAgent).toLowerCase() === 'analista' &&
+    insight.payload && insight.payload.severity === 'critical';
+
+  if (isAnalistaCritical) {
+    resolvedTargets = ['qa', 'optimizacion', 'orquestador'];
+  } else if (targetAgents === 'auto' || targetAgents === undefined) {
     resolvedTargets = inferTargetsForInsight(insight);
   } else if (Array.isArray(targetAgents)) {
     resolvedTargets = [];

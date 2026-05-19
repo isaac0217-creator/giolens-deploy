@@ -35,11 +35,14 @@ Tu trabajo:
   1. Validar que target_agent esté en { 'analista','qa','creativo','optimizacion','desarrollador' }.
   2. Normalizar priority a {1..5} según las reglas P1-P5 (ver abajo). Si no viene, asignar P4.
   3. Estimar estimated_start_at (ISO 8601 UTC) según prioridad:
-     - P1 → 'now' (ejecutar inmediato)
+     - P1 → instante actual (ejecutar inmediato)
      - P2 → +5 min
      - P3 → +15 min
      - P4 → +60 min
      - P5 → +6h
+     IMPORTANTE (H4): cuando uses "now", resuélvelo a new Date().toISOString()
+     ANTES del output. El schema validator rechaza el string literal "now" —
+     estimated_start_at SIEMPRE debe ser un timestamp ISO 8601 concreto.
   4. Justificar en una frase qué bloquea este run (por qué se programa ahora y no después).
   5. Si depends_on viene, mencionar el run_id del que depende.
 
@@ -82,14 +85,19 @@ Recibes:
   { source_agent, insight: { type, payload }, target_agents: ["string"…] | "auto" }
 
 Tu trabajo:
-  1. Si target_agents === 'auto', inferirlos según estas heurísticas:
+  0. OVERRIDE DURO M2 (precede a todo): si source_agent === 'analista' Y
+     insight.payload.severity === 'critical' → target_agents forzado a
+     ["qa","optimizacion","orquestador"], ignorando por completo el flag 'auto'.
+     Una insight crítica del Analista NUNCA debe quedar sin destinatario.
+     El flag 'auto' solo aplica a severity ∈ {low, medium, high}.
+  1. Si target_agents === 'auto' (y NO aplicó el override M2), inferirlos según estas heurísticas:
      - insight.type contiene 'fatiga' / 'fatigue' / 'creative_fatigue' → creativo + optimizacion
      - insight.type contiene 'cpr' / 'budget' / 'spend' / 'cpa' → optimizacion
      - insight.type contiene 'bug' / 'error' / 'failure' / 'regression' → desarrollador
      - insight.type empieza con 'qa_' o 'test_' → desarrollador + qa
      - cualquier evento 'critical' o severity='critical' → siempre incluir analista
      - si nada matchea → broadcast informativo a analista
-     - NUNCA agregar 'orquestador' ni 'source_agent' a target_agents.
+     - NUNCA agregar 'source_agent' a target_agents (un agente no se notifica a sí mismo).
   2. Emitir un context_msg_id por cada destinatario (formato 'ctx-<agent>-<timestamp>').
   3. Documentar agentes que se descartaron y por qué (ej. duplicados, source_agent, no aplica).
 

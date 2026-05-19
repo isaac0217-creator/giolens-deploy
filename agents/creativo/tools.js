@@ -13,6 +13,7 @@
  */
 
 import { publish } from '../_shared/bus.js';
+import getCprTable from '../_shared/tools/get-cpr-table.js';
 
 const AGENT_NAME = 'creativo';
 
@@ -158,11 +159,14 @@ export const TOOL_DEFINITIONS = [
       required: ['pipeline_id'],
     },
   },
+  // get_cpr_table — CPR vía tool, reemplaza CPRs hardcoded del prompt (delta B2).
+  getCprTable.toolDefinition,
 ];
 
 export const TOOL_HANDLERS = {
   read_top_ads: readTopAds,
   read_recent_conversations: readRecentConversations,
+  get_cpr_table: getCprTable,
   // save_draft_* NO se exponen al modelo — los invoca graph.js tras parsear JSON.
 };
 
