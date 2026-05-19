@@ -1,9 +1,9 @@
 # GioLens · Inngest Orchestration Layer
 
-**Estado:** STUB no operativo (Fase 2 Sprint 4, GIOCORE v10).
-Esta carpeta contiene la estructura de archivos que se activará cuando tengamos cuenta Inngest y env vars.
+**Estado:** ACTIVO con fallback graceful (Fase 2C en deploy · audit 18 may noche).
+`api/inngest.js` real con `serve()` cuando hay keys Inngest Cloud; sin keys responde HTTP 503 graceful con manifest de funciones. Importado desde Vercel auto-discovery.
 
-Nada aquí se importa todavía desde `/api` ni `/public`. El cliente (`client.js`) es un stub local que solo loggea — los emisores se pueden cablear hoy sin romper producción.
+`client.js` exporta el SDK Inngest real cuando `INNGEST_EVENT_KEY` está seteada; sin keys, exporta stub local con `send()` no-op. Pendiente: setear `INNGEST_EVENT_KEY` + `INNGEST_SIGNING_KEY` en Vercel cuando Isaac obtenga cuenta Inngest Cloud (D2).
 
 ---
 
@@ -11,9 +11,8 @@ Nada aquí se importa todavía desde `/api` ni `/public`. El cliente (`client.js
 
 ```
 /inngest/
-  client.js              ← cliente Inngest (stub hoy)
+  client.js              ← cliente Inngest (SDK real + fallback stub sin keys)
   events.js              ← 8 eventos canónicos + 1 experimental
-  api-handler-stub.js    ← plantilla de /api/inngest.js
   README.md              ← este archivo
   /functions/
     scan-reactivations.js     cron */5m  → scanea 5 pipelines, emite silence_detected
@@ -30,27 +29,16 @@ Nada aquí se importa todavía desde `/api` ni `/public`. El cliente (`client.js
 
 ## Cómo activar (Fase 2C)
 
-1. **Cuenta Inngest:** crear en https://app.inngest.com → app `giolens`.
-2. **Env vars en Vercel** (Production + Preview):
+1. ✅ **Instalar SDK:** `npm i inngest` (en `package.json`).
+2. ✅ **Cliente real con fallback:** `inngest/client.js` exporta `new Inngest({...})` cuando hay `INNGEST_EVENT_KEY`; sin keys, stub no-op (commit `eccca15`).
+3. ✅ **Endpoint serve():** `api/inngest.js` usa `serve({ client, functions })` de `inngest/node` cuando hay keys; sin keys, devuelve 503 graceful (commits `eccca15`, `2a5a240`).
+4. ⏸ **Cuenta Inngest:** crear en https://app.inngest.com → app `giolens` (D2 reporte maestro).
+5. ⏸ **Env vars en Vercel** (Production + Preview):
    - `INNGEST_EVENT_KEY` — para `inngest.send(...)` desde código (incluido webhook.js)
    - `INNGEST_SIGNING_KEY` — verifica peticiones entrantes en `/api/inngest`
-3. **Instalar SDK:**
-   ```bash
-   npm i inngest
-   ```
-4. **Reemplazar stub** en `inngest/client.js`:
-   ```js
-   import { Inngest } from 'inngest';
-   export const inngest = new Inngest({
-     id: 'giolens',
-     eventKey: process.env.INNGEST_EVENT_KEY,
-   });
-   ```
-5. **Crear `/api/inngest.js`** copiando contenido de `inngest/api-handler-stub.js`
-   y descomentando el `import { serve } from 'inngest/next'` + `export default serve({...})`.
-6. **Deploy:** `vercel --prod`. Inngest descubre el endpoint vía URL pública.
-7. **Verificar en dashboard Inngest** que las 8 funciones aparecen registradas.
-8. **Smoke test:** desde dashboard Inngest, disparar manualmente `giolens/segmentation.requested`.
+6. ⏸ **Deploy:** `vercel --prod --yes`. Inngest descubre el endpoint vía URL pública.
+7. ⏸ **Verificar en dashboard Inngest** que las 8 funciones aparecen registradas.
+8. ⏸ **Smoke test:** desde dashboard Inngest, disparar manualmente `giolens/segmentation.requested`.
 
 ---
 
