@@ -186,7 +186,7 @@ async function enrichWithFixSuggestions(findings) {
     try {
       const res = await callClaude({
         model: MODEL_SEMANTIC,
-        system: SYSTEM_PROMPT,
+        systemPrompt: SYSTEM_PROMPT,
         tools: TOOL_DEFINITIONS,
         messages: [{ role: 'user', content: userMsg }],
         max_tokens: 256,
@@ -278,10 +278,9 @@ export async function runQA({ targets, mode = 'evals' } = {}) {
   try {
     await publish({
       type: 'qa_report',
-      from: 'qa',
-      severity: blockers > 0 ? 'blocker' : failed > 0 ? 'high' : 'low',
-      payload: report,
-      ts: new Date().toISOString(),
+      from_agent: 'qa',
+      to_agent: 'orquestador',
+      payload: { severity: blockers > 0 ? 'blocker' : failed > 0 ? 'high' : 'low', report },
     });
   } catch (err) {
     console.error(`[qa] publish failed: ${err.message}`);

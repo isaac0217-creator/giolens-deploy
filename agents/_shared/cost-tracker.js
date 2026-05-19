@@ -132,10 +132,22 @@ export function _resetForTests() {
 }
 
 // Alias backward-compat para Analista/QA que pasan objeto único en lugar de
-// (agentName, usage, model). Adapta el shape y delega a `track`. cost_usd y ts
-// son ignorados (track los calcula internamente desde usage).
+// (agentName, usage, model). Adapta el shape y delega a `track`.
+// Si `usage` es null pero `cost_usd` precalculado por el caller > 0, se registra
+// como llamada con costo directo (sin tokens). Cierra P0-5 (audit 18 may PM tardío:
+// QA enrichWithFixSuggestions emitía cost_usd real pero usage=null → tracker
+// registraba calls++ con usd=0; ahora preserva el cost_usd).
 export function trackCost({ agent, model, usage, cost_usd, ts } = {}) {
-  return track(agent, usage, model);
+  if (usage) return track(agent, usage, model);
+  if (!Number.isFinite(cost_usd) || cost_usd <= 0) return track(agent, null, model);
+  // Fallback: cost_usd precalculado sin usage. Registra call + usd, no tokens.
+  const day = new Date().toISOString().slice(0, 10);
+  const key = `${agent}|${day}`;
+  const cur = _daily.get(key) || { calls: 0, input_tokens: 0, output_tokens: 0, usd: 0 };
+  cur.calls += 1;
+  cur.usd += Number(cost_usd);
+  _daily.set(key, cur);
+  return { usd: cur.usd, total: cur };
 }
 
 export default { calcUSD, track, trackCost, callTracked, getDailyCost, getDailyStats, checkCap, _resetForTests };

@@ -136,7 +136,7 @@ export async function analyzeQAFailure({ qaIssue } = {}) {
 
   const response = await callClaude({
     model: MODEL,
-    system: SYSTEM_PROMPT,
+    systemPrompt: SYSTEM_PROMPT,
     tools: LLM_INVOCABLE_TOOLS,
     messages: [{ role: 'user', content: userMessage }],
     max_tokens: 2048,
@@ -230,7 +230,7 @@ export async function generateFix({ filePath, currentContent = '', diagnosis, ro
 
   const response = await callClaude({
     model: MODEL,
-    system: SYSTEM_PROMPT,
+    systemPrompt: SYSTEM_PROMPT,
     tools: LLM_INVOCABLE_TOOLS,
     messages: [{ role: 'user', content: userMessage }],
     max_tokens: 2048,
@@ -323,7 +323,7 @@ export async function createPullRequestStub({
 
   const response = await callClaude({
     model: MODEL,
-    system: SYSTEM_PROMPT,
+    systemPrompt: SYSTEM_PROMPT,
     tools: LLM_INVOCABLE_TOOLS,
     messages: [{ role: 'user', content: userMessage }],
     max_tokens: 2048,

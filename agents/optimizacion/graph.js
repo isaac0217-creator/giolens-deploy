@@ -150,7 +150,7 @@ export async function analyzeAndPropose({ pipelineIds, period = 'last_24h' } = {
 
   const response = await callClaude({
     model,
-    system:   SYSTEM_PROMPT,
+    systemPrompt: SYSTEM_PROMPT,
     tools:    LLM_INVOCABLE_TOOLS,
     messages: [{ role: 'user', content: userMessage }],
     max_tokens: 4096,

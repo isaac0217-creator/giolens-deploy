@@ -95,10 +95,9 @@ async function publishHighSeverityInsights(insights) {
   for (const insight of toPublish) {
     await publish({
       type: 'agent_message',
-      from: 'analista',
-      severity: insight.severity,
-      payload: insight,
-      ts: new Date().toISOString(),
+      from_agent: 'analista',
+      to_agent: 'orquestador',
+      payload: { severity: insight.severity, insight },
     });
   }
 
@@ -137,7 +136,7 @@ export async function runAnalista({ pipelineIds, period = 'last_24h' } = {}) {
   // Step 3: llamar a Claude
   const response = await callClaude({
     model: MODEL,
-    system: SYSTEM_PROMPT,
+    systemPrompt: SYSTEM_PROMPT,
     tools: TOOL_DEFINITIONS,
     messages: [{ role: 'user', content: userMessage }],
     max_tokens: 4096,

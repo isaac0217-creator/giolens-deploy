@@ -192,9 +192,9 @@ export async function publish_report({ report }) {
   }
   await publish({
     type: 'qa_report',
-    from: 'qa',
-    payload: report,
-    ts: new Date().toISOString(),
+    from_agent: 'qa',
+    to_agent: 'orquestador',
+    payload: { report },
   });
   return { published: true };
 }

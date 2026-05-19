@@ -43,4 +43,9 @@ export async function handler(input = {}, ctx = {}) {
   }
 }
 
-export default { toolDefinition, handler };
+// Default export es la función handler con props .toolDefinition y .handler
+// para permitir tanto `await readPipeline(input)` (función) como `readPipeline.handler(...)`
+// y `readPipeline.toolDefinition`. Cierra P0-2 / R-19 BIS (audit 18 may PM tardío).
+handler.toolDefinition = toolDefinition;
+handler.handler = handler;
+export default handler;

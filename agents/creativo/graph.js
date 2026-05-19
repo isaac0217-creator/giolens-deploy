@@ -125,7 +125,7 @@ export async function generateScriptVariants({ pipelineId, stage, insightContext
 
   const response = await callClaude({
     model: MODEL,
-    system: SYSTEM_PROMPT,
+    systemPrompt: SYSTEM_PROMPT,
     tools: TOOL_DEFINITIONS,
     messages: [{ role: 'user', content: userMessage }],
     max_tokens: 2048,
@@ -189,7 +189,7 @@ export async function generateAdAngles({ pipelineId, period = 'last_7d', perform
 
   const response = await callClaude({
     model: MODEL,
-    system: SYSTEM_PROMPT,
+    systemPrompt: SYSTEM_PROMPT,
     tools: TOOL_DEFINITIONS,
     messages: [{ role: 'user', content: userMessage }],
     max_tokens: 2048,
@@ -251,7 +251,7 @@ export async function generateReactivationTemplate({ pipelineId, stageIn, daysIn
 
   const response = await callClaude({
     model: MODEL,
-    system: SYSTEM_PROMPT,
+    systemPrompt: SYSTEM_PROMPT,
     tools: TOOL_DEFINITIONS,
     messages: [{ role: 'user', content: userMessage }],
     max_tokens: 2048,

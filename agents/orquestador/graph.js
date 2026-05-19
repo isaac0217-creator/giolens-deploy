@@ -171,7 +171,7 @@ export async function scheduleAgentRun({
 
   const response = await callClaude({
     model: MODEL,
-    system: SYSTEM_PROMPT,
+    systemPrompt: SYSTEM_PROMPT,
     tools: LLM_INVOCABLE_TOOLS,
     messages: [{ role: 'user', content: userMessage }],
     max_tokens: 1024,
@@ -310,7 +310,7 @@ export async function resolveConflict({ resourceId, resourceType, proposals } = 
 
     const response = await callClaude({
       model: MODEL,
-      system: SYSTEM_PROMPT,
+      systemPrompt: SYSTEM_PROMPT,
       tools: LLM_INVOCABLE_TOOLS,
       messages: [{ role: 'user', content: userMessage }],
       max_tokens: 1024,
@@ -501,7 +501,7 @@ export async function shareContext({ sourceAgent, insight, targetAgents } = {}) 
 
     const response = await callClaude({
       model: MODEL,
-      system: SYSTEM_PROMPT,
+      systemPrompt: SYSTEM_PROMPT,
       tools: LLM_INVOCABLE_TOOLS,
       messages: [{ role: 'user', content: userMessage }],
       max_tokens: 512,
