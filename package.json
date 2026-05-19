@@ -19,7 +19,8 @@
   },
   "dependencies": {
     "@sentry/node": "^10.53.1",
-    "@supabase/supabase-js": "^2.106.0"
+    "@supabase/supabase-js": "^2.106.0",
+    "inngest": "^3.27.0"
   },
   "devDependencies": {
     "vercel": "^37.0.0",
