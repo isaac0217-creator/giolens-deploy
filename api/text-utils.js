@@ -14,7 +14,7 @@
  * slot Vercel para api/state.js (Supabase-backed kv + timeseries).
  */
 
-import { withSentry } from '../agents/_shared/sentry.js';
+import { withSentry, captureException } from '../agents/_shared/sentry.js';
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
 const MODEL = 'claude-haiku-4-5';
@@ -189,6 +189,11 @@ async function handlePrompt(req, res) {
     if (!claudeRes.ok) {
       const errTxt = await claudeRes.text();
       console.error(`[text-utils:prompt] Claude ${claudeRes.status}: ${errTxt.slice(0, 200)}`);
+      captureException(new Error(`claude_api_${claudeRes.status}`), {
+        tags: { endpoint: 'text-utils', op: 'prompt', component: 'claude-api', status: String(claudeRes.status) },
+        extras: { errTxt: errTxt.slice(0, 200), pipeline_id, stage_name },
+        level: 'error',
+      });
       return res.status(500).json({ error: `Claude error ${claudeRes.status}` });
     }
 
@@ -204,6 +209,11 @@ async function handlePrompt(req, res) {
     }
 
     if (!resultado?.variantes?.length) {
+      captureException(new Error('claude_invalid_response'), {
+        tags: { endpoint: 'text-utils', op: 'prompt', component: 'claude-parse' },
+        extras: { raw: raw.slice(0, 300), pipeline_id, stage_name },
+        level: 'warning',
+      });
       return res.status(500).json({ error: 'Respuesta inesperada de Claude', raw: raw.slice(0, 300) });
     }
 
@@ -224,6 +234,10 @@ async function handlePrompt(req, res) {
 
   } catch (err) {
     console.error(`[text-utils:prompt] Error: ${err.message}`);
+    captureException(err, {
+      tags: { endpoint: 'text-utils', op: 'prompt', component: 'handler' },
+      extras: { pipeline_id, stage_name },
+    });
     return res.status(500).json({ error: err.message });
   }
 }

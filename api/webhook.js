@@ -38,6 +38,11 @@ async function wapFetch(path, opts = {}) {
     return res.ok ? res.json() : null;
   } catch (err) {
     console.warn(`[wapFetch] ${path} failed: ${err.message}`);
+    captureException(err, {
+      tags: { endpoint: 'webhook', component: 'wapFetch' },
+      extras: { path: path.slice(0, 200) },
+      level: 'warning',
+    });
     return null;
   }
 }
@@ -160,11 +165,20 @@ async function callClaude(systemPrompt, history, fallbackContext = null) {
     if (!res.ok) {
       const errBody = await res.text();
       console.error(`[Claude] API error ${res.status}: ${errBody.slice(0, 200)}`);
+      captureException(new Error(`claude_api_${res.status}`), {
+        tags: { endpoint: 'webhook', component: 'callClaude', status: String(res.status) },
+        extras: { errBody: errBody.slice(0, 200) },
+        level: 'warning',
+      });
       return null;
     }
     return res.json();
   } catch (err) {
     console.error(`[Claude] fetch failed: ${err.message}`);
+    captureException(err, {
+      tags: { endpoint: 'webhook', component: 'callClaude' },
+      level: 'warning',
+    });
     return null;
   }
 }
@@ -740,6 +754,10 @@ async function handleWapifyWebhook(req, res) {
 
   if (!ANTHROPIC_KEY) {
     console.error('[WEBHOOK] ANTHROPIC_API_KEY no configurada');
+    captureException(new Error('missing_anthropic_key'), {
+      tags: { endpoint: 'webhook', component: 'config', fatal: 'true' },
+      level: 'error',
+    });
     return res.status(500).json({ error: 'missing API key' });
   }
 
@@ -755,6 +773,10 @@ async function handleWapifyWebhook(req, res) {
     return res.status(200).json({ received: true, ts: Date.now(), result });
   } catch (err) {
     console.error('[WEBHOOK] Error en motor:', err.message, err.stack?.slice(0, 300));
+    captureException(err, {
+      tags: { endpoint: 'webhook', component: 'motor', pipeline_id: String(pipeline_id || 'unknown') },
+      extras: { event: String(event || 'unknown'), contact_id: String(contact_id || 'unknown') },
+    });
     return res.status(200).json({ received: true, error: err.message });
   }
 }
@@ -953,12 +975,21 @@ async function handleReactivationCron(req, res) {
 
         } catch (err) {
           report.errors.push({ contact_id: contactId, error: err.message });
+          captureException(err, {
+            tags: { endpoint: 'webhook', component: 'reactivation-lead', pipeline_id: pid },
+            extras: { contact_id: contactId, stage: stageName },
+            level: 'warning',
+          });
         }
       }
 
     } catch (err) {
       console.error(`[REACTIVATION] Error en pipeline ${pid}:`, err.message);
       report.errors.push({ pipeline: pid, error: err.message });
+      captureException(err, {
+        tags: { endpoint: 'webhook', component: 'reactivation-pipeline', pipeline_id: pid },
+        level: 'warning',
+      });
     }
   }
 

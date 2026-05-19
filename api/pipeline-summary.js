@@ -30,7 +30,7 @@
  *       classifyStage normaliza acentos y usa METODO.*PAGO para cubrir ambos.
  */
 
-import { withSentry } from '../agents/_shared/sentry.js';
+import { withSentry, captureException } from '../agents/_shared/sentry.js';
 
 const WAPIFY_TOKEN = process.env.WAPIFY_TOKEN;
 const WAPIFY_BASE  = 'https://ap.whapify.ai/api';
@@ -239,6 +239,7 @@ async function handler(req, res) {
 
   } catch (err) {
     console.error('[pipeline-summary]', err.message);
+    captureException(err, { tags: { endpoint: 'pipeline-summary', component: 'handler', mode: String(mode || 'default') } });
     return res.status(500).json({ error: err.message });
   }
 }

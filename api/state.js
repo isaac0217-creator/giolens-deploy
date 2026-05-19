@@ -23,7 +23,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { withSentry } from '../agents/_shared/sentry.js';
+import { withSentry, captureException } from '../agents/_shared/sentry.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -67,6 +67,7 @@ async function handleKvGet(req, res) {
 
   if (error) {
     console.error('[state:kv-get]', error.message);
+    captureException(error, { tags: { endpoint: 'state', op: 'kv-get' }, extras: { key } });
     return res.status(500).json({ error: error.message });
   }
   if (!data) {
@@ -109,6 +110,7 @@ async function handleKvSet(req, res) {
 
   if (error) {
     console.error('[state:kv-set]', error.message);
+    captureException(error, { tags: { endpoint: 'state', op: 'kv-set' }, extras: { key } });
     return res.status(500).json({ error: error.message });
   }
   return res.status(200).json({
@@ -154,6 +156,7 @@ async function handleTsAppend(req, res) {
 
   if (error) {
     console.error('[state:ts-append]', error.message);
+    captureException(error, { tags: { endpoint: 'state', op: 'ts-append', action: String(action || '') } });
     return res.status(500).json({ error: error.message });
   }
   return res.status(200).json({
@@ -198,6 +201,7 @@ async function handleTsRead(req, res) {
 
   if (error) {
     console.error('[state:ts-read]', error.message);
+    captureException(error, { tags: { endpoint: 'state', op: 'ts-read' }, extras: { actor_id, actor_type, action, limit } });
     return res.status(500).json({ error: error.message });
   }
   return res.status(200).json({
@@ -264,6 +268,7 @@ async function handler(req, res) {
     });
   } catch (err) {
     console.error('[state]', err);
+    captureException(err, { tags: { endpoint: 'state', op: String(req.query?.op || 'unknown'), component: 'router' } });
     return res.status(500).json({ error: err.message });
   }
 }

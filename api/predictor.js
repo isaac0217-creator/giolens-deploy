@@ -15,7 +15,7 @@
  * Observabilidad: Sentry wrap automático (errores + crash) vía withSentry.
  */
 
-import { withSentry } from '../agents/_shared/sentry.js';
+import { withSentry, captureException } from '../agents/_shared/sentry.js';
 
 const WAPIFY_TOKEN  = process.env.WAPIFY_TOKEN;
 const WAPIFY_BASE   = 'https://ap.whapify.ai/api';
@@ -244,6 +244,7 @@ async function handler(req, res) {
 
   } catch (e) {
     console.error('[predictor]', e);
+    captureException(e, { tags: { endpoint: 'predictor', component: 'handler' } });
     return res.status(500).json({ error: e.message });
   }
 }
