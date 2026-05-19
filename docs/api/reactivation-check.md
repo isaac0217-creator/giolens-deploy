@@ -3,7 +3,13 @@ title: /api/reactivation-check — Motor de Reactivación
 file_path: /docs/api/reactivation-check.md
 source: /api/reactivation-check.js
 last_updated: 2026-05-15
+status: deprecated
 ---
+
+> ⚠️ **DEPRECATED — fusionado en `/api/webhook?mode=cron`** (commit `1d6fbf1`, 18 may 2026).
+> La lógica de reactivación vive ahora en `webhook.js` bajo el modo cron, junto con el auto-refresh de `META_TOKEN`.
+> Esta documentación se preserva **solo por historial git**. Para uso operativo ver [webhook.md](./webhook.md) sección "modo cron".
+> El cron Vercel ya apunta a la nueva URL: `*/5 * * * * → /api/webhook?mode=cron`.
 
 # `/api/reactivation-check`
 

@@ -3,7 +3,13 @@ title: /api/auto-prompt — Motor #1 Auto-Prompt
 file_path: /docs/api/auto-prompt.md
 source: /api/auto-prompt.js
 last_updated: 2026-05-15
+status: deprecated
 ---
+
+> ⚠️ **DEPRECATED — fusionado en `/api/text-utils?op=prompt`** (Sprint 1, 16 may 2026).
+> El handler vive ahora en [`text-utils.js`](../../api/text-utils.js) tras el router `?op=prompt`.
+> Esta documentación se preserva **solo por historial git**. Para uso operativo ver [text-utils.md](./text-utils.md).
+> Migración del caller: cambiar `POST /api/auto-prompt` por `POST /api/text-utils?op=prompt` (body idéntico).
 
 # `/api/auto-prompt`
 

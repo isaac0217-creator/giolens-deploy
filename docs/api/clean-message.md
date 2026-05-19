@@ -3,7 +3,13 @@ title: /api/clean-message — Utility para Wapify
 file_path: /docs/api/clean-message.md
 source: /api/clean-message.js
 last_updated: 2026-05-15
+status: deprecated
 ---
+
+> ⚠️ **DEPRECATED — fusionado en `/api/text-utils?op=clean`** (Sprint 1, 16 may 2026).
+> El handler vive ahora en [`text-utils.js`](../../api/text-utils.js) tras el router `?op=clean`.
+> Esta documentación se preserva **solo por historial git**. Para uso operativo ver [text-utils.md](./text-utils.md).
+> Migración del caller (Wapify HTTP Action): cambiar URL a `POST /api/text-utils?op=clean` (body `{ text }` idéntico).
 
 # `/api/clean-message`
 
