@@ -16,6 +16,7 @@
  */
 
 import { runAnalista } from './graph.js';
+import { distillConversations } from './distill.js';
 
 export const GIOLENS_PIPELINE_IDS = [
   '216977',
@@ -46,6 +47,34 @@ export async function executeAnalistaDailyRun({ period = 'last_24h' } = {}) {
       cost_usd: result.cost_usd,
       latency_ms: result.latency_ms,
       errors: result.errors,
+    }),
+  );
+
+  return result;
+}
+
+/**
+ * Distila un lote de conversaciones en resúmenes estructurados.
+ * Capability separada del daily run (no comparte prompt ni flujo).
+ * Frente C · C.2.5 — invocado por inngest/functions/distill-conversation.js.
+ *
+ * @param {object} args
+ * @param {Array<{contact_id:string, messages:Array}>} args.conversations
+ * @param {string} [args.correlation_id]  propagado por runWithTrace
+ * @returns {Promise<{distilled:object[], cost_usd:number, latency_ms:number, model:string, error:string|null}>}
+ */
+export async function distillBatch({ conversations = [], correlation_id } = {}) {
+  const result = await distillConversations({ conversations, correlation_id });
+
+  console.log(
+    JSON.stringify({
+      agent: 'analista',
+      event: 'distill_batch_complete',
+      batch_size: Array.isArray(conversations) ? conversations.length : 0,
+      distilled: result.distilled.length,
+      cost_usd: result.cost_usd,
+      latency_ms: result.latency_ms,
+      error: result.error,
     }),
   );
 
