@@ -15,7 +15,8 @@
     "test:agents": "vitest run agents/",
     "test:evals": "node evals/run-all.js",
     "smoke:sentry": "node --env-file=.env.local scripts/sentry-smoke-e2e.mjs",
-    "smoke:agents": "node scripts/sim-agents.mjs"
+    "smoke:agents": "node scripts/sim-agents.mjs",
+    "smoke:inngest": "node scripts/smoke-inngest-e2e.mjs"
   },
   "dependencies": {
     "@sentry/node": "^10.53.1",
