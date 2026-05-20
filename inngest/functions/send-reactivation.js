@@ -79,6 +79,11 @@ export default inngest.createFunction(
     id: 'giolens-send-reactivation',
     concurrency: { key: 'event.data.contact_id', limit: 1 },
     retries: 2,
+    // C.2.7 — idempotencia cross-run: re-disparar el mismo silence_detected
+    // (mismo correlation_id) dentro de la ventana de Inngest → run dedupeado,
+    // no se re-cobra el script ni se re-envía el mensaje. Función pure-event
+    // (sin cron) → la key siempre está presente.
+    idempotency: 'event.data.correlation_id',
   },
   { event: EVENTS.LEAD_SILENCE_DETECTED },
   async ({ event, step }) => {

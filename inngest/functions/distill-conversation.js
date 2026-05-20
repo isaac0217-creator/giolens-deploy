@@ -32,6 +32,10 @@ export default inngest.createFunction(
     id: 'giolens-distill-conversation',
     concurrency: { key: 'event.data.pipeline_id', limit: 2 },
     retries: 2,
+    // C.2.7 — idempotencia cross-run: re-disparar distill_requested con el
+    // mismo correlation_id → run dedupeado, no se re-cobra Anthropic. Función
+    // pure-event (sin cron) → la key siempre está presente.
+    idempotency: 'event.data.correlation_id',
   },
   { event: EVENTS.CONVERSATION_DISTILL_REQUESTED },
   async ({ event, step }) => {
