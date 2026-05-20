@@ -8,10 +8,9 @@
 <style>
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
   :root{
-    --bg:#08080c; --panel:rgba(255,255,255,.035); --line:rgba(255,255,255,.08);
-    --txt:#ecedf2; --dim:#8a8c99; --faint:#5b5d6b;
-    --a1:#22d3ee; --a2:#a78bfa; --up:#34d399; --down:#fb7185; --amber:#fbbf24;
-    --r:20px;
+    --bg:#08080c;--panel:rgba(255,255,255,.035);--line:rgba(255,255,255,.08);
+    --txt:#ecedf2;--dim:#8a8c99;--faint:#5b5d6b;
+    --a1:#22d3ee;--a2:#a78bfa;--up:#34d399;--down:#fb7185;--amber:#fbbf24;--r:20px;
   }
   html,body{height:100%}
   body{background:var(--bg);color:var(--txt);overflow-x:hidden;
@@ -26,7 +25,7 @@
   @keyframes drift{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(6vw,4vh,0) scale(1.16)}}
 
   .wrap{max-width:1180px;margin:0 auto;padding:26px 22px 80px}
-  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:28px}
+  header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:28px}
   .brand{font-size:21px;font-weight:600;letter-spacing:.14em;
     background:linear-gradient(92deg,var(--a1),var(--a2));-webkit-background-clip:text;background-clip:text;color:transparent}
   .brand span{color:var(--faint);-webkit-text-fill-color:var(--faint);font-weight:400}
@@ -36,13 +35,13 @@
   .live{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--dim)}
   .dot{width:7px;height:7px;border-radius:50%;background:var(--up);animation:pulse 2.4s infinite}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,211,153,.55)}70%{box-shadow:0 0 0 9px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
-  button.refresh{background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:99px;
-    padding:9px 16px;font-size:12.5px;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:8px;
+  .hbtn{background:var(--panel);color:var(--txt);border:1px solid var(--line);border-radius:99px;
+    padding:9px 15px;font-size:12.5px;font-family:inherit;cursor:pointer;display:flex;align-items:center;gap:7px;
     transition:.25s;backdrop-filter:blur(8px)}
-  button.refresh:hover{border-color:var(--a1);transform:translateY(-1px);box-shadow:0 8px 24px -10px var(--a1)}
-  button.refresh:active{transform:scale(.96)}
-  .refresh svg{transition:transform .6s cubic-bezier(.4,0,.2,1)}
-  .refresh.spin svg{transform:rotate(360deg)}
+  .hbtn:hover{border-color:var(--a1);transform:translateY(-1px);box-shadow:0 8px 24px -10px var(--a1)}
+  .hbtn:active{transform:scale(.96)}
+  .hbtn svg{transition:transform .6s cubic-bezier(.4,0,.2,1)}
+  .hbtn.spin svg{transform:rotate(360deg)}
   .toggle{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:99px;
     padding:4px;backdrop-filter:blur(8px)}
   .toggle button{background:transparent;border:0;color:var(--dim);font-family:inherit;font-size:11.5px;
@@ -66,8 +65,7 @@
     margin:34px 0 14px;display:flex;align-items:center;gap:10px}
   .sec-t::after{content:"";flex:1;height:1px;background:var(--line)}
   .grid{display:grid;gap:14px}
-  .k4{grid-template-columns:repeat(4,1fr)}
-  .k3{grid-template-columns:repeat(3,1fr)}
+  .k4{grid-template-columns:repeat(4,1fr)}.k3{grid-template-columns:repeat(3,1fr)}
   @media(max-width:780px){.k4{grid-template-columns:repeat(2,1fr)}.k3{grid-template-columns:1fr}}
 
   .card{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
@@ -76,13 +74,12 @@
     opacity:0;animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards}
   .card::before{content:"";position:absolute;inset:0;border-radius:var(--r);opacity:0;transition:opacity .3s;
     background:radial-gradient(420px circle at var(--mx,50%) var(--my,0%),rgba(255,255,255,.09),transparent 42%);pointer-events:none}
-  .card:hover{border-color:rgba(255,255,255,.16)}
-  .card:hover::before{opacity:1}
+  .card:hover{border-color:rgba(255,255,255,.16)}.card:hover::before{opacity:1}
   @keyframes rise{from{opacity:0;transform:translateY(22px) rotateX(7deg)}to{opacity:1;transform:none}}
   .card .kl{font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--faint)}
   .card .kv{font-size:31px;font-weight:250;letter-spacing:-.02em;margin-top:8px}
   .card .kd{font-size:12px;margin-top:7px;display:flex;align-items:center;gap:5px;color:var(--dim)}
-  .kd .up{color:var(--up)} .kd .down{color:var(--down)}
+  .kd .up{color:var(--up)}.kd .down{color:var(--down)}
   .ico{position:absolute;top:18px;right:18px;font-size:15px;opacity:.5}
 
   .chart{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:22px;
@@ -96,7 +93,6 @@
   svg.spark path.fill{fill:url(#g2);opacity:0;animation:fade 1s 1.1s forwards}
   @keyframes fade{to{opacity:1}}
 
-  /* pipelines · embudo */
   .pipe{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;
     backdrop-filter:blur(14px);transform-style:preserve-3d;transition:transform .12s ease-out,border-color .3s;
     will-change:transform;opacity:0;animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards;position:relative;overflow:hidden}
@@ -109,8 +105,7 @@
   .funnel{display:flex;height:8px;border-radius:99px;overflow:hidden;margin:12px 0 8px;background:rgba(255,255,255,.05)}
   .funnel i{height:100%;transition:flex-grow 1s cubic-bezier(.4,0,.2,1)}
   .fl{display:flex;flex-wrap:wrap;gap:3px 12px;font-size:10.5px;color:var(--dim)}
-  .fl span{display:flex;align-items:center;gap:5px}
-  .fl b{width:7px;height:7px;border-radius:2px;display:inline-block}
+  .fl span{display:flex;align-items:center;gap:5px}.fl b{width:7px;height:7px;border-radius:2px;display:inline-block}
   .frate{display:flex;justify-content:space-between;font-size:11px;color:var(--dim);
     margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
   .frate u{color:var(--a1);font-style:normal;font-weight:600}
@@ -124,7 +119,54 @@
   .camp .cn{flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .camp .cs{font-size:13px;color:var(--a1);font-weight:500}
 
-  /* estatus del proyecto */
+  /* ── motores ─────────────────────────────────────────────────────── */
+  .motor{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+    backdrop-filter:blur(14px);margin-bottom:14px;overflow:hidden;
+    opacity:0;animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards}
+  .mh{display:flex;align-items:center;gap:14px;padding:18px 20px;flex-wrap:wrap}
+  .mh .mic{font-size:20px;width:30px;text-align:center}
+  .mh .mt{flex:1;min-width:160px}
+  .mh .mt b{font-size:14px;font-weight:600;display:block}
+  .mh .mt s{font-size:11px;color:var(--faint);text-decoration:none}
+  .mbadge{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:99px;
+    border:1px solid;white-space:nowrap}
+  .mbadge.on{color:var(--up);border-color:rgba(52,211,153,.35);background:rgba(52,211,153,.08)}
+  .mbadge.off{color:var(--amber);border-color:rgba(251,191,36,.3);background:rgba(251,191,36,.07)}
+  .msel{background:rgba(255,255,255,.04);color:var(--txt);border:1px solid var(--line);border-radius:10px;
+    padding:8px 11px;font-size:12px;font-family:inherit;cursor:pointer;max-width:170px}
+  .msel:focus{outline:none;border-color:var(--a1)}
+  .mbtn{background:linear-gradient(92deg,var(--a1),var(--a2));color:#06121a;border:0;border-radius:10px;
+    padding:9px 16px;font-size:12.5px;font-weight:600;font-family:inherit;cursor:pointer;transition:.2s;white-space:nowrap}
+  .mbtn:hover{filter:brightness(1.1);transform:translateY(-1px)}
+  .mbtn:active{transform:scale(.96)}
+  .mbtn:disabled{opacity:.5;cursor:wait;filter:grayscale(.5)}
+  .mbtn.ghost{background:rgba(255,255,255,.06);color:var(--txt);border:1px solid var(--line)}
+  .mbody{border-top:1px solid var(--line);padding:0 20px;max-height:0;overflow:hidden;
+    transition:max-height .4s cubic-bezier(.4,0,.2,1),padding .4s}
+  .motor.open .mbody{max-height:2400px;padding:18px 20px}
+  .mrow{display:flex;gap:18px;font-size:12.5px;padding:7px 0;border-bottom:1px solid var(--line)}
+  .mrow:last-child{border:0}
+  .mrow .ml{color:var(--faint);min-width:110px}
+  .mrow .mv{flex:1;color:var(--dim)}
+  .mres{font-size:12.5px;color:var(--dim)}
+  .pill{display:inline-block;font-size:10px;font-weight:600;padding:2px 9px;border-radius:99px;border:1px solid}
+  .seg{border:1px solid var(--line);border-left:3px solid;border-radius:12px;padding:11px 14px;margin-bottom:8px}
+  .seg b{font-size:12.5px;font-weight:600}
+  .seg p{font-size:12px;color:var(--dim);margin-top:4px}
+  .arow{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:12px}
+  .arow:last-child{border:0}
+  .anum{background:linear-gradient(92deg,var(--a1),var(--a2));color:#06121a;border-radius:50%;
+    width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0}
+  .mload{font-size:12px;color:var(--a1)}
+  .mload::after{content:"";animation:dots 1.4s steps(4,end) infinite}
+  @keyframes dots{0%{content:""}25%{content:"·"}50%{content:"··"}75%{content:"···"}}
+  .ctx{margin-top:14px;border:1px dashed var(--line);border-radius:12px;padding:14px}
+  .ctx textarea{width:100%;background:rgba(255,255,255,.04);color:var(--txt);border:1px solid var(--line);
+    border-radius:9px;padding:8px;font-size:12px;font-family:inherit;resize:vertical;min-height:48px;margin-top:6px}
+  .ctx label{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+  .scriptbox{background:rgba(34,211,238,.05);border:1px solid rgba(34,211,238,.18);border-radius:12px;
+    padding:14px;margin:8px 0;font-size:13px;line-height:1.55}
+
   .proj{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:24px;
     backdrop-filter:blur(14px);opacity:0;animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards}
   .phead{display:flex;align-items:center;gap:22px;flex-wrap:wrap;margin-bottom:8px}
@@ -134,12 +176,9 @@
   .ring .pc b{font-size:24px;font-weight:300}
   .ring .pc s{font-size:9px;letter-spacing:.1em;color:var(--faint);text-decoration:none;text-transform:uppercase}
   .phead .pi{flex:1;min-width:200px}
-  .phead .pi h3{font-size:16px;font-weight:600}
-  .phead .pi p{font-size:12px;color:var(--dim);margin-top:3px}
+  .phead .pi h3{font-size:16px;font-weight:600}.phead .pi p{font-size:12px;color:var(--dim);margin-top:3px}
   .legend{display:flex;gap:6px 14px;flex-wrap:wrap;font-size:10.5px;color:var(--dim);margin:14px 0 18px}
-  .legend span{display:flex;align-items:center;gap:5px}
-  .legend i{width:8px;height:8px;border-radius:2px;display:inline-block}
-
+  .legend span{display:flex;align-items:center;gap:5px}.legend i{width:8px;height:8px;border-radius:2px;display:inline-block}
   .capa{border:1px solid var(--line);border-radius:14px;margin-bottom:8px;overflow:hidden;transition:border-color .25s}
   .capa:hover{border-color:rgba(255,255,255,.15)}
   .capa>.ch{display:flex;align-items:center;gap:13px;padding:13px 15px;cursor:pointer}
@@ -159,22 +198,29 @@
   .mod .mb{width:46px;height:5px;border-radius:99px;background:rgba(255,255,255,.07);overflow:hidden}
   .mod .mb i{display:block;height:100%;border-radius:99px}
   .mod .mp{width:34px;text-align:right;font-size:11px;color:var(--faint)}
-
   .alerts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px}
   @media(max-width:780px){.alerts{grid-template-columns:1fr}}
   .alert{border:1px solid var(--line);border-radius:14px;padding:14px 16px;background:rgba(255,255,255,.02)}
-  .alert.blk{border-color:rgba(251,113,133,.3)}
-  .alert.rsk{border-color:rgba(251,191,36,.28)}
+  .alert.blk{border-color:rgba(251,113,133,.3)}.alert.rsk{border-color:rgba(251,191,36,.28)}
   .alert.hit{border-color:rgba(52,211,153,.28)}
   .alert .at{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
   .alert .ad{font-size:12.5px;color:var(--dim);line-height:1.45}
-  .alert.blk .at{color:var(--down)} .alert.rsk .at{color:var(--amber)} .alert.hit .at{color:var(--up)}
+  .alert.blk .at{color:var(--down)}.alert.rsk .at{color:var(--amber)}.alert.hit .at{color:var(--up)}
 
   .foot{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);
     font-size:11.5px;color:var(--faint);display:flex;gap:8px 20px;flex-wrap:wrap}
   .foot b{color:var(--dim);font-weight:500}
   .err{color:var(--down);font-size:12px}
   .skel{color:var(--faint)}
+
+  @media print{
+    #bg,.aurora{display:none}
+    body{background:#fff;color:#111}
+    .card,.chart,.pipe,.motor,.proj,.toggle,.ranges{background:#fff;border-color:#ddd;box-shadow:none;backdrop-filter:none}
+    .hbtn,.refresh,.mbtn,.live{display:none}
+    .motor .mbody{max-height:none!important;padding:18px 20px!important}
+    *{animation:none!important}
+  }
 </style>
 </head>
 <body>
@@ -191,7 +237,12 @@
       <button data-acc="anterior">anterior</button>
     </div>
     <div class="live"><span class="dot"></span><span id="upd">conectando…</span></div>
-    <button class="refresh" id="rf" title="Actualizar">
+    <button class="hbtn" id="export" title="Exportar / imprimir">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+        stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+      Exportar
+    </button>
+    <button class="hbtn" id="rf" title="Actualizar">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
         stroke-linecap="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
       Actualizar
@@ -205,12 +256,9 @@
   </section>
 
   <div class="ranges" id="rg">
-    <button data-r="hoy">Hoy</button>
-    <button data-r="ayer">Ayer</button>
-    <button class="on" data-r="7d">7 días</button>
-    <button data-r="30d">30 días</button>
+    <button data-r="hoy">Hoy</button><button data-r="ayer">Ayer</button>
+    <button class="on" data-r="7d">7 días</button><button data-r="30d">30 días</button>
   </div>
-
   <div class="grid k4" id="kpis"></div>
 
   <div class="sec-t">Tendencia · 30 días</div>
@@ -232,6 +280,9 @@
   <div class="sec-t">Pipelines CRM · embudo</div>
   <div class="grid k3" id="pipes"></div>
 
+  <div class="sec-t">Motores IA · Copilot Sales (Haiku)</div>
+  <div id="motores"></div>
+
   <div class="sec-t">Estatus del proyecto GIOCORE</div>
   <div class="proj" id="proj"></div>
 
@@ -239,9 +290,9 @@
 </div>
 
 <script>
-/* ════ datos del proyecto · snapshot presentación 16 may 2026 ════════ */
+/* ════ proyecto · snapshot 16 may 2026 ══════════════════════════════ */
 const PROYECTO={
-  total:33, corte:'16 may 2026',
+  total:33,corte:'16 may 2026',
   resumen:'8 capas · 60+ módulos · 5 motores operativos · 89 archivos código frío',
   capas:[
     {n:'01',t:'Fuentes de datos',p:28,m:[['Meta Ads API',100],['Wapify CRM (31k)',80],['Historial WhatsApp',40],['Inventarios ópticas',0],['POS / Punto de venta',0],['Expedientes clínicos',0],['Proveedores / catálogos',0],['Facturación / contab.',0]]},
@@ -260,19 +311,36 @@ const PROYECTO={
   ],
 };
 
+/* etapas por pipeline — validadas API Wapify 15-may-2026 */
+const STAGES={
+  '216977':['NUEVO','BOT ACTIVO','COTIZADO','CTA VISITA','PRECIO ENTREGADO','RUTA MÉDICA','RUTA COMERCIAL','INT2 · CATÁLOGO','INT2 · RE-ENTRADA','INT3 · PROMO ACTIVA','NT3 · COMPARATIVA','UBICACIÓN ENVIADA','METODO PAGO','VISITA CONFIRMADA','VENTA CONFIRMADA','CLIENTE GANADO','FUERA DE CATÁLOGO','LEAD PERDIDO','CATCH-ALL'],
+  '755062':['NUEVO','BOT ACTIVO','COTIZADO','CTA VISITA','PRECIO ENTREGADO','RUTA MÉDICA','RUTA COMERCIAL','INT2 · CATÁLOGO','INT2 · RE-ENTRADA','INT3 · PROMO ACTIVA','NT3 · COMPARATIVA','UBICACIÓN ENVIADA','METODO PAGO','VISITA CONFIRMADA','VENTA CONFIRMADA','CLIENTE GANADO','FUERA DE CATÁLOGO','LEAD PERDIDO','CATCH-ALL'],
+  '252999':['NUEVO','NECESIDAD DETECTADA','SÍNTOMA','UBICACIÓN','METODO DE PAGO','VISITA CONFIRMADA','FUERA DEL FLUJO'],
+  '94103':['NUEVO','BOT ACTIVO','COTIZADO','CTA VISITA','PRECIO ENTREGADO','RUTA MÉDICA','RUTA COMERCIAL','INT2 · CATÁLOGO','INT2 · RE-ENTRADA','INT3 · PROMO ACTIVA','NT3 · COMPARATIVA','UBICACIÓN ENVIADA','MÉTODO DE PAGO','VISITA CONFIRMADA','VENTA CONFIRMADA','CLIENTE GANADO','FUERA DE CATÁLOGO','LEAD PERDIDO','CATCH-ALL'],
+  '273944':['NUEVO','PRECIO','SÍNTOMA','UBICACIÓN','CATÁLOGO RETARGETING','PROMOCIÓN','METODO PAGO','VISITA CONFIRMADA','FUERA DE CATÁLOGO','CATCH-ALL'],
+};
+const PIPE_NAMES={'216977':'Justin · Holbrook','755062':'GioSports','252999':'SPY · Z87','94103':'Dama · Luxury','273944':'GioVision'};
+
 /* ════ helpers ══════════════════════════════════════════════════════ */
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const nf=new Intl.NumberFormat('es-MX');
 const money=n=>'$'+nf.format(Math.round(n));
 const pct=n=>(n>0?'+':'')+n.toFixed(1)+'%';
 const num=v=>{const n=parseFloat(v);return isFinite(n)?n:0;};
-async function getJSON(u){const r=await fetch(u);if(!r.ok)throw new Error(r.status);return r.json();}
+const esc=s=>String(s==null?'':s).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+async function getJSON(u){const r=await fetch(u);if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}
+async function postJSON(u,body){
+  const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});
+  if(r.status===404)throw new Error('endpoint no desplegado (404)');
+  const d=await r.json();
+  if(d&&d.ok===false)throw new Error(d.error||'error del motor');
+  return d;
+}
 function statusColor(p){return p>=100?'#34d399':p>=70?'#22d3ee':p>=30?'#fbbf24':p>0?'#fb7185':'#5b5d6b';}
-
 function countUp(el,to,fmt){
   const t0=performance.now(),dur=1000;
-  (function tick(t){let p=Math.min(1,(t-t0)/dur);p=p===1?1:1-Math.pow(2,-10*p);
-    el.textContent=fmt(to*p);if(p<1)requestAnimationFrame(tick);})(t0);
+  (function tk(t){let p=Math.min(1,(t-t0)/dur);p=p===1?1:1-Math.pow(2,-10*p);
+    el.textContent=fmt(to*p);if(p<1)requestAnimationFrame(tk);})(t0);
 }
 function tilt(el,max=9){
   el.addEventListener('mousemove',e=>{
@@ -312,34 +380,22 @@ function tilt(el,max=9){
   })();
 })();
 
-/* ════ estado ═══════════════════════════════════════════════════════ */
+/* ════ estado Meta ══════════════════════════════════════════════════ */
 let ACCOUNT='nuevo',RANGE='7d',OVERVIEW={},DAILY=[];
-
 const RANGE_LBL={hoy:'Hoy',ayer:'Ayer','7d':'últimos 7 días','30d':'últimos 30 días'};
-function convOf(actions){
-  if(!Array.isArray(actions))return 0;
-  for(const t of['onsite_conversion.total_messaging_connection',
-    'onsite_conversion.messaging_conversation_started_7d','messaging_conversation_started'])
-    {const h=actions.find(a=>a.action_type===t);if(h)return num(h.value);}
-  return 0;
-}
 function agg(rows){
   const s=rows.reduce((a,r)=>({spend:a.spend+num(r.spend),impressions:a.impressions+num(r.impressions),
     clicks:a.clicks+num(r.clicks),conv:a.conv+num(r.conv)}),{spend:0,impressions:0,clicks:0,conv:0});
-  s.cpc=s.clicks?s.spend/s.clicks:0;
-  s.cpm=s.impressions?s.spend/s.impressions*1000:0;
-  s.ctr=s.impressions?s.clicks/s.impressions*100:0;
-  return s;
+  s.cpc=s.clicks?s.spend/s.clicks:0;s.cpm=s.impressions?s.spend/s.impressions*1000:0;
+  s.ctr=s.impressions?s.clicks/s.impressions*100:0;return s;
 }
 function sliceFor(r,d){
   const n=d.length;
-  if(r==='hoy')  return{cur:d.slice(n-1),       prev:d.slice(n-2,n-1)};
-  if(r==='ayer') return{cur:d.slice(n-2,n-1),   prev:d.slice(n-3,n-2)};
-  if(r==='7d')   return{cur:d.slice(n-7),       prev:d.slice(n-14,n-7)};
+  if(r==='hoy') return{cur:d.slice(n-1),    prev:d.slice(n-2,n-1)};
+  if(r==='ayer')return{cur:d.slice(n-2,n-1),prev:d.slice(n-3,n-2)};
+  if(r==='7d')  return{cur:d.slice(n-7),    prev:d.slice(n-14,n-7)};
   return{cur:d.slice(),prev:[]};
 }
-
-/* ════ render KPIs (según rango) ════════════════════════════════════ */
 const KPI=[
   {k:'spend',l:'Inversión',i:'◈',fmt:money},
   {k:'cpc',l:'CPC',i:'⊙',fmt:v=>'$'+v.toFixed(2),inv:1},
@@ -358,34 +414,26 @@ function applyRange(){
     wrap.innerHTML='<div class="card"><div class="kl">Meta Ads</div>'
       +'<div class="kv err" style="font-size:16px">sin actividad</div></div>';
     $('#h-spend').textContent='0';
-    $('#h-sub').innerHTML='<span class="err">portafolio sin datos en el período</span>';
-    return;
+    $('#h-sub').innerHTML='<span class="err">portafolio sin datos en el período</span>';return;
   }
-  const {cur,prev}=sliceFor(RANGE,DAILY);
-  const c=agg(cur),p=agg(prev);
-  c.reach=num((OVERVIEW.curr||{}).reach);
-  p.reach=num((OVERVIEW.prev||{}).reach);
+  const {cur,prev}=sliceFor(RANGE,DAILY),c=agg(cur),p=agg(prev);
+  c.reach=num((OVERVIEW.curr||{}).reach);p.reach=num((OVERVIEW.prev||{}).reach);
   wrap.innerHTML='';
   KPI.forEach((d,i)=>{
     const v=num(c[d.k]),pv=num(p[d.k]);
     const card=document.createElement('div');card.className='card';card.style.animationDelay=(i*45)+'ms';
     let delta;
-    if(d.fixed7d) delta='<div class="kd">— ventana fija 7 días</div>';
-    else if(pv>0){
-      const ch=(v-pv)/pv*100,good=d.inv?ch<0:ch>0;
+    if(d.fixed7d)delta='<div class="kd">— ventana fija 7 días</div>';
+    else if(pv>0){const ch=(v-pv)/pv*100,good=d.inv?ch<0:ch>0;
       delta=`<div class="kd"><span class="${good?'up':'down'}">${ch>0?'▲':'▼'} ${pct(ch)}</span><span>vs. período previo</span></div>`;
     }else delta='<div class="kd">— sin comparativa</div>';
-    card.innerHTML=`<div class="ico">${d.i}</div><div class="kl">${d.l}</div>
-      <div class="kv">—</div>${delta}`;
-    wrap.appendChild(card);tilt(card);
-    countUp(card.querySelector('.kv'),v,d.fmt);
+    card.innerHTML=`<div class="ico">${d.i}</div><div class="kl">${d.l}</div><div class="kv">—</div>${delta}`;
+    wrap.appendChild(card);tilt(card);countUp(card.querySelector('.kv'),v,d.fmt);
   });
   countUp($('#h-spend'),num(c.spend),n=>nf.format(Math.round(n)));
   $('#h-sub').textContent=`${nf.format(Math.round(c.impressions))} impresiones · `
     +`${nf.format(Math.round(c.clicks))} clicks · ${Math.round(c.conv)} conversaciones`;
 }
-
-/* ════ trend chart ══════════════════════════════════════════════════ */
 function renderTrend(rows){
   const svg=$('#spark');[...svg.querySelectorAll('path')].forEach(p=>p.remove());
   if(!rows||!rows.length){$('#trend-meta').textContent='sin datos en el período';return;}
@@ -393,21 +441,16 @@ function renderTrend(rows){
   const max=Math.max(...vals,1),min=Math.min(...vals);
   const X=i=>i/(rows.length-1)*W,Y=v=>H-8-((v-min)/(max-min||1))*(H-22);
   let line=`M${X(0)},${Y(vals[0])}`;
-  for(let i=1;i<rows.length;i++){
-    const xm=(X(i-1)+X(i))/2;
-    line+=` C${xm},${Y(vals[i-1])} ${xm},${Y(vals[i])} ${X(i)},${Y(vals[i])}`;
-  }
+  for(let i=1;i<rows.length;i++){const xm=(X(i-1)+X(i))/2;
+    line+=` C${xm},${Y(vals[i-1])} ${xm},${Y(vals[i])} ${X(i)},${Y(vals[i])}`;}
   const NS='http://www.w3.org/2000/svg';
   const fill=document.createElementNS(NS,'path');
   fill.setAttribute('class','fill');fill.setAttribute('d',line+` L${W},${H} L0,${H} Z`);
-  const ln=document.createElementNS(NS,'path');
-  ln.setAttribute('class','line');ln.setAttribute('d',line);
+  const ln=document.createElementNS(NS,'path');ln.setAttribute('class','line');ln.setAttribute('d',line);
   svg.appendChild(fill);svg.appendChild(ln);
   const total=vals.reduce((a,b)=>a+b,0);
   $('#trend-meta').textContent=`${rows.length} días · total ${money(total)} · promedio ${money(total/rows.length)}/día`;
 }
-
-/* ════ campañas ═════════════════════════════════════════════════════ */
 function renderCamps(d){
   const wrap=$('#camps');wrap.innerHTML='';
   const list=(d&&d.data||[]).slice().sort((a,b)=>num(b.spend)-num(a.spend)).slice(0,6);
@@ -415,13 +458,11 @@ function renderCamps(d){
   list.forEach((c,i)=>{
     const el=document.createElement('div');el.className='camp';el.style.animationDelay=(i*55)+'ms';
     el.innerHTML=`<span class="rank">${i+1}</span>
-      <span class="cn">${c.campaign_name||c.campaign_id}</span>
+      <span class="cn">${esc(c.campaign_name||c.campaign_id)}</span>
       <span class="cs">${money(num(c.spend))}</span>`;
     wrap.appendChild(el);
   });
 }
-
-/* ════ pipelines · embudo (mode=journey) ════════════════════════════ */
 const PHASE=[
   {k:'int1',l:'Int 1',c:'#22d3ee'},{k:'int2',l:'Int 2',c:'#38bdf8'},
   {k:'int3',l:'Int 3',c:'#a78bfa'},{k:'closing',l:'Cierre',c:'#fbbf24'},
@@ -443,7 +484,7 @@ function renderPipe(p,d,i){
       <div><div class="pn">${p.name}</div><div class="pid">pipeline ${p.id}</div></div>
       ${p.lock?'<span class="lock">no-INT</span>':''}
     </div>
-    <div class="pt" data-v="${total}">0</div><div class="pid">contactos totales</div>
+    <div class="pt">0</div><div class="pid">contactos totales</div>
     <div class="funnel">${sum>1?segs:''}</div>
     <div class="fl">${legend}</div>
     <div class="frate">
@@ -455,26 +496,270 @@ function renderPipe(p,d,i){
   countUp(el.querySelector('.pt'),total,n=>nf.format(Math.round(n)));
 }
 
+/* ════ contexto IA (localStorage) ═══════════════════════════════════ */
+const AI_KEY='giolens_ai_context_v1';
+function getCtx(){try{return JSON.parse(localStorage.getItem(AI_KEY)||'null');}catch(e){return null;}}
+function ctxStr(c){
+  if(!c)return'';
+  const P=[];
+  if(c.metodologia&&c.metodologia.trim())P.push('METODOLOGÍA DE VENTA:\n'+c.metodologia.trim());
+  if(c.secuencias&&c.secuencias.trim())P.push('SECUENCIAS:\n'+c.secuencias.trim());
+  if(c.plantillas&&c.plantillas.trim())P.push('PLANTILLAS:\n'+c.plantillas.trim());
+  if(c.precios&&c.precios.trim())P.push('CATÁLOGO Y PRECIOS:\n'+c.precios.trim());
+  return P.length?'\n\nCONTEXTO DE NEGOCIO GioLens:\n'+P.join('\n\n'):'';
+}
+function saveCtx(){
+  const c={metodologia:$('#ctx-metodologia').value,secuencias:$('#ctx-secuencias').value,
+    plantillas:$('#ctx-plantillas').value,precios:$('#ctx-precios').value};
+  localStorage.setItem(AI_KEY,JSON.stringify(c));
+  $('#ctx-msg').textContent='✓ contexto guardado — Haiku lo usará';
+  setTimeout(()=>$('#ctx-msg').textContent='',3500);
+}
+function loadCtxForm(){
+  const c=getCtx();if(!c)return;
+  ['metodologia','secuencias','plantillas','precios'].forEach(k=>{if($('#ctx-'+k)&&c[k])$('#ctx-'+k).value=c[k];});
+}
+
+/* ════ motores ══════════════════════════════════════════════════════ */
+function motorOpen(id){$('#m-'+id).classList.toggle('open');}
+function busyBtn(b,on,txt){b.disabled=on;b.textContent=on?'⏳ '+txt:b.dataset.idle;}
+
+function buildMotores(){
+  const opts=Object.keys(PIPE_NAMES).map(id=>`<option value="${id}">${PIPE_NAMES[id]}</option>`).join('');
+  $('#motores').innerHTML=`
+  <!-- Copiloto -->
+  <div class="motor" id="m-copiloto" style="animation-delay:0ms">
+    <div class="mh">
+      <span class="mic">🎯</span>
+      <span class="mt"><b>Motor #5 · Copiloto Sales</b><s>Script de venta por etapa · Haiku</s></span>
+      <span class="mbadge on">🟢 activo</span>
+      <select class="msel" id="cp-pipe">${opts}</select>
+      <select class="msel" id="cp-stage"></select>
+      <button class="mbtn" id="cp-btn" data-idle="⚡ Obtener script">⚡ Obtener script</button>
+      <button class="mbtn ghost" onclick="motorOpen('copiloto')">contexto IA</button>
+    </div>
+    <div class="mbody">
+      <div id="cp-res" class="mres"><span class="skel">elige pipeline y etapa, luego "Obtener script".</span></div>
+      <div class="ctx">
+        <div style="font-size:11px;color:var(--faint);margin-bottom:4px">Contexto de negocio — se guarda en este navegador y Haiku lo usa en cada motor</div>
+        <label>Metodología de venta</label><textarea id="ctx-metodologia"></textarea>
+        <label>Secuencias de interacción</label><textarea id="ctx-secuencias"></textarea>
+        <label>Plantillas y mensajes</label><textarea id="ctx-plantillas"></textarea>
+        <label>Catálogo y precios</label><textarea id="ctx-precios"></textarea>
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+          <button class="mbtn" onclick="saveCtx()" data-idle="">Guardar contexto</button>
+          <span id="ctx-msg" style="font-size:11px;color:var(--up)"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Predictor -->
+  <div class="motor" id="m-predictor" style="animation-delay:60ms">
+    <div class="mh">
+      <span class="mic">🔮</span>
+      <span class="mt"><b>Motor #2 · Predictor de Quiebres</b><s>Detecta alzas de costo y embotellamientos</s></span>
+      <span class="mbadge on">🟢 activo</span>
+      <button class="mbtn" id="pred-btn" data-idle="🔍 Analizar">🔍 Analizar</button>
+    </div>
+    <div class="mbody"><div id="pred-res" class="mres"><span class="skel">corre el predictor para ver riesgo, CPC y leads estancados.</span></div></div>
+  </div>
+  <!-- Microseg -->
+  <div class="motor" id="m-microseg" style="animation-delay:120ms">
+    <div class="mh">
+      <span class="mic">🧮</span>
+      <span class="mt"><b>Motor #3 · Micro-Segmentación</b><s>Clasifica leads en 4 segmentos + tácticas</s></span>
+      <span class="mbadge on">🟢 activo</span>
+      <button class="mbtn" id="ms-btn" data-idle="🎯 Segmentar">🎯 Segmentar</button>
+    </div>
+    <div class="mbody"><div id="ms-res" class="mres"><span class="skel">corre la segmentación para ver caliente / activo / tibio / frío.</span></div></div>
+  </div>
+  <!-- Arbitraje -->
+  <div class="motor" id="m-arbitraje" style="animation-delay:180ms">
+    <div class="mh">
+      <span class="mic">⚖️</span>
+      <span class="mt"><b>Motor #4 · Arbitraje de Canal</b><s>ROI por campaña + recomendaciones de presupuesto</s></span>
+      <span class="mbadge on">🟢 activo</span>
+      <button class="mbtn" id="arb-btn" data-idle="📊 Analizar ROI">📊 Analizar ROI</button>
+    </div>
+    <div class="mbody"><div id="arb-res" class="mres"><span class="skel">corre el arbitraje para ver campañas rankeadas por eficiencia.</span></div></div>
+  </div>
+  <!-- Auto-Prompt -->
+  <div class="motor" id="m-autoprompt" style="animation-delay:240ms">
+    <div class="mh">
+      <span class="mic">✍️</span>
+      <span class="mt"><b>Motor #1 · Auto-Prompt A/B</b><s>Variantes A/B de mensajes por etapa</s></span>
+      <span class="mbadge off">⚪ en desarrollo</span>
+      <select class="msel" id="ap-pipe">${opts}</select>
+      <select class="msel" id="ap-stage"></select>
+      <button class="mbtn" id="ap-btn" data-idle="⚡ Generar variantes">⚡ Generar variantes</button>
+    </div>
+    <div class="mbody"><div id="ap-res" class="mres"><span class="skel">el endpoint /api/auto-prompt aún no está desplegado (diferido a Frente D).</span></div></div>
+  </div>`;
+
+  /* selects de etapa */
+  const fillStages=(pipeSel,stageSel)=>{
+    const upd=()=>{const st=STAGES[pipeSel.value]||['NUEVO'];
+      stageSel.innerHTML=st.map(e=>`<option value="${esc(e)}">${esc(e)}</option>`).join('');};
+    pipeSel.addEventListener('change',upd);upd();
+  };
+  fillStages($('#cp-pipe'),$('#cp-stage'));
+  fillStages($('#ap-pipe'),$('#ap-stage'));
+  loadCtxForm();
+
+  /* wiring de botones */
+  $('#cp-btn').addEventListener('click',runCopiloto);
+  $('#pred-btn').addEventListener('click',runPredictor);
+  $('#ms-btn').addEventListener('click',runMicroseg);
+  $('#arb-btn').addEventListener('click',runArbitraje);
+  $('#ap-btn').addEventListener('click',runAutoPrompt);
+}
+
+async function runCopiloto(){
+  const b=$('#cp-btn'),res=$('#cp-res'),m=$('#m-copiloto');
+  m.classList.add('open');busyBtn(b,1,'Consultando');
+  res.innerHTML='<span class="mload">consultando Copiloto</span>';
+  try{
+    const d=await postJSON('/api/copiloto',{pipeline_id:$('#cp-pipe').value,
+      stage_name:$('#cp-stage').value,context_str:ctxStr(getCtx())});
+    const urgC={alta:'var(--down)',media:'var(--amber)',baja:'var(--up)'}[d.urgencia]||'var(--dim)';
+    res.innerHTML=`
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+        <span class="pill" style="color:${urgC};border-color:${urgC}">urgencia ${esc(d.urgencia||'—')}</span>
+        <span class="pill" style="color:var(--a1);border-color:var(--line)">→ ${esc(d.siguiente_etapa||'—')}</span>
+      </div>
+      <div style="font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.1em;margin-top:8px">Script principal</div>
+      <div class="scriptbox" id="cp-script">${esc(d.script||'—')}</div>
+      <button class="mbtn ghost" data-idle="" onclick="navigator.clipboard.writeText(document.getElementById('cp-script').textContent);this.textContent='✓ copiado';setTimeout(()=>this.textContent='📋 copiar script',1800)">📋 copiar script</button>
+      <div style="font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.1em;margin:12px 0 4px">Alternativa</div>
+      <div class="mres">${esc(d.alternativa||'—')}</div>
+      <div style="font-size:11px;color:var(--faint);margin-top:8px">💡 ${esc(d.razon||'')}</div>`;
+  }catch(e){res.innerHTML=`<div class="err">⚠ ${esc(e.message)}</div>`;}
+  finally{busyBtn(b,0);}
+}
+
+async function runPredictor(){
+  const b=$('#pred-btn'),res=$('#pred-res'),m=$('#m-predictor');
+  m.classList.add('open');busyBtn(b,1,'Analizando');
+  res.innerHTML='<span class="mload">analizando quiebres</span>';
+  try{
+    const d=await postJSON('/api/predictor');
+    const niv=d.nivel_riesgo||'medio';
+    const col={alto:'var(--down)',medio:'var(--amber)',bajo:'var(--up)'}[niv]||'var(--amber)';
+    const cpc=d.datos&&d.datos.cpc||{};
+    const pipes=(d.datos&&d.datos.pipelines||[]).filter(p=>num(p.stagnant_total)>0)
+      .sort((a,b)=>num(b.stagnant_total)-num(a.stagnant_total));
+    const mx=Math.max(...pipes.map(p=>num(p.stagnant_total)),1);
+    const bars=pipes.map(p=>`
+      <div style="display:flex;align-items:center;gap:10px;font-size:11.5px;margin:5px 0">
+        <span style="width:130px;color:var(--dim)">${esc(p.name)}</span>
+        <span style="flex:1;height:14px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden">
+          <i style="display:block;height:100%;width:${num(p.stagnant_total)/mx*100}%;background:${col};border-radius:4px"></i></span>
+        <span style="width:60px;text-align:right;color:${col};font-weight:600">${nf.format(num(p.stagnant_total))}</span>
+      </div>`).join('');
+    const acc=(d.acciones||[]).map(a=>`<div class="arow"><span class="anum">${esc(a.prioridad)}</span>
+      <div><b>${esc(a.accion)}</b><div style="color:var(--faint);font-size:11px">${esc(a.pipeline||'')}</div></div></div>`).join('');
+    res.innerHTML=`
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span class="pill" style="color:${col};border-color:${col};font-size:11px">riesgo ${esc(niv)}</span>
+        <span style="font-size:12px;color:var(--dim)">${esc(d.diagnostico||'')}</span>
+      </div>
+      <div style="display:flex;gap:18px;font-size:12px;color:var(--dim);margin-bottom:12px">
+        <span>CPC actual <b style="color:var(--txt)">$${num(cpc.curr).toFixed(2)}</b></span>
+        <span>CPC previo <b style="color:var(--txt)">$${num(cpc.prev).toFixed(2)}</b></span>
+        <span>variación <b style="color:${num(cpc.changePct)>15?'var(--down)':'var(--up)'}">${num(cpc.changePct)>0?'+':''}${num(cpc.changePct)}%</b></span>
+        <span>estancados <b style="color:var(--txt)">${nf.format(num(d.datos&&d.datos.total_stagnant))}</b></span>
+      </div>
+      <div style="font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Leads estancados >48h por pipeline</div>
+      ${bars||'<div class="mres">sin estancamiento detectado</div>'}
+      ${acc?`<div style="font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.1em;margin:12px 0 2px">Acciones recomendadas</div>${acc}`:''}`;
+  }catch(e){res.innerHTML=`<div class="err">⚠ ${esc(e.message)}</div>`;}
+  finally{busyBtn(b,0);}
+}
+
+async function runMicroseg(){
+  const b=$('#ms-btn'),res=$('#ms-res'),m=$('#m-microseg');
+  m.classList.add('open');busyBtn(b,1,'Segmentando');
+  res.innerHTML='<span class="mload">segmentando leads</span>';
+  try{
+    const d=await postJSON('/api/microseg');
+    const SEG=[{k:'caliente',l:'🔥 Caliente',c:'#fb7185'},{k:'activo',l:'⚡ Activo',c:'#fbbf24'},
+      {k:'tibio',l:'🌡️ Tibio',c:'#a78bfa'},{k:'frio',l:'❄️ Frío',c:'#5b8db8'}];
+    const tot=d.totales||{},tac=d.tacticas||{};
+    const cards=SEG.map(s=>{
+      const t=tac[s.k]||{};
+      return`<div class="seg" style="border-left-color:${s.c}">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <b style="color:${s.c}">${s.l} · ${nf.format(num(tot[s.k]))} leads</b>
+          ${t.urgencia?`<span class="pill" style="color:var(--dim);border-color:var(--line)">urg. ${esc(t.urgencia)}</span>`:''}
+        </div>
+        <p>${esc(t.tactica||'—')}</p>
+        <div style="font-size:11px;color:var(--faint);margin-top:3px">follow-up: ${esc(t.frecuencia||'—')}</div>
+      </div>`;}).join('');
+    res.innerHTML=`${d.insight?`<div style="font-size:12px;color:var(--dim);border-left:2px solid var(--a2);padding-left:10px;margin-bottom:12px">💡 ${esc(d.insight)}</div>`:''}${cards}`;
+  }catch(e){res.innerHTML=`<div class="err">⚠ ${esc(e.message)}</div>`;}
+  finally{busyBtn(b,0);}
+}
+
+async function runArbitraje(){
+  const b=$('#arb-btn'),res=$('#arb-res'),m=$('#m-arbitraje');
+  m.classList.add('open');busyBtn(b,1,'Analizando');
+  res.innerHTML='<span class="mload">analizando ROI por campaña</span>';
+  try{
+    const d=await postJSON('/api/arbitraje');
+    const dc={escalar:'var(--up)',mantener:'var(--amber)',reducir:'var(--down)',pausar:'var(--faint)'};
+    const camps=(d.campanas||[]).map(c=>{
+      const col=dc[c.decision]||'var(--dim)';
+      return`<div class="seg" style="border-left-color:${col}">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <b>${esc(c.name)}</b>
+          <span class="pill" style="color:${col};border-color:${col}">${esc((c.decision||'').toUpperCase())} · ${esc(c.score)}/100</span>
+        </div>
+        <div style="font-size:11px;color:var(--faint);margin-top:5px">$${num(c.spend).toFixed(0)} MXN · CPC $${num(c.cpc).toFixed(2)} · CTR ${num(c.ctr).toFixed(2)}% · ${nf.format(num(c.clicks))} clicks</div>
+      </div>`;}).join('');
+    const recs=(d.recomendaciones||[]).map(r=>`<div class="arow"><span class="anum">${esc(r.prioridad)}</span>
+      <div><b>${esc(r.campana)} — ${esc((r.accion||'').toUpperCase())}</b>
+      <div style="color:var(--dim);font-size:11.5px">${esc(r.detalle||'')}</div>
+      <div style="color:var(--faint);font-size:11px">impacto: ${esc(r.impacto||'')}</div></div></div>`).join('');
+    res.innerHTML=`${d.resumen?`<div style="font-size:12px;color:var(--dim);border-left:2px solid var(--up);padding-left:10px;margin-bottom:12px">📊 ${esc(d.resumen)}</div>`:''}
+      ${camps}
+      ${recs?`<div style="font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.1em;margin:12px 0 2px">Recomendaciones de presupuesto</div>${recs}`:''}
+      <div style="font-size:11px;color:var(--faint);margin-top:8px">gasto semana: $${num(d.total_spend).toFixed(0)} MXN</div>`;
+  }catch(e){res.innerHTML=`<div class="err">⚠ ${esc(e.message)}</div>`;}
+  finally{busyBtn(b,0);}
+}
+
+async function runAutoPrompt(){
+  const b=$('#ap-btn'),res=$('#ap-res'),m=$('#m-autoprompt');
+  m.classList.add('open');busyBtn(b,1,'Generando');
+  res.innerHTML='<span class="mload">generando variantes</span>';
+  try{
+    const d=await postJSON('/api/auto-prompt',{pipeline_id:$('#ap-pipe').value,
+      stage_name:$('#ap-stage').value,context_str:ctxStr(getCtx())});
+    const cols=['#22d3ee','#a78bfa','#34d399'];
+    res.innerHTML=(d.variantes||[]).map((v,i)=>`<div class="seg" style="border-left-color:${cols[i%3]}">
+      <b style="color:${cols[i%3]}">Variante ${String.fromCharCode(65+i)} — ${esc(v.angulo||'')}</b>
+      <p>${esc(v.mensaje||'—')}</p>
+      <div style="font-size:11px;color:var(--faint);margin-top:3px">cuándo usar: ${esc(v.cuando_usar||'—')}</div>
+    </div>`).join('')||'<div class="mres">sin variantes</div>';
+  }catch(e){
+    res.innerHTML=`<div style="font-size:12px;color:var(--amber)">⚪ Motor en desarrollo — ${esc(e.message)}.
+      <br>El motor #1 Auto-Prompt está diferido a Frente D; su backend aún no está desplegado.</div>`;
+  }finally{busyBtn(b,0);}
+}
+
 /* ════ estatus del proyecto ═════════════════════════════════════════ */
 function renderProject(){
-  const P=PROYECTO,el=$('#proj');
-  const C=2*Math.PI*40,off=C*(1-P.total/100);
-  let capas=P.capas.map(ca=>{
+  const P=PROYECTO,el=$('#proj'),C=2*Math.PI*40,off=C*(1-P.total/100);
+  const capas=P.capas.map(ca=>{
     const col=statusColor(ca.p);
-    const mods=ca.m.map(([mn,mp])=>`<div class="mod">
-      <span class="md">${mn}</span>
+    const mods=ca.m.map(([mn,mp])=>`<div class="mod"><span class="md">${esc(mn)}</span>
       <span class="mb"><i style="width:${mp}%;background:${statusColor(mp)}"></i></span>
       <span class="mp">${mp}%</span></div>`).join('');
-    return `<div class="capa">
-      <div class="ch">
-        <span class="cnum">CAPA ${ca.n}</span>
-        <span class="ctt">${ca.t}</span>
-        <span class="cbar"><i data-w="${ca.p}" style="background:${col}"></i></span>
-        <span class="cpct" style="color:${col}">${ca.p}%</span>
-        <span class="cax">▸</span>
-      </div>
-      <div class="mods"><div class="mgrid">${mods}</div></div>
-    </div>`;
+    return`<div class="capa"><div class="ch">
+      <span class="cnum">CAPA ${ca.n}</span><span class="ctt">${esc(ca.t)}</span>
+      <span class="cbar"><i data-w="${ca.p}" style="background:${col}"></i></span>
+      <span class="cpct" style="color:${col}">${ca.p}%</span><span class="cax">▸</span>
+    </div><div class="mods"><div class="mgrid">${mods}</div></div></div>`;
   }).join('');
   el.innerHTML=`
     <div class="phead">
@@ -484,10 +769,8 @@ function renderProject(){
             stroke-dasharray="${C}" stroke-dashoffset="${C}" id="ringp"/></svg>
         <div class="pc"><b id="ringn">0%</b><s>avance</s></div>
       </div>
-      <div class="pi">
-        <h3>GIOLENS · GIOCORE</h3>
-        <p>${P.resumen}<br>Snapshot del proyecto · corte ${P.corte}</p>
-      </div>
+      <div class="pi"><h3>GIOLENS · GIOCORE</h3>
+        <p>${esc(P.resumen)}<br>Snapshot del proyecto · corte ${esc(P.corte)}</p></div>
     </div>
     <div class="legend">
       <span><i style="background:#34d399"></i>Operativo 100%</span>
@@ -495,11 +778,9 @@ function renderProject(){
       <span><i style="background:#fbbf24"></i>En proceso 30-69%</span>
       <span><i style="background:#fb7185"></i>Bloqueado &lt;30%</span>
       <span><i style="background:#5b5d6b"></i>Por iniciar 0%</span>
-    </div>
-    ${capas}
+    </div>${capas}
     <div class="alerts">${P.alerts.map(a=>`<div class="alert ${a.c}">
-      <div class="at">${a.t}</div><div class="ad">${a.d}</div></div>`).join('')}</div>`;
-  /* anima el anillo + barras */
+      <div class="at">${esc(a.t)}</div><div class="ad">${esc(a.d)}</div></div>`).join('')}</div>`;
   requestAnimationFrame(()=>{
     const rp=$('#ringp');if(rp){rp.style.transition='stroke-dashoffset 1.6s cubic-bezier(.4,0,.2,1)';rp.style.strokeDashoffset=off;}
     countUp($('#ringn'),P.total,n=>Math.round(n)+'%');
@@ -525,9 +806,7 @@ async function load(){
       getJSON(base+'&level=campaign').catch(()=>({data:[]})),
     ]);
     OVERVIEW=ov||{};DAILY=(daily&&daily.data)||[];
-    applyRange();
-    renderTrend(DAILY);
-    renderCamps(camp);
+    applyRange();renderTrend(DAILY);renderCamps(camp);
   }catch(e){$('#h-sub').innerHTML='<span class="err">error cargando Meta Ads</span>';}
   $('#pipes').innerHTML='';
   await Promise.all(PIPES.map((p,i)=>
@@ -548,6 +827,7 @@ async function load(){
 
 /* ════ eventos ══════════════════════════════════════════════════════ */
 $('#rf').addEventListener('click',load);
+$('#export').addEventListener('click',()=>window.print());
 $('#tg').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
   $$('#tg button').forEach(x=>x.classList.toggle('on',x===b));
@@ -557,6 +837,7 @@ $('#rg').addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
   RANGE=b.dataset.r;applyRange();
 });
+buildMotores();
 renderProject();
 load();
 setInterval(load,5*60*1000);
