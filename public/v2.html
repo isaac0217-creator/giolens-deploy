@@ -119,6 +119,23 @@
   .camp .cn{flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .camp .cs{font-size:13px;color:var(--a1);font-weight:500}
 
+  /* ── portafolios + comparativo ───────────────────────────────────── */
+  .port{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px;
+    backdrop-filter:blur(14px);opacity:0;animation:rise .7s cubic-bezier(.2,.7,.2,1) forwards}
+  .port .pn{font-size:13px;font-weight:600;margin-bottom:14px}
+  .pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:780px){.pgrid{grid-template-columns:repeat(2,1fr)}}
+  .pm{display:flex;flex-direction:column;gap:3px}
+  .pm span{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+  .pm b{font-size:18px;font-weight:300}
+  table.cmp{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.cmp th{text-align:left;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--faint);font-weight:500;padding:6px 8px;border-bottom:1px solid var(--line)}
+  table.cmp td{padding:9px 8px;border-bottom:1px solid var(--line)}
+  table.cmp tr:last-child td{border:0}
+  table.cmp .dim{color:var(--faint)}
+  table.cmp .up{color:var(--up)}table.cmp .down{color:var(--down)}
+
   /* ── motores ─────────────────────────────────────────────────────── */
   .motor{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
     backdrop-filter:blur(14px);margin-bottom:14px;overflow:hidden;
@@ -274,6 +291,13 @@
     </svg>
   </div>
 
+  <div class="sec-t">Meta Ads · Portafolios</div>
+  <div class="grid" style="grid-template-columns:repeat(2,1fr)" id="portafolios">
+    <div class="port"><span class="skel">cargando portafolios…</span></div></div>
+
+  <div class="sec-t">Comparativo · semana actual vs. anterior</div>
+  <div class="chart" id="comparativo"><span class="skel">cargando comparativo…</span></div>
+
   <div class="sec-t">Campañas top</div>
   <div id="camps"><div class="camp skel"><span class="cn">cargando campañas…</span></div></div>
 
@@ -381,20 +405,45 @@ function tilt(el,max=9){
 })();
 
 /* ════ estado Meta ══════════════════════════════════════════════════ */
-let ACCOUNT='nuevo',RANGE='7d',OVERVIEW={},DAILY=[];
-const RANGE_LBL={hoy:'Hoy',ayer:'Ayer','7d':'últimos 7 días','30d':'últimos 30 días'};
+let ACCOUNT='nuevo',RANGE='7d',OVERVIEW={},OV_NUEVO={},OV_ANT={},DAILY=[];
+const RANGE_LBL={hoy:'Hoy',ayer:'Ayer','7d':'7 días',30:'30 días','30d':'30 días'};
+function convOf(actions){
+  if(!Array.isArray(actions))return 0;
+  for(const t of['onsite_conversion.total_messaging_connection',
+    'onsite_conversion.messaging_conversation_started_7d','messaging_conversation_started'])
+    {const h=actions.find(a=>a.action_type===t);if(h)return num(h.value);}
+  return 0;
+}
 function agg(rows){
   const s=rows.reduce((a,r)=>({spend:a.spend+num(r.spend),impressions:a.impressions+num(r.impressions),
     clicks:a.clicks+num(r.clicks),conv:a.conv+num(r.conv)}),{spend:0,impressions:0,clicks:0,conv:0});
   s.cpc=s.clicks?s.spend/s.clicks:0;s.cpm=s.impressions?s.spend/s.impressions*1000:0;
   s.ctr=s.impressions?s.clicks/s.impressions*100:0;return s;
 }
-function sliceFor(r,d){
-  const n=d.length;
-  if(r==='hoy') return{cur:d.slice(n-1),    prev:d.slice(n-2,n-1)};
-  if(r==='ayer')return{cur:d.slice(n-2,n-1),prev:d.slice(n-3,n-2)};
-  if(r==='7d')  return{cur:d.slice(n-7),    prev:d.slice(n-14,n-7)};
-  return{cur:d.slice(),prev:[]};
+/* normaliza el overview de Meta a la misma forma que agg() */
+function ovAgg(o){
+  if(!o)return null;
+  const s={spend:num(o.spend),impressions:num(o.impressions),clicks:num(o.clicks),
+    conv:convOf(o.actions),reach:num(o.reach)};
+  s.cpc=num(o.cpc)||(s.clicks?s.spend/s.clicks:0);
+  s.cpm=num(o.cpm)||(s.impressions?s.spend/s.impressions*1000:0);
+  s.ctr=num(o.ctr)||(s.impressions?s.clicks/s.impressions*100:0);
+  return s;
+}
+/* FIX sincronización: corta por FECHA, no por índice. El 7d usa el overview
+   (ventana canónica de Meta, coherente, con reach y comparativa reales). */
+function rangeFor(r){
+  const fd=s=>s?String(s).slice(5).replace('-','/'):'';
+  if(r==='7d'){
+    if(!OVERVIEW.curr)return null;
+    return{cur:ovAgg(OVERVIEW.curr),prev:ovAgg(OVERVIEW.prev),span:'ventana 7d de Meta'};
+  }
+  const d=DAILY;if(!d.length)return null;
+  if(r==='hoy'){const i=d.length-1;
+    return{cur:agg([d[i]]),prev:i>0?agg([d[i-1]]):null,span:fd(d[i].date)};}
+  if(r==='ayer'){const i=d.length-2;
+    return i<0?null:{cur:agg([d[i]]),prev:i>0?agg([d[i-1]]):null,span:fd(d[i].date)};}
+  return{cur:agg(d),prev:null,span:`${fd(d[0].date)}–${fd(d[d.length-1].date)} · ${d.length} días`};
 }
 const KPI=[
   {k:'spend',l:'Inversión',i:'◈',fmt:money},
@@ -408,15 +457,16 @@ const KPI=[
 ];
 function applyRange(){
   $$('#rg button').forEach(b=>b.classList.toggle('on',b.dataset.r===RANGE));
-  $('#h-lbl').textContent='Inversión publicitaria · '+RANGE_LBL[RANGE];
-  const wrap=$('#kpis');
-  if(!DAILY.length){
+  const wrap=$('#kpis'),rd=rangeFor(RANGE);
+  if(!rd){
+    $('#h-lbl').textContent='Inversión publicitaria · '+RANGE_LBL[RANGE];
     wrap.innerHTML='<div class="card"><div class="kl">Meta Ads</div>'
       +'<div class="kv err" style="font-size:16px">sin actividad</div></div>';
     $('#h-spend').textContent='0';
     $('#h-sub').innerHTML='<span class="err">portafolio sin datos en el período</span>';return;
   }
-  const {cur,prev}=sliceFor(RANGE,DAILY),c=agg(cur),p=agg(prev);
+  $('#h-lbl').textContent='Inversión publicitaria · '+RANGE_LBL[RANGE]+' · '+rd.span;
+  const c=rd.cur,p=rd.prev||{};
   c.reach=num((OVERVIEW.curr||{}).reach);p.reach=num((OVERVIEW.prev||{}).reach);
   wrap.innerHTML='';
   KPI.forEach((d,i)=>{
@@ -424,7 +474,7 @@ function applyRange(){
     const card=document.createElement('div');card.className='card';card.style.animationDelay=(i*45)+'ms';
     let delta;
     if(d.fixed7d)delta='<div class="kd">— ventana fija 7 días</div>';
-    else if(pv>0){const ch=(v-pv)/pv*100,good=d.inv?ch<0:ch>0;
+    else if(rd.prev&&pv>0){const ch=(v-pv)/pv*100,good=d.inv?ch<0:ch>0;
       delta=`<div class="kd"><span class="${good?'up':'down'}">${ch>0?'▲':'▼'} ${pct(ch)}</span><span>vs. período previo</span></div>`;
     }else delta='<div class="kd">— sin comparativa</div>';
     card.innerHTML=`<div class="ico">${d.i}</div><div class="kl">${d.l}</div><div class="kv">—</div>${delta}`;
@@ -433,6 +483,42 @@ function applyRange(){
   countUp($('#h-spend'),num(c.spend),n=>nf.format(Math.round(n)));
   $('#h-sub').textContent=`${nf.format(Math.round(c.impressions))} impresiones · `
     +`${nf.format(Math.round(c.clicks))} clicks · ${Math.round(c.conv)} conversaciones`;
+}
+
+/* ════ portafolios + comparativo semanal ════════════════════════════ */
+function renderPortafolios(){
+  const wrap=$('#portafolios');
+  const card=(lbl,o)=>{
+    const a=ovAgg(o&&o.curr);
+    if(!a)return`<div class="port"><div class="pn">${lbl}</div>
+      <div class="err" style="font-size:13px;margin-top:14px">sin actividad en el período</div></div>`;
+    const cc=a.conv?a.spend/a.conv:0;
+    const M=[['Gasto',money(a.spend)],['CPC','$'+a.cpc.toFixed(2)],['CTR',a.ctr.toFixed(2)+'%'],
+      ['Conv. WA',nf.format(a.conv)],['Costo/conv.',a.conv?money(cc):'—'],['Alcance',nf.format(a.reach)]];
+    return`<div class="port"><div class="pn">${lbl}</div>
+      <div class="pgrid">${M.map(([k,v])=>`<div class="pm"><span>${k}</span><b>${v}</b></div>`).join('')}</div></div>`;
+  };
+  wrap.innerHTML=card('Portafolio nuevo · act_2999…',OV_NUEVO)+card('Portafolio anterior · act_2241…',OV_ANT);
+}
+function renderComparativo(){
+  const wrap=$('#comparativo'),o=OVERVIEW;
+  if(!o||!o.curr){wrap.innerHTML='<div class="skel" style="font-size:12px">sin datos para comparar</div>';return;}
+  const c=ovAgg(o.curr),p=ovAgg(o.prev);
+  if(!p){wrap.innerHTML='<div class="skel" style="font-size:12px">sin semana previa para comparar</div>';return;}
+  const cc=x=>x.conv?x.spend/x.conv:0;
+  const ROWS=[
+    ['Gasto',c.spend,p.spend,money,1],['CPC',c.cpc,p.cpc,v=>'$'+v.toFixed(2),0,1],
+    ['CTR',c.ctr,p.ctr,v=>v.toFixed(2)+'%',1],['Conv. WhatsApp',c.conv,p.conv,v=>nf.format(Math.round(v)),1],
+    ['Costo / conv.',cc(c),cc(p),v=>money(v),0,1],['Alcance',c.reach,p.reach,v=>nf.format(Math.round(v)),1],
+    ['Impresiones',c.impressions,p.impressions,v=>nf.format(Math.round(v)),1],
+  ];
+  wrap.innerHTML=`<table class="cmp"><thead><tr><th>Métrica</th><th>Semana actual</th><th>Semana anterior</th><th>Δ</th></tr></thead><tbody>${
+    ROWS.map(([k,cv,pv,fmt,,inv])=>{
+      let badge='<span class="dim">—</span>';
+      if(pv>0){const ch=(cv-pv)/pv*100,good=inv?ch<0:ch>0;
+        badge=`<span class="${good?'up':'down'}">${ch>0?'▲':'▼'} ${pct(ch)}</span>`;}
+      return`<tr><td>${k}</td><td><b>${fmt(cv)}</b></td><td class="dim">${fmt(pv)}</td><td>${badge}</td></tr>`;
+    }).join('')}</tbody></table>`;
 }
 function renderTrend(rows){
   const svg=$('#spark');[...svg.querySelectorAll('path')].forEach(p=>p.remove());
@@ -800,13 +886,17 @@ async function load(){
   if(busy)return;busy=true;$('#rf').classList.add('spin');
   const base=`/api/meta?account=${ACCOUNT}`;
   try{
-    const [ov,daily,camp]=await Promise.all([
-      getJSON(base).catch(()=>({})),
+    const [ovN,ovA,daily,camp]=await Promise.all([
+      getJSON('/api/meta?account=nuevo').catch(()=>({})),
+      getJSON('/api/meta?account=anterior').catch(()=>({})),
       getJSON(base+'&level=daily&days=30').catch(()=>({data:[]})),
       getJSON(base+'&level=campaign').catch(()=>({data:[]})),
     ]);
-    OVERVIEW=ov||{};DAILY=(daily&&daily.data)||[];
+    OV_NUEVO=ovN||{};OV_ANT=ovA||{};
+    OVERVIEW=ACCOUNT==='nuevo'?OV_NUEVO:OV_ANT;
+    DAILY=(daily&&daily.data)||[];
     applyRange();renderTrend(DAILY);renderCamps(camp);
+    renderPortafolios();renderComparativo();
   }catch(e){$('#h-sub').innerHTML='<span class="err">error cargando Meta Ads</span>';}
   $('#pipes').innerHTML='';
   await Promise.all(PIPES.map((p,i)=>
