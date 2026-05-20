@@ -118,6 +118,8 @@ Sub-fase **C.0 expandida**:
 
 **Salida de C.2:** 5 de 8 functions llaman a agents reales. `refresh-meta-token`, `sync-wapify-cache`, `batch-auto-prompt` quedan en stub si decisión §3.2 las posterga.
 
+> **✅ C.2 CERRADO · 20-may-2026** — las 7 sub-fases (C.2.1–C.2.7) completas. C.2.6 validado con `scripts/smoke-inngest-e2e.mjs` (`npm run smoke:inngest`): smoke E2E que verifica la cascada `message_received → silence_detected → reactivation_sent` (mismo `correlation_id`, dry_run, sin errores) + la regla inviolable de pipelines prohibidos. Commit de cierre `9c0faf0`.
+
 ---
 
 ### Fase C.3 — Panel aprobaciones live (~1-1.5h) — sin cambios
