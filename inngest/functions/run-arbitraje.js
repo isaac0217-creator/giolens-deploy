@@ -10,13 +10,27 @@
  * Steps:
  *   1. meta-curr  ‖ meta-prev   → fetch Meta insights (paralelo)
  *   2. score-campaigns          → CTR/CPC drop, semáforo 🟢🟡🔴
- *   3. claude-recos             → Haiku genera recomendaciones de presupuesto
+ *   3. analista-recos           → agente Analista (executeAnalistaDailyRun)
  *   4. upsert-supabase          → tabla `arbitraje_runs`
  *   5. emit fatigue events      → para cada campaña 🔴, emite campaign.fatigue_detected
+ *
+ * Wiring Frente C · C.2.2 (handoff §4 · decisión Isaac):
+ *   - Step `analista-recos`: invoca al agente Analista vía runWithTrace
+ *     (executeAnalistaDailyRun, period:'last_6h') en lugar del Haiku inline.
+ *   - D2-W3 (c): el approval gate aplica solo si delta>$50. El umbral se lee
+ *     de env var `APPROVAL_GATE_THRESHOLD_USD` (default 50) y se surface en el
+ *     resultado del run. Los insights del Analista son informativos (reportar
+ *     fatiga NO requiere approval — solo EJECUTAR cambios lo requiere).
+ *   - R5: clave de step determinista (correlation_id) → retry no re-cobra.
  */
 
 import { inngest } from '../client.js';
 import { EVENTS } from '../events.js';
+import { runWithTrace } from '../../agents/_shared/run-with-trace.js';
+import { executeAnalistaDailyRun } from '../../agents/analista/index.js';
+
+// D2-W3 (c): umbral del approval gate, configurable por env var.
+const APPROVAL_GATE_THRESHOLD_USD = Number(process.env.APPROVAL_GATE_THRESHOLD_USD) || 50;
 
 export default inngest.createFunction(
   {
@@ -30,7 +44,9 @@ export default inngest.createFunction(
   ],
   async ({ event, step }) => {
     const startedAt = Date.now();
-    console.log('[run-arbitraje] start');
+    // R5: correlation_id estable para claves de step deterministas.
+    const correlationId = event?.data?.correlation_id || `arbitraje-${startedAt}`;
+    console.log('[run-arbitraje] start', correlationId);
 
     // Step 1: fetch en paralelo
     const [curr, prev] = await Promise.all([
@@ -53,21 +69,35 @@ export default inngest.createFunction(
       console.log('[run-arbitraje] stub score');
       return curr.campaigns.map((c) => ({
         campaign_id: c.campaign_id,
+        pipeline: c.pipeline || 'unknown',
         ctr_drop_pct: 0,
         cpc_rise_pct: 0,
         semaforo: '🟡',
       }));
     });
 
-    // Step 3: Claude
-    const recos = await step.run('claude-recos', async () => {
-      // TODO Fase 2: llamada Anthropic
-      console.log('[run-arbitraje] stub claude');
-      return { recomendaciones: [], model: 'claude-haiku-4-5' };
+    // Step 3: análisis vía agente Analista (runWithTrace).
+    // R5: clave de step determinista (correlation_id) → retry reusa cache, no re-cobra.
+    const analista = await step.run(`analista-recos-${correlationId}`, async () => {
+      const { result, trace, error } = await runWithTrace(
+        'analista',
+        executeAnalistaDailyRun,
+        { period: 'last_6h' },
+        { correlation_id: correlationId },
+      );
+      return {
+        insights:   result?.insights?.length ?? 0,
+        published:  typeof result?.published === 'number' ? result.published : 0,
+        cost_usd:   typeof result?.cost_usd === 'number' ? result.cost_usd : 0,
+        latency_ms: typeof result?.latency_ms === 'number' ? result.latency_ms : 0,
+        trace_ok:   trace?.ok ?? false,
+        trace_steps: Array.isArray(trace?.steps) ? trace.steps.length : 0,
+        error:      error || null,
+      };
     });
 
     // Step 4: persistir
-    const upsert = await step.run('upsert-supabase', async () => {
+    const upsert = await step.run(`upsert-supabase-${correlationId}`, async () => {
       console.log('[run-arbitraje] stub upsert');
       return { run_id: startedAt, rows: scored.length };
     });
@@ -81,7 +111,7 @@ export default inngest.createFunction(
         await step.sendEvent(`emit-fatigue-${s.campaign_id}`, {
           name: EVENTS.CAMPAIGN_FATIGUE_DETECTED,
           data: {
-            correlation_id: `arbitraje-${startedAt}-${s.campaign_id}`,
+            correlation_id: `${correlationId}-${s.campaign_id}`,
             campaign_id: s.campaign_id,
             pipeline: s.pipeline || 'unknown',
             ctr_drop_pct: s.ctr_drop_pct,
@@ -94,13 +124,17 @@ export default inngest.createFunction(
     }
 
     const result = {
+      correlation_id: correlationId,
       campaigns: scored.length,
       fatigue_emitted: fatigueEmitted,
       duration_ms: Date.now() - startedAt,
       upsert,
-      recos_count: recos?.recomendaciones?.length || 0,
+      analista,
+      recos_count: analista.insights,
+      // D2-W3 (c): umbral del approval gate surface para downstream.
+      approval_gate_threshold_usd: APPROVAL_GATE_THRESHOLD_USD,
     };
-    console.log('[run-arbitraje] done', result);
+    console.log('[run-arbitraje] done', JSON.stringify(result));
     return result;
-  }
+  },
 );
