@@ -59,6 +59,7 @@ let _unsubscribe = subscribe('approval-gate', _panelVerdictHandler);
  * @param {string} req.rationale    - por que el agente quiere hacerlo
  * @param {object} [req.evidence]   - data soportando la decision (kpis, snapshots, refs)
  * @param {number} [req.amount_usd] - impacto economico si aplica
+ * @param {string} [req.correlation_id] - id del run que originó la decisión (trazabilidad Frente D)
  * @returns {Promise<{approved:boolean, by:string, at:string, decision_id:string, note?:string}>}
  */
 export async function requestApproval(req) {
@@ -74,6 +75,7 @@ export async function requestApproval(req) {
     rationale: req?.rationale,
     evidence:  req?.evidence,
     amount_usd: amount,
+    correlation_id: req?.correlation_id,
   });
 
   // Auto-resolución: modo AUTO (default) o monto bajo el umbral del gate.
