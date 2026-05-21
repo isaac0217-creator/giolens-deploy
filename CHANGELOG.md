@@ -4,6 +4,29 @@ Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/)
 
 ---
 
+## [C.3-C.5] - 2026-05-21
+
+### Added
+
+- `agents/_shared/approval-store.js` — store in-memory de decisiones del gate de aprobación (register/waitFor/resolve/getPending/getHistory); espejo de la futura tabla `agent_decisions` de Supabase
+- `agents/_shared/__tests__/approval.test.js` — 7 tests del gate (modos AUTO/GATE, umbral, timeout, idempotencia)
+- `scripts/smoke-shadow-analista.mjs` + script npm `smoke:shadow` — smoke C.4: valida shadow ≡ Inngest del Analista e idempotencia cross-run, costo Anthropic 0
+- `docs/frente_c_v2_handoff.md` — handoff de cierre con TODOs diferidos
+
+### Changed
+
+- **C.3** — `agents/_shared/approval.js`: deja de ser stub auto-aprueba. Gate real backend: modo GATE publica al bus (`panel-aprobaciones`) y bloquea hasta veredicto humano; modo AUTO (kill-switch `APPROVAL_AUTO_MODE`, default) auto-aprueba; auto-aprobación bajo umbral `APPROVAL_GATE_THRESHOLD_USD`; timeout opcional
+
+### Notes
+
+- **C.3 alcance:** la UI/SSE del panel se difiere al track dashboard web (ver ADR-01 en el vault). El núcleo entrega el backend del gate y el contrato de bus
+- `APPROVAL_AUTO_MODE` default-true: imprescindible para no colgar `sim-agents` ni los runs reales mientras el panel humano no esté conectado
+- **C.4** — `run-arbitraje` ya invocaba `executeAnalistaDailyRun`; el smoke confirma equivalencia shadow/Inngest
+- Tests al cierre: vitest 214/214 · sim-agents 12/12 · smoke:inngest PASS · smoke:shadow PASS
+- Frente C v2 cerrado a nivel núcleo (C.1–C.5)
+
+---
+
 ## [C.2.6] - 2026-05-20
 
 ### Added
