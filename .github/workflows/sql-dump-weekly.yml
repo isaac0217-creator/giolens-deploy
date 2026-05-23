@@ -1,0 +1,138 @@
+# GIOCORE Frente H · Delta D1 — SQL dump semanal con supabase CLI → B2.
+#
+# pg_dump no está disponible en Vercel serverless (delta D1 confirmado), así
+# que el dump SQL completo corre acá en GitHub Actions ubuntu-runner, donde sí
+# hay pg_dump (vía supabase CLI o Postgres APT package).
+#
+# Schedule: domingo 09:00 UTC = 03:00 MX (1 hora antes del snapshot-daily de Vercel).
+# Manual trigger: workflow_dispatch (botón Run en GitHub UI o `gh workflow run`).
+#
+# Secrets requeridos (cargados por Isaac):
+#   - SUPABASE_DB_URL   (postgres://... connection string del DB de prod)
+#   - B2_KEY_ID         (Backblaze application key id)
+#   - B2_APP_KEY        (Backblaze application key secret)
+#   - B2_BUCKET         (nombre del bucket, ej. "giocore-backups")
+#   - B2_REGION         (ej. "us-west-002")
+#   - B2_ENDPOINT       (ej. "https://s3.us-west-002.backblazeb2.com")
+#
+# Output: `s3://${B2_BUCKET}/sql_dump_weekly/YYYY-WW.sql.gz`
+# Retención: manual (B2 lifecycle rule sugerido: 90 días).
+
+name: SQL Dump Weekly · Frente H
+
+on:
+  schedule:
+    # Domingos 09:00 UTC (03:00 MX)
+    - cron: '0 9 * * 0'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Si true, solo verifica conexión sin subir a B2'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+# Una sola corrida en simultáneo (no overlap si una se atrasa).
+concurrency:
+  group: sql-dump-weekly
+  cancel-in-progress: false
+
+jobs:
+  dump:
+    name: pg_dump → B2
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Verificar secrets requeridos
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
+          B2_APP_KEY: ${{ secrets.B2_APP_KEY }}
+          B2_BUCKET: ${{ secrets.B2_BUCKET }}
+          B2_REGION: ${{ secrets.B2_REGION }}
+          B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
+        run: |
+          MISSING=""
+          [ -z "$SUPABASE_DB_URL" ] && MISSING="$MISSING SUPABASE_DB_URL"
+          [ -z "$B2_KEY_ID" ]       && MISSING="$MISSING B2_KEY_ID"
+          [ -z "$B2_APP_KEY" ]      && MISSING="$MISSING B2_APP_KEY"
+          [ -z "$B2_BUCKET" ]       && MISSING="$MISSING B2_BUCKET"
+          [ -z "$B2_REGION" ]       && MISSING="$MISSING B2_REGION"
+          [ -z "$B2_ENDPOINT" ]     && MISSING="$MISSING B2_ENDPOINT"
+          if [ -n "$MISSING" ]; then
+            echo "::error::Secrets faltantes:$MISSING"
+            echo "::error::Cargar en GitHub Settings → Secrets and variables → Actions"
+            exit 1
+          fi
+          echo "✓ Todos los secrets requeridos están presentes."
+
+      - name: Instalar Postgres client (pg_dump)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -qq -y postgresql-client
+          pg_dump --version
+
+      - name: Compute week ISO + filename
+        id: meta
+        run: |
+          YEAR=$(date -u +%Y)
+          WEEK=$(date -u +%V)
+          FNAME="dump-${YEAR}-W${WEEK}.sql.gz"
+          B2_KEY="sql_dump_weekly/${FNAME}"
+          echo "fname=${FNAME}" >> $GITHUB_OUTPUT
+          echo "b2_key=${B2_KEY}" >> $GITHUB_OUTPUT
+          echo "::notice::Output: ${B2_KEY}"
+
+      - name: pg_dump full schema + data (gzipped)
+        env:
+          PGPASSWORD_SAFE: 'redacted'
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          # NO usar `set -x` (mostraría la URL en logs).
+          # Usamos --no-owner --no-acl para que el dump sea restaurable a otro DB
+          # sin pelearse con roles supabase específicos.
+          pg_dump \
+            --no-owner \
+            --no-acl \
+            --format=plain \
+            --schema=public \
+            --schema=auth \
+            --schema=storage \
+            "$SUPABASE_DB_URL" \
+            | gzip -9 > "/tmp/${{ steps.meta.outputs.fname }}"
+          ls -lh "/tmp/${{ steps.meta.outputs.fname }}"
+
+      - name: Compute SHA256
+        id: sha
+        run: |
+          SHA=$(sha256sum "/tmp/${{ steps.meta.outputs.fname }}" | awk '{print $1}')
+          echo "sha256=${SHA}" >> $GITHUB_OUTPUT
+          echo "::notice::SHA256: ${SHA}"
+
+      - name: Upload to B2 (S3-compatible)
+        if: ${{ inputs.dry_run != 'true' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.B2_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.B2_APP_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.B2_REGION }}
+        run: |
+          aws s3 cp \
+            "/tmp/${{ steps.meta.outputs.fname }}" \
+            "s3://${{ secrets.B2_BUCKET }}/${{ steps.meta.outputs.b2_key }}" \
+            --endpoint-url "${{ secrets.B2_ENDPOINT }}" \
+            --metadata "sha256=${{ steps.sha.outputs.sha256 }}"
+          echo "✓ Uploaded to s3://${{ secrets.B2_BUCKET }}/${{ steps.meta.outputs.b2_key }}"
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## SQL Dump Weekly · Run summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **File:** \`${{ steps.meta.outputs.fname }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **B2 key:** \`${{ steps.meta.outputs.b2_key }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **SHA256:** \`${{ steps.sha.outputs.sha256 }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Dry run:** \`${{ inputs.dry_run }}\`" >> $GITHUB_STEP_SUMMARY

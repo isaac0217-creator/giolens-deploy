@@ -102,10 +102,10 @@ ALTER TABLE public.backups_manifest ENABLE ROW LEVEL SECURITY;
 -- Sin policies para anon/authenticated → cero acceso desde el cliente.
 -- Service_role bypasea RLS por default, así que el cron sigue funcionando.
 
+-- Postgres COMMENT ON IS requiere string literal único (no soporta `||`).
+-- Usamos dollar-quoting para multi-línea limpia.
 COMMENT ON TABLE public.backups_manifest IS
-  'Frente H · manifiesto de backups GIOCORE. Storage inline en data_b64 ' ||
-  '(gzipped + base64) para snapshots diarios; B2 para zips mensuales fríos.';
+$$Frente H · manifiesto de backups GIOCORE. Storage inline en data_b64 (gzipped + base64) para snapshots diarios; B2 para zips mensuales fríos.$$;
 
 COMMENT ON COLUMN public.backups_manifest.data_b64 IS
-  'Contenido gzipped luego base64-encoded. NULL si storage=b2. Compression ' ||
-  'esperada <10% original (acceptance criteria brief §H).';
+$$Contenido gzipped luego base64-encoded. NULL si storage=b2. Compression esperada <10% original (acceptance criteria brief §H).$$;

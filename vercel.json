@@ -15,6 +15,7 @@
     "api/cron/enrich-contacts.ts":      { "maxDuration": 300 },
     "api/cron/snapshot-daily.ts":       { "maxDuration": 300 },
     "api/cron/wapify-export-historical.ts": { "maxDuration": 300 },
+    "api/cron/backup-monthly.ts":       { "maxDuration": 300 },
     "api/admin/restore.ts":             { "maxDuration": 300 },
     "api/expediente.ts":                { "maxDuration": 15 },
     "api/provider-usage.ts":     { "maxDuration": 15 }
@@ -26,7 +27,8 @@
     { "path": "/api/cron/sync-wapify-cache",    "schedule": "30 12 * * *" },
     { "path": "/api/cron/enrich-contacts",      "schedule": "0 * * * *" },
     { "path": "/api/cron/snapshot-daily",       "schedule": "0 10 * * *" },
-    { "path": "/api/cron/wapify-export-historical", "schedule": "30 10 * * *" }
+    { "path": "/api/cron/wapify-export-historical", "schedule": "30 10 * * *" },
+    { "path": "/api/cron/backup-monthly",       "schedule": "0 8 1 * *" }
   ],
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/public/index.html" }
