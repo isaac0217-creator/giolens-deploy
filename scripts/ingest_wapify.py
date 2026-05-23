@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""ingest_wapify.py — ingesta Wapify → SQLite + expedientes Obsidian.
+"""ingest_wapify.py — ingesta Wapify → SQLite + 5 INDEX_PIPELINE.
 
-ARQUITECTURA 50K · FASE 4 · ESQUEMA LISTO — la ingesta real NO se ha ejecutado.
 Por defecto corre en DRY-RUN (no escribe nada). Ingesta real: flag --apply.
 
-Capas (3 temperaturas):
-  - FRÍA  (raw)   : data/giocore.db          SQLite · gitignored · NOM-024 local-only
-  - CALIENTE      : 10_PACIENTES/activos/    expedientes .md · gitignored
-  - TEMPLADA      : 13_INTERACCIONES/resumen-semanal/YYYY-WW.md
+Salida (ADR-03 — ya NO genera un .md por contacto):
+  - FRÍA (raw) : data/giocore.db                       SQLite · gitignored · NOM-024
+  - ÍNDICES    : 04_CONTACTOS/INDEX_PIPELINE_<id>.md    5 índices, derivados de
+                 SQLite vía consolidate_contactos_index.py
+  - TEMPLADA   : 13_INTERACCIONES/resumen-semanal/YYYY-WW.md
 
 Privacidad NOM-024:
-  - SQLite y 10_PACIENTES/ y 13_INTERACCIONES/ están gitignored (no se versionan).
-  - El frontmatter del expediente NO lleva PII (solo pipeline/stage/contadores).
-  - nombre y teléfono viven en el cuerpo del .md y en SQLite (ambos local-only).
+  - SQLite y 13_INTERACCIONES/ están gitignored (no se versionan).
+  - Los 5 INDEX no llevan PII (solo pipeline/stage/contadores).
+  - nombre y teléfono viven solo en SQLite (local-only).
 
 Uso:
     python3 scripts/ingest_wapify.py                 # DRY-RUN (default · no escribe)
@@ -26,10 +26,9 @@ Cron de ejemplo (diario 6:00am · antes de render_reports.py):
 """
 import json
 import os
-import re
 import sqlite3
+import subprocess
 import sys
-import unicodedata
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,8 +37,8 @@ from pathlib import Path
 VAULT = Path(os.environ.get(
     'VAULT_ROOT', str(Path.home() / 'Documents/Claude/OBSIDIAN/GIOCORE'))).expanduser()
 DB_PATH = VAULT / 'data' / 'giocore.db'
-PACIENTES = VAULT / '10_PACIENTES' / 'activos'
 RESUMENES = VAULT / '13_INTERACCIONES' / 'resumen-semanal'
+CONSOLIDATE_SCRIPT = Path(__file__).resolve().parent / 'consolidate_contactos_index.py'
 
 WAPIFY_BASE = 'https://ap.whapify.ai/api'
 ACCOUNT_ID = os.environ.get('WAPIFY_ACCOUNT_ID', '1187373')
@@ -91,13 +90,6 @@ def init_db(conn):
     """Crea las tablas e índices si no existen."""
     conn.executescript(SCHEMA)
     conn.commit()
-
-
-def slugify(value):
-    """Nombre → slug seguro para nombre de archivo."""
-    value = unicodedata.normalize('NFKD', str(value)).encode('ascii', 'ignore').decode()
-    value = re.sub(r'[^\w\s-]', '', value).strip().lower()
-    return re.sub(r'[\s_-]+', '-', value) or 'sin-nombre'
 
 
 # ─── Cliente Wapify ───────────────────────────────────────────────────────────
@@ -182,52 +174,24 @@ def upsert_interaccion(conn, it):
     """, it)
 
 
-# ─── Renderers (capa caliente / templada) ─────────────────────────────────────
-def render_expediente(conn, contacto_id):
-    """Lee contacto + interacciones de SQLite → escribe 10_PACIENTES/activos/{slug}.md.
+# ─── Índices + resumen (capa templada) ────────────────────────────────────────
+def actualizar_indices():
+    """Regenera los 5 INDEX_PIPELINE (ADR-03) vía consolidate_contactos_index.py.
 
-    Frontmatter SIN PII (NOM-024). nombre/teléfono solo en el cuerpo.
+    Reemplaza al antiguo .md por-contacto: la fuente de verdad es SQLite y los
+    5 índices se derivan de ahí en cada corrida.
     """
-    row = conn.execute("SELECT * FROM contactos WHERE id=?", (contacto_id,)).fetchone()
-    if not row:
-        return None
-    cols = [d[0] for d in conn.execute("SELECT * FROM contactos LIMIT 0").description]
-    c = dict(zip(cols, row))
-
-    inter = conn.execute(
-        "SELECT fecha, canal, tipo, contenido FROM interacciones "
-        "WHERE contacto_id=? ORDER BY fecha DESC LIMIT 20", (contacto_id,)).fetchall()
-
-    PACIENTES.mkdir(parents=True, exist_ok=True)
-    slug = slugify(c.get('nombre') or contacto_id)
-    fm = f"""---
-tipo: expediente
-contacto_id: {contacto_id}
-pipeline_id: {c.get('pipeline_id', '')}
-stage_id: {c.get('stage_id', '')}
-total_interacciones: {c.get('total_interacciones', 0)}
-primera_interaccion: {c.get('primera_interaccion', '')}
-ultima_interaccion: {c.get('ultima_interaccion', '')}
-db: data/giocore.db
-tags: [expediente, pipeline/{c.get('pipeline_id', '')}]
----
-
-# Expediente · {c.get('nombre', 'Sin nombre')}
-
-- **Teléfono:** {c.get('telefono', '—')}
-- **Pipeline:** {c.get('pipeline_id', '—')} · stage {c.get('stage_id', '—')}
-- **Interacciones:** {c.get('total_interacciones', 0)}
-- **Raw completo:** `data/giocore.db` → `interacciones WHERE contacto_id='{contacto_id}'`
-
-## Últimas interacciones
-"""
-    body = ''.join(
-        f"- {fecha} · {canal}/{tipo}: {str(contenido)[:120]}\n"
-        for (fecha, canal, tipo, contenido) in inter) or "- (sin interacciones)\n"
-
-    out = PACIENTES / f"{slug}.md"
-    out.write_text(fm + body, encoding='utf-8')
-    return out
+    if not CONSOLIDATE_SCRIPT.exists():
+        print(f"[ingest_wapify] WARN: no existe {CONSOLIDATE_SCRIPT}; "
+              "índices NO actualizados.", file=sys.stderr)
+        return
+    res = subprocess.run([sys.executable, str(CONSOLIDATE_SCRIPT)],
+                         capture_output=True, text=True)
+    if res.returncode != 0:
+        print("[ingest_wapify] WARN: consolidate_contactos_index falló:\n"
+              + res.stderr, file=sys.stderr)
+    else:
+        print("[ingest_wapify] 5 INDEX_PIPELINE actualizados.")
 
 
 def render_resumen_semanal(conn, semana):
@@ -276,7 +240,7 @@ def main():
 
     token = load_token()
     if not apply:
-        print("[ingest_wapify] DRY-RUN (no escribe expedientes ni interacciones).")
+        print("[ingest_wapify] DRY-RUN (no escribe SQLite ni índices).")
         print(f"  token presente: {'sí' if token else 'NO — poblar WAPIFY_TOKEN'}")
         print(f"  account_id: {ACCOUNT_ID} · pipelines: {len(PIPELINES)}")
         print("  para ingesta real: --apply")
@@ -315,11 +279,13 @@ def main():
                 'stage_id': c['stage_id'],
             })
         conn.commit()
-        render_expediente(conn, c['id'])
 
     semana = datetime.now(timezone.utc).strftime('%Y-%W')
     render_resumen_semanal(conn, semana)
     conn.close()
+
+    # ADR-03: en vez de un .md por contacto, regenerar los 5 INDEX_PIPELINE.
+    actualizar_indices()
     print(f"[ingest_wapify] ingesta real completa · semana {semana}")
     return 0
 

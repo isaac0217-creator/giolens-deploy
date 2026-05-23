@@ -1094,6 +1094,60 @@ header{
   border: 1px solid rgba(255,255,255,0.95) !important;
   box-shadow: 0 8px 32px rgba(0,0,0,0.12) !important;
 }
+
+/* ════════════════════════════════════════════════
+   BLOQUE 7 · WIDGET CONSUMO POR PROVEEDOR (.consumo-*)
+   ════════════════════════════════════════════════ */
+.consumo-panel{
+  background: rgba(255,255,255,0.60);
+  backdrop-filter: blur(18px) saturate(1.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  border: 1px solid rgba(255,255,255,0.72);
+  border-radius:14px;padding:18px 20px;margin-bottom:16px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 4px 20px rgba(99,102,241,0.06), 0 1px 4px rgba(0,0,0,0.05);
+}
+.consumo-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.consumo-head h3{font-size:14px;font-weight:700;color:#0f172a;margin:0}
+.consumo-refresh-tag{font-size:11px;color:#94a3b8;display:flex;align-items:center;gap:6px}
+.consumo-mock-badge{display:none;font-size:10px;font-weight:700;background:#fffbeb;color:#d97706;border:1px solid #fcd34d;padding:3px 10px;border-radius:12px;letter-spacing:.03em}
+.consumo-mock-badge.show{display:inline-flex}
+/* Tabs ARIA */
+.consumo-tablist{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;border-bottom:1px solid #e2e8f0;padding-bottom:0}
+.consumo-tab{font-size:12px;font-weight:600;padding:7px 14px;border-radius:8px 8px 0 0;border:1px solid transparent;border-bottom:none;cursor:pointer;background:transparent;color:#64748b;transition:all .15s;position:relative;top:1px}
+.consumo-tab:hover{background:rgba(99,102,241,0.06);color:#1e293b}
+.consumo-tab[aria-selected="true"]{background:rgba(255,255,255,0.85);color:#2563eb;border-color:#e2e8f0;font-weight:700}
+.consumo-tab:focus-visible{outline:2px solid #6366f1;outline-offset:2px}
+/* KPI cards */
+.consumo-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+@media(max-width:640px){.consumo-kpis{grid-template-columns:repeat(2,1fr)}}
+.consumo-kpi{background:rgba(248,250,252,0.72);border:1px solid #e2e8f0;border-radius:10px;padding:13px 14px}
+.consumo-kpi-label{font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.consumo-kpi-value{font-size:22px;font-weight:700;color:#0f172a;line-height:1.2}
+.consumo-kpi-sub{font-size:11px;color:#94a3b8;margin-top:3px}
+.consumo-kpi-value.up{color:#dc2626}
+.consumo-kpi-value.down{color:#16a34a}
+/* Chart */
+.consumo-chart-wrap{position:relative;height:220px;margin-bottom:16px}
+/* Tabla por modelo */
+.consumo-table{width:100%;border-collapse:collapse;font-size:12px;background:rgba(255,255,255,0.5);border:1px solid #e2e8f0;border-radius:10px;overflow:hidden}
+.consumo-table thead th{background:#f8fafc;color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-size:10px;font-weight:700;text-align:left;padding:9px 14px}
+.consumo-table thead th:not(:first-child){text-align:right}
+.consumo-table tbody td{padding:9px 14px;border-top:1px solid #f1f5f9;color:#1e293b}
+.consumo-table tbody td:not(:first-child){text-align:right;font-weight:600}
+.consumo-table tbody tr:hover{background:#f8fafc}
+/* Estados */
+.consumo-skel{background:linear-gradient(90deg,#eef0f6 25%,#f5f6fa 50%,#eef0f6 75%);background-size:200% 100%;animation:consumoShimmer 1.3s infinite;border-radius:6px}
+@keyframes consumoShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.consumo-spinner{width:26px;height:26px;border:3px solid #e2e8f0;border-top-color:#6366f1;border-radius:50%;animation:consumoSpin .8s linear infinite;margin:0 auto}
+@keyframes consumoSpin{to{transform:rotate(360deg)}}
+.consumo-chart-loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#94a3b8;font-size:12px}
+.consumo-error{display:none;background:#fef2f2;border:1px solid #ef4444;color:#991b1b;border-radius:10px;padding:14px 16px;font-size:13px;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;line-height:1.5}
+.consumo-error.show{display:flex}
+.consumo-retry-btn{font-size:11px;font-weight:700;background:#dc2626;color:#fff;border:none;padding:6px 14px;border-radius:8px;cursor:pointer}
+.consumo-retry-btn:hover{background:#b91c1c}
+.consumo-empty{display:none;text-align:center;padding:30px 16px;color:#94a3b8;font-size:13px;line-height:1.6}
+.consumo-empty.show{display:block}
+.consumo-body.hidden{display:none}
 </style>
 
 <header>
@@ -1588,6 +1642,64 @@ header{
 
   <!-- ══ (oculto) pipes-grid legacy — mantiene compatibilidad con renderPipelines JS ══ -->
   <div style="display:none"><div id="pipes-grid"></div></div>
+
+  <!-- ══ 9. CONSUMO POR PROVEEDOR (Bloque 7) ══ -->
+  <div class="sec" style="margin-top:22px"><span class="dot" style="background:#6366f1"></span>Dashboard de consumo &mdash; Proveedores</div>
+  <section id="consumo-providers" class="consumo-panel" aria-label="Consumo por proveedor">
+    <div class="consumo-head">
+      <h3>Consumo por proveedor <span style="font-weight:400;color:#94a3b8">(últimos 30 días)</span></h3>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="consumo-mock-badge" id="consumo-mock-badge">Datos de ejemplo</span>
+        <span class="consumo-refresh-tag"><span class="dot" style="background:#22c55e;width:6px;height:6px;border-radius:50%"></span>Refresh: 5 min</span>
+      </div>
+    </div>
+
+    <div class="consumo-tablist" role="tablist" aria-label="Proveedores">
+      <button class="consumo-tab" role="tab" id="consumo-tab-anthropic" aria-selected="true"  aria-controls="consumo-panel-content" data-provider="anthropic" tabindex="0">Anthropic</button>
+      <button class="consumo-tab" role="tab" id="consumo-tab-openai"    aria-selected="false" aria-controls="consumo-panel-content" data-provider="openai"    tabindex="-1">OpenAI</button>
+      <button class="consumo-tab" role="tab" id="consumo-tab-meta"      aria-selected="false" aria-controls="consumo-panel-content" data-provider="meta"      tabindex="-1">Meta</button>
+      <button class="consumo-tab" role="tab" id="consumo-tab-vercel"    aria-selected="false" aria-controls="consumo-panel-content" data-provider="vercel"    tabindex="-1">Vercel</button>
+      <button class="consumo-tab" role="tab" id="consumo-tab-wapify"    aria-selected="false" aria-controls="consumo-panel-content" data-provider="wapify"    tabindex="-1">Wapify</button>
+    </div>
+
+    <div id="consumo-panel-content" role="tabpanel" aria-labelledby="consumo-tab-anthropic">
+      <!-- Estado: error -->
+      <div class="consumo-error" id="consumo-error" role="alert">
+        <span id="consumo-error-msg">No se pudo cargar el proveedor.</span>
+        <button class="consumo-retry-btn" id="consumo-retry-btn" type="button">Reintentar</button>
+      </div>
+
+      <!-- Estado: empty -->
+      <div class="consumo-empty" id="consumo-empty">
+        Sin datos para este período &mdash; el cron corre 06:00 MX.
+      </div>
+
+      <!-- Estado: contenido (loading/loaded) -->
+      <div class="consumo-body" id="consumo-body">
+        <div class="consumo-kpis" id="consumo-kpis">
+          <div class="consumo-kpi"><div class="consumo-kpi-label">Costo USD</div><div class="consumo-kpi-value" id="consumo-kpi-cost">—</div><div class="consumo-kpi-sub">total período</div></div>
+          <div class="consumo-kpi"><div class="consumo-kpi-label">Δ% vs previo</div><div class="consumo-kpi-value" id="consumo-kpi-delta">—</div><div class="consumo-kpi-sub">período anterior</div></div>
+          <div class="consumo-kpi"><div class="consumo-kpi-label">Tokens</div><div class="consumo-kpi-value" id="consumo-kpi-tokens">—</div><div class="consumo-kpi-sub">procesados</div></div>
+          <div class="consumo-kpi"><div class="consumo-kpi-label">Requests</div><div class="consumo-kpi-value" id="consumo-kpi-requests">—</div><div class="consumo-kpi-sub">llamadas API</div></div>
+        </div>
+
+        <div class="consumo-chart-wrap">
+          <canvas id="consumoChart" aria-label="Costo USD por día, últimos 30 días" role="img"></canvas>
+          <div class="consumo-chart-loading" id="consumo-chart-loading">
+            <div class="consumo-spinner"></div>
+            <div>Cargando consumo…</div>
+          </div>
+        </div>
+
+        <table class="consumo-table" aria-label="Consumo por modelo">
+          <thead><tr><th>Modelo</th><th>USD</th><th>Tokens</th></tr></thead>
+          <tbody id="consumo-table-body">
+            <tr><td colspan="3"><div class="consumo-skel" style="height:14px"></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
 
 </div>
 
@@ -4602,6 +4714,260 @@ if (typeof loadAll === 'function') {
   });
   const main = document.querySelector('.main');
   if (main) mutObs.observe(main, { childList: true, subtree: true });
+})();
+
+/* ════════════════════════════════════════════════
+   BLOQUE 7 · WIDGET CONSUMO POR PROVEEDOR
+   Llama GET /api/provider-usage?provider={p}&days=30.
+   Si el endpoint no existe aún (parte bloqueada de C2),
+   cae a MOCK DATA embebido y marca un badge visible.
+   ════════════════════════════════════════════════ */
+(function(){
+  let consumoActive = 'anthropic';
+  let consumoChart = null;
+  let consumoTimer = null;
+
+  /* ── Mock data realista por proveedor (fallback offline) ── */
+  function consumoMock(provider){
+    const today = new Date();
+    const seedBase = {
+      anthropic:{ cost:142.38, prev:98.50, reqUnit:'req', baseDay:4.7,
+        models:[
+          {model:'claude-haiku-4-5',  cost:89.20, tokens:12000000},
+          {model:'claude-sonnet-4',   cost:42.50, tokens:5800000},
+          {model:'claude-opus-4-6',   cost:10.68, tokens:524000},
+        ]},
+      openai:{ cost:0, prev:0, reqUnit:'req', baseDay:0, models:[] },
+      meta:{ cost:318.94, prev:271.10, reqUnit:'imp', baseDay:10.6,
+        models:[
+          {model:'Portafolio Nuevo',    cost:201.40, tokens:0},
+          {model:'Portafolio Anterior', cost:117.54, tokens:0},
+        ]},
+      vercel:{ cost:6.82, prev:5.91, reqUnit:'inv', baseDay:0.22,
+        models:[
+          {model:'function invocations', cost:3.10, tokens:0},
+          {model:'edge requests',        cost:1.92, tokens:0},
+          {model:'bandwidth',            cost:1.80, tokens:0},
+        ]},
+      wapify:{ cost:24.50, prev:21.00, reqUnit:'msg', baseDay:0.82,
+        models:[
+          {model:'mensajes enviados', cost:24.50, tokens:0},
+        ]},
+    }[provider];
+
+    // Serie 30 días con variación pseudo-aleatoria determinista
+    const by_day = [];
+    let costSum = 0, tokSum = 0;
+    for(let i=29;i>=0;i--){
+      const d = new Date(today.getTime() - i*86400000);
+      const wobble = 0.6 + (Math.sin(i*1.7 + provider.length) + 1) / 2;
+      const dayCost = +(seedBase.baseDay * wobble).toFixed(2);
+      const dayTok  = Math.round(dayCost * 85000);
+      costSum += dayCost; tokSum += dayTok;
+      by_day.push({ date: d.toISOString().slice(0,10), cost_usd: dayCost, tokens: dayTok });
+    }
+    const deltaPct = seedBase.prev > 0
+      ? +(((seedBase.cost - seedBase.prev) / seedBase.prev) * 100).toFixed(1)
+      : 0;
+    return {
+      provider, __mock:true,
+      range:{ from: by_day[0].date, to: by_day[by_day.length-1].date },
+      kpis:{
+        cost_usd_total: seedBase.cost,
+        cost_usd_prev_period: seedBase.prev,
+        delta_pct: deltaPct,
+        tokens_total: tokSum,
+        requests_total: provider==='openai' ? 0 : Math.round(costSum * (provider==='meta'?420:31)),
+      },
+      by_day,
+      by_model: seedBase.models,
+    };
+  }
+
+  /* ── Helpers de formato ── */
+  function fmtUSD(n){ return '$' + (Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function fmtCompact(n){
+    n = Number(n)||0;
+    if(n>=1e9) return (n/1e9).toFixed(1).replace(/\.0$/,'')+'B';
+    if(n>=1e6) return (n/1e6).toFixed(1).replace(/\.0$/,'')+'M';
+    if(n>=1e3) return (n/1e3).toFixed(1).replace(/\.0$/,'')+'K';
+    return String(Math.round(n));
+  }
+
+  /* ── Estados de UI ── */
+  function consumoSetState(state){
+    const errEl = document.getElementById('consumo-error');
+    const emptyEl = document.getElementById('consumo-empty');
+    const bodyEl = document.getElementById('consumo-body');
+    const loadEl = document.getElementById('consumo-chart-loading');
+    errEl.classList.toggle('show', state==='error');
+    emptyEl.classList.toggle('show', state==='empty');
+    bodyEl.classList.toggle('hidden', state==='error' || state==='empty');
+    if(loadEl) loadEl.style.display = (state==='loading') ? 'flex' : 'none';
+  }
+
+  function consumoShowSkeletons(){
+    ['cost','delta','tokens','requests'].forEach(k=>{
+      const el = document.getElementById('consumo-kpi-'+k);
+      if(el){ el.textContent='—'; el.className='consumo-kpi-value'; }
+    });
+    const tb = document.getElementById('consumo-table-body');
+    if(tb) tb.innerHTML = '<tr><td colspan="3"><div class="consumo-skel" style="height:14px"></div></td></tr>';
+  }
+
+  /* ── Render del payload ── */
+  function consumoRender(data){
+    const k = data.kpis || {};
+    document.getElementById('consumo-kpi-cost').textContent = fmtUSD(k.cost_usd_total);
+
+    const deltaEl = document.getElementById('consumo-kpi-delta');
+    const dp = Number(k.delta_pct);
+    if(Number.isFinite(dp) && dp!==0){
+      deltaEl.textContent = (dp>0?'+':'') + dp.toFixed(1) + '%';
+      deltaEl.className = 'consumo-kpi-value ' + (dp>0?'up':'down');
+    } else {
+      deltaEl.textContent = '0%';
+      deltaEl.className = 'consumo-kpi-value';
+    }
+
+    document.getElementById('consumo-kpi-tokens').textContent =
+      (Number(k.tokens_total)||0) > 0 ? fmtCompact(k.tokens_total) : '—';
+    document.getElementById('consumo-kpi-requests').textContent =
+      fmtCompact(k.requests_total||0);
+
+    // Tabla por modelo
+    const tb = document.getElementById('consumo-table-body');
+    const rows = data.by_model || [];
+    if(!rows.length){
+      tb.innerHTML = '<tr><td colspan="3" style="color:#94a3b8;text-align:center">Sin desglose por modelo</td></tr>';
+    } else {
+      tb.innerHTML = rows.map(m=>(
+        '<tr><td>'+ String(m.model||'—') +'</td>'+
+        '<td>'+ fmtUSD(m.cost_usd) +'</td>'+
+        '<td>'+ ((Number(m.tokens)||0)>0 ? fmtCompact(m.tokens) : '—') +'</td></tr>'
+      )).join('');
+    }
+
+    // Gráfica de línea USD/día
+    consumoRenderChart(data.by_day || []);
+  }
+
+  function consumoRenderChart(byDay){
+    const canvas = document.getElementById('consumoChart');
+    if(!canvas || typeof Chart === 'undefined') return;
+    const ctx = canvas.getContext('2d');
+    if(consumoChart){ consumoChart.destroy(); consumoChart = null; }
+    consumoChart = new Chart(ctx,{
+      type:'line',
+      data:{
+        labels: byDay.map(d=>d.date.slice(5)),
+        datasets:[{
+          label:'USD/día',
+          data: byDay.map(d=>d.cost_usd),
+          borderColor:'#6366f1',
+          backgroundColor:'rgba(99,102,241,0.12)',
+          fill:true, tension:.35, borderWidth:2,
+          pointRadius:0, pointHoverRadius:4,
+        }],
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        interaction:{mode:'index',intersect:false},
+        plugins:{
+          legend:{display:false},
+          tooltip:{callbacks:{label:c=>' '+fmtUSD(c.parsed.y)}},
+        },
+        scales:{
+          x:{ticks:{font:{size:9},maxTicksLimit:8,maxRotation:0},grid:{display:false}},
+          y:{ticks:{font:{size:10},callback:v=>'$'+v},grid:{color:'#f1f5f9'},beginAtZero:true},
+        },
+      },
+    });
+  }
+
+  /* ── Fetch con fallback a mock ── */
+  async function consumoFetch(provider){
+    consumoSetState('loading');
+    consumoShowSkeletons();
+    const mockBadge = document.getElementById('consumo-mock-badge');
+
+    let data = null, usedMock = false;
+    try {
+      const r = await fetch('/api/provider-usage?provider='+encodeURIComponent(provider)+'&days=30');
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      data = await r.json();
+      if(!data || !data.kpis) throw new Error('shape inválido');
+    } catch(e){
+      // Endpoint /api/provider-usage aún no existe (bloqueado en C2) → mock
+      usedMock = true;
+      data = consumoMock(provider);
+    }
+
+    // Solo este proveedor sigue activo (evita render de respuesta vieja tras cambio de tab)
+    if(provider !== consumoActive) return;
+
+    mockBadge.classList.toggle('show', usedMock);
+
+    const hasData = data && data.kpis &&
+      ((Number(data.kpis.cost_usd_total)||0) > 0 ||
+       (data.by_day && data.by_day.some(d=>(Number(d.cost_usd)||0)>0)));
+    if(!hasData){
+      consumoSetState('empty');
+      return;
+    }
+    consumoSetState('loaded');
+    consumoRender(data);
+  }
+
+  /* ── Tabs ARIA + navegación teclado ── */
+  function consumoSelectTab(provider, focus){
+    consumoActive = provider;
+    document.querySelectorAll('.consumo-tab').forEach(t=>{
+      const on = t.dataset.provider === provider;
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.tabIndex = on ? 0 : -1;
+      if(on && focus) t.focus();
+    });
+    const panel = document.getElementById('consumo-panel-content');
+    if(panel) panel.setAttribute('aria-labelledby', 'consumo-tab-'+provider);
+    consumoFetch(provider);
+  }
+
+  function consumoInit(){
+    const tabs = Array.from(document.querySelectorAll('.consumo-tab'));
+    if(!tabs.length) return;
+
+    tabs.forEach((tab, idx)=>{
+      tab.addEventListener('click', ()=> consumoSelectTab(tab.dataset.provider, false));
+      tab.addEventListener('keydown', e=>{
+        let next = -1;
+        if(e.key==='ArrowRight') next = (idx+1) % tabs.length;
+        else if(e.key==='ArrowLeft') next = (idx-1+tabs.length) % tabs.length;
+        else if(e.key==='Home') next = 0;
+        else if(e.key==='End') next = tabs.length-1;
+        if(next>=0){
+          e.preventDefault();
+          consumoSelectTab(tabs[next].dataset.provider, true);
+        }
+      });
+    });
+
+    const retry = document.getElementById('consumo-retry-btn');
+    if(retry) retry.addEventListener('click', ()=> consumoFetch(consumoActive));
+
+    // Carga inicial
+    consumoFetch(consumoActive);
+
+    // Refresh automático cada 5 min
+    if(consumoTimer) clearInterval(consumoTimer);
+    consumoTimer = setInterval(()=> consumoFetch(consumoActive), 5*60*1000);
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', consumoInit);
+  } else {
+    consumoInit();
+  }
 })();
 </script>
 </body>

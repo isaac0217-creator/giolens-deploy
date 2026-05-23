@@ -21,14 +21,13 @@
 import { serve } from 'inngest/node';
 import { inngest } from '../inngest/client.js';
 
-// Importa las 8 funciones canónicas + 1 experimental.
+// Importa las 6 funciones canónicas activas.
+// (sync-wapify-cache y refresh-meta-token migrados a `api/cron/*.ts` en Frente D.2 · 22-may-2026; legacy borrado.)
 import scanReactivations    from '../inngest/functions/scan-reactivations.js';
 import sendReactivation     from '../inngest/functions/send-reactivation.js';
 import runMicroseg          from '../inngest/functions/run-microseg.js';
 import runArbitraje         from '../inngest/functions/run-arbitraje.js';
 import distillConversation  from '../inngest/functions/distill-conversation.js';
-import syncWapifyCache      from '../inngest/functions/sync-wapify-cache.js';
-import refreshMetaToken     from '../inngest/functions/refresh-meta-token.js';
 import batchAutoPrompt      from '../inngest/functions/batch-auto-prompt.js';
 
 export const functions = [
@@ -37,8 +36,6 @@ export const functions = [
   runMicroseg,
   runArbitraje,
   distillConversation,
-  syncWapifyCache,
-  refreshMetaToken,
   batchAutoPrompt,
 ];
 
