@@ -35,6 +35,11 @@ const GRAPH = 'https://graph.facebook.com/v23.0';
 /** Días-de-anticipación que disparan el flag `expiring_soon` (spec §refresh-meta-token paso 3). */
 export const REFRESH_THRESHOLD_DAYS = 7;
 
+/** Umbral para gatillar auto-refresh del long-lived token (Frente B v2 22-may PM).
+ *  Más conservador que `REFRESH_THRESHOLD_DAYS`: refrescamos antes de marcar
+ *  `expiring_soon` para que la rotación se haga con margen. */
+export const AUTO_REFRESH_DAYS = 14;
+
 /** Timeout por request a Graph API (ms). */
 const REQUEST_TIMEOUT_MS = 5_000;
 
@@ -231,4 +236,105 @@ export function severityForStatus(status: MetaTokenStatus): number {
 /** Decide si una `decision` de salud-de-token requiere acción humana. */
 export function statusNeedsAction(status: MetaTokenStatus): boolean {
   return status === 'expired' || status === 'expiring_soon' || status === 'invalid';
+}
+
+/* ── Frente B · auto-refresh del long-lived token ────────────────────────── */
+
+/** Devuelve un token enmascarado para logs/agent_decisions. Nunca filtra
+ *  el token completo. Para tokens cortos (< 10 chars) devuelve "***". */
+export function maskToken(t: string | null | undefined): string {
+  if (!t || typeof t !== 'string') return '***';
+  if (t.length < 10) return '***';
+  return `${t.slice(0, 4)}…${t.slice(-4)}`;
+}
+
+/** Resultado de `extendLongLivedToken`. NO contiene el token nuevo en error
+ *  paths; en success contiene el token (el caller debe persistirlo y nunca
+ *  loggearlo en limpio — usar `maskToken`). */
+export interface ExtendTokenResult {
+  ok: boolean;
+  /** Token nuevo Meta (solo si ok=true). */
+  token?: string;
+  /** Tiempo de expiración en segundos desde ahora (lo que Meta devuelve). */
+  expires_in_sec?: number;
+  /** ISO timestamp absoluto de expiración derivado de `expires_in_sec`. */
+  expires_at?: string;
+  /** Error embedded de Meta o transporte. */
+  error?: { code: number | null; message: string };
+}
+
+/**
+ * Extiende un long-lived token Meta vía `oauth/access_token?grant_type=fb_exchange_token`.
+ * Devuelve el nuevo token + fecha ISO de expiración derivada de `expires_in`.
+ *
+ * Documentación: https://developers.facebook.com/docs/facebook-login/access-tokens#long-via-app
+ *
+ * Restricción: requiere `META_APP_ID` y `META_APP_SECRET`. El caller los pasa
+ * explícitamente (no se leen de env acá para facilitar testing).
+ */
+export async function extendLongLivedToken(
+  currentToken: string,
+  appId: string,
+  appSecret: string,
+  now: Date = new Date(),
+): Promise<ExtendTokenResult> {
+  if (!currentToken) {
+    return { ok: false, error: { code: null, message: 'currentToken vacío' } };
+  }
+  if (!appId || !appSecret) {
+    return { ok: false, error: { code: null, message: 'META_APP_ID/META_APP_SECRET ausente' } };
+  }
+
+  const params = new URLSearchParams({
+    grant_type: 'fb_exchange_token',
+    client_id: appId,
+    client_secret: appSecret,
+    fb_exchange_token: currentToken,
+  });
+  const url = `${GRAPH}/oauth/access_token?${params.toString()}`;
+
+  let res: Response;
+  try {
+    res = await fetchWithTimeout(url);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: { code: null, message: `fetch falló: ${msg}` } };
+  }
+
+  let body: unknown = null;
+  try {
+    body = await res.json();
+  } catch {
+    return { ok: false, error: { code: null, message: 'body no JSON' } };
+  }
+
+  if (!res.ok) {
+    const e = (body as { error?: { code?: number; message?: string } } | null)?.error;
+    return {
+      ok: false,
+      error: { code: e?.code ?? res.status, message: e?.message ?? `HTTP ${res.status}` },
+    };
+  }
+
+  const b = body as {
+    access_token?: string;
+    expires_in?: number;
+    token_type?: string;
+  };
+  if (!b.access_token) {
+    return { ok: false, error: { code: null, message: 'access_token ausente en respuesta' } };
+  }
+
+  const expiresInSec = typeof b.expires_in === 'number' && b.expires_in > 0 ? b.expires_in : 0;
+  const expiresAt =
+    expiresInSec > 0
+      ? new Date(now.getTime() + expiresInSec * 1000).toISOString()
+      : undefined;
+
+  return {
+    ok: true,
+    token: b.access_token,
+    expires_in_sec: expiresInSec || undefined,
+    expires_at: expiresAt,
+  };
 }
