@@ -1,0 +1,118 @@
+{
+  "generated_at": "2026-05-23T21:22:57.918Z",
+  "schema": "public",
+  "filter": "relkind=r (excluye matviews, views, indexes)",
+  "total_tables": 14,
+  "expected_per_brief_h": 9,
+  "missing_from_brief_h": [
+    "productos_movimientos"
+  ],
+  "extra_in_db": [
+    "agent_messages",
+    "agent_runs",
+    "audit_log",
+    "human_approvals",
+    "knowledge_base",
+    "stage_events"
+  ],
+  "tables": [
+    {
+      "name": "agent_decisions",
+      "row_estimate": 1,
+      "pk_columns": "id",
+      "order_column": "id",
+      "in_brief_h": true
+    },
+    {
+      "name": "agent_messages",
+      "row_estimate": -1,
+      "pk_columns": "id",
+      "order_column": "id",
+      "in_brief_h": false
+    },
+    {
+      "name": "agent_runs",
+      "row_estimate": -1,
+      "pk_columns": "id",
+      "order_column": "id",
+      "in_brief_h": false
+    },
+    {
+      "name": "app_config",
+      "row_estimate": -1,
+      "pk_columns": "key",
+      "order_column": "key",
+      "in_brief_h": true
+    },
+    {
+      "name": "audit_log",
+      "row_estimate": -1,
+      "pk_columns": "id",
+      "order_column": "id",
+      "in_brief_h": false
+    },
+    {
+      "name": "auth_tokens",
+      "row_estimate": -1,
+      "pk_columns": "id",
+      "order_column": "id",
+      "in_brief_h": true
+    },
+    {
+      "name": "contacts",
+      "row_estimate": 4712,
+      "pk_columns": "id",
+      "order_column": "id",
+      "in_brief_h": true
+    },
+    {
+      "name": "expedientes",
+      "row_estimate": -1,
+      "pk_columns": "id",
+      "order_column": "id",
+      "in_brief_h": true
+    },
+    {
+      "name": "human_approvals",
+      "row_estimate": -1,
+      "pk_columns": "id",
+      "order_column": "id",
+      "in_brief_h": false
+    },
+    {
+      "name": "knowledge_base",
+      "row_estimate": -1,
+      "pk_columns": "id",
+      "order_column": "id",
+      "in_brief_h": false
+    },
+    {
+      "name": "meta_metrics",
+      "row_estimate": -1,
+      "pk_columns": "id",
+      "order_column": "id",
+      "in_brief_h": true
+    },
+    {
+      "name": "productos",
+      "row_estimate": 3860,
+      "pk_columns": "slug",
+      "order_column": "slug",
+      "in_brief_h": true
+    },
+    {
+      "name": "provider_usage",
+      "row_estimate": -1,
+      "pk_columns": "id",
+      "order_column": "id",
+      "in_brief_h": true
+    },
+    {
+      "name": "stage_events",
+      "row_estimate": -1,
+      "pk_columns": "id",
+      "order_column": "id",
+      "in_brief_h": false
+    }
+  ]
+}

@@ -17,16 +17,19 @@
     "smoke:sentry": "node --env-file=.env.local scripts/sentry-smoke-e2e.mjs",
     "smoke:agents": "node scripts/sim-agents.mjs",
     "smoke:inngest": "node scripts/smoke-inngest-e2e.mjs",
-    "smoke:shadow": "node scripts/smoke-shadow-analista.mjs"
+    "smoke:shadow": "node scripts/smoke-shadow-analista.mjs",
+    "discover-tables": "node --env-file=.env.local scripts/discover-tables.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1053.0",
     "@sentry/node": "^10.53.1",
     "@supabase/supabase-js": "^2.106.0",
     "inngest": "^3.27.0"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^2.0.0",
+    "pg": "^8.21.0",
     "vercel": "^37.0.0",
-    "vitest": "^2.0.0",
-    "@vitest/coverage-v8": "^2.0.0"
+    "vitest": "^2.0.0"
   }
 }
