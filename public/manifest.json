@@ -1,0 +1,26 @@
+{
+  "name": "GIOCORE Captura",
+  "short_name": "GIOCORE",
+  "description": "Captura de expedientes clínicos GioLens · iPad-first",
+  "start_url": "/expediente-form.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f7f8fc",
+  "theme_color": "#1e293b",
+  "scope": "/",
+  "categories": ["medical", "productivity"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

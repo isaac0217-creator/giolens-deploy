@@ -13,6 +13,7 @@
     "api/cron/refresh-meta-token.ts":   { "maxDuration": 30 },
     "api/cron/sync-wapify-cache.ts":    { "maxDuration": 300 },
     "api/cron/enrich-contacts.ts":      { "maxDuration": 300 },
+    "api/expediente.ts":                { "maxDuration": 15 },
     "api/provider-usage.ts":     { "maxDuration": 15 }
   },
   "crons": [

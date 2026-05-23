@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#1e293b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="GIOCORE Captura" />
+  <title>GIOCORE · Captura de expediente</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icon-180.png" />
+  <style>
+    /* iPad-first design system — touch targets ≥ 48px, 17px base, landscape 2-col. */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f7f8fc;
+      --panel: rgba(255,255,255,0.95);
+      --line: rgba(15,23,42,0.10);
+      --txt: #1e293b;
+      --dim: #64748b;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --ok: #10b981;
+      --warn: #f59e0b;
+      --err: #ef4444;
+      --tap: 48px;
+      --r: 12px;
+    }
+    html, body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Inter, sans-serif;
+      font-size: 17px; line-height: 1.5;
+      background: var(--bg); color: var(--txt);
+      -webkit-font-smoothing: antialiased;
+      touch-action: manipulation; /* elimina 300ms delay */
+      overscroll-behavior: contain;
+    }
+    body { min-height: 100vh; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+
+    header { background: var(--panel); border-bottom: 1px solid var(--line); padding: 16px 24px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 10; backdrop-filter: blur(12px); }
+    header .brand { font-weight: 600; letter-spacing: 0.08em; font-size: 16px; color: var(--accent); }
+    header .meta { color: var(--dim); font-size: 14px; flex: 1; }
+    header .save-status { font-size: 13px; color: var(--ok); transition: opacity 0.3s; opacity: 0; }
+    header .save-status.show { opacity: 1; }
+
+    main { padding: 24px; max-width: 1280px; margin: 0 auto; }
+
+    .grid { display: grid; gap: 20px; grid-template-columns: 1fr; }
+    @media (min-width: 900px) and (orientation: landscape) {
+      .grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    .section { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 20px; }
+    .section h2 { font-size: 14px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; color: var(--dim); margin-bottom: 16px; }
+
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 14px; color: var(--dim); margin-bottom: 6px; font-weight: 500; }
+    .field label .req { color: var(--err); }
+    .field input, .field textarea, .field select {
+      width: 100%;
+      min-height: var(--tap);
+      padding: 12px 14px;
+      font-size: 17px; font-family: inherit;
+      background: white; color: var(--txt);
+      border: 1px solid var(--line); border-radius: 8px;
+      transition: border-color 0.15s;
+    }
+    .field input:focus, .field textarea:focus, .field select:focus {
+      outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+    }
+    .field textarea { min-height: 100px; resize: vertical; }
+    .field.error input, .field.error textarea { border-color: var(--err); }
+    .field-err { color: var(--err); font-size: 13px; margin-top: 4px; display: none; }
+    .field.error .field-err { display: block; }
+
+    /* Grid de inputs numéricos (graduación) */
+    .grad-grid {
+      display: grid; gap: 12px;
+      grid-template-columns: 80px repeat(4, minmax(0, 1fr));
+      align-items: center; margin-bottom: 12px;
+    }
+    .grad-grid > .grad-label { font-weight: 600; color: var(--dim); font-size: 14px; }
+    .grad-grid > .grad-head { font-size: 12px; color: var(--dim); text-align: center; letter-spacing: 0.08em; text-transform: uppercase; }
+
+    /* Stepper para graduación */
+    .stepper { display: flex; align-items: center; gap: 4px; background: white; border: 1px solid var(--line); border-radius: 8px; min-height: var(--tap); }
+    .stepper button {
+      flex: 0 0 var(--tap); height: var(--tap);
+      border: none; background: transparent;
+      font-size: 22px; font-weight: 600;
+      color: var(--accent); cursor: pointer; touch-action: manipulation;
+      border-radius: 8px;
+    }
+    .stepper button:active { background: rgba(99,102,241,0.10); }
+    .stepper input {
+      flex: 1; min-width: 0; text-align: center;
+      border: none; background: transparent;
+      font-size: 17px; font-weight: 500;
+      padding: 0; min-height: auto;
+    }
+    .stepper input:focus { box-shadow: none; }
+
+    /* Botones de agudeza visual */
+    .av-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+    .av-buttons button {
+      min-height: var(--tap); min-width: 80px;
+      padding: 8px 16px; background: white; color: var(--txt);
+      border: 1px solid var(--line); border-radius: 8px;
+      font-size: 16px; font-family: inherit; cursor: pointer; touch-action: manipulation;
+      transition: all 0.15s;
+    }
+    .av-buttons button.on { background: var(--accent); color: white; border-color: var(--accent); }
+    .av-buttons button:active { transform: scale(0.96); }
+
+    /* Productos chips */
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chips button {
+      min-height: var(--tap); padding: 8px 16px;
+      background: white; color: var(--txt);
+      border: 1px solid var(--line); border-radius: 999px;
+      font-size: 15px; font-family: inherit; cursor: pointer; touch-action: manipulation;
+    }
+    .chips button.on { background: var(--accent); color: white; border-color: var(--accent); }
+
+    /* Sticky submit bar */
+    .submit-bar {
+      position: sticky; bottom: 0; background: var(--panel); border-top: 1px solid var(--line);
+      padding: 16px 24px; display: flex; gap: 12px; align-items: center;
+      backdrop-filter: blur(12px); z-index: 10;
+    }
+    .submit-bar .summary { flex: 1; color: var(--dim); font-size: 14px; }
+    .submit-bar button {
+      min-height: var(--tap); padding: 12px 32px;
+      background: var(--accent); color: white;
+      border: none; border-radius: 8px;
+      font-size: 17px; font-weight: 600; font-family: inherit;
+      cursor: pointer; touch-action: manipulation;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .submit-bar button:hover { background: var(--accent-hover); }
+    .submit-bar button:active { transform: scale(0.97); }
+    .submit-bar button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .submit-bar button.secondary { background: white; color: var(--dim); border: 1px solid var(--line); padding: 12px 20px; }
+
+    /* Modal */
+    .modal-bg { position: fixed; inset: 0; background: rgba(15,23,42,0.5); display: none; align-items: center; justify-content: center; z-index: 100; }
+    .modal-bg.show { display: flex; }
+    .modal { background: white; border-radius: var(--r); padding: 32px; max-width: 480px; width: 90%; text-align: center; }
+    .modal h3 { font-size: 22px; margin-bottom: 12px; }
+    .modal p { color: var(--dim); margin-bottom: 20px; }
+    .modal .modal-icon { font-size: 48px; margin-bottom: 16px; }
+    .modal button { min-height: var(--tap); padding: 12px 24px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 16px; font-family: inherit; cursor: pointer; font-weight: 600; }
+
+    .loading { position: fixed; inset: 0; background: rgba(255,255,255,0.85); display: none; align-items: center; justify-content: center; z-index: 99; flex-direction: column; gap: 16px; }
+    .loading.show { display: flex; }
+    .spinner { width: 48px; height: 48px; border: 4px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">GIOCORE</div>
+    <div class="meta">Captura de expediente</div>
+    <div class="save-status" id="save-status">✓ Guardado</div>
+  </header>
+
+  <main>
+    <form id="exp-form" novalidate>
+      <div class="grid">
+        <!-- ── COLUMNA IZQUIERDA: PACIENTE + EXAMEN ── -->
+        <div>
+          <section class="section">
+            <h2>Datos del paciente</h2>
+            <div class="field">
+              <label for="paciente_nombre">Nombre completo <span class="req">*</span></label>
+              <input type="text" id="paciente_nombre" name="paciente_nombre" autocomplete="name" autocapitalize="words" required />
+              <div class="field-err">Nombre requerido</div>
+            </div>
+            <div class="field">
+              <label for="paciente_telefono">Teléfono</label>
+              <input type="tel" id="paciente_telefono" name="paciente_telefono" inputmode="tel" autocomplete="tel" placeholder="+52 663 118 0788" />
+            </div>
+            <div class="field">
+              <label for="paciente_email">Email</label>
+              <input type="email" id="paciente_email" name="paciente_email" inputmode="email" autocomplete="email" autocapitalize="none" />
+            </div>
+          </section>
+
+          <section class="section" style="margin-top:20px">
+            <h2>Examen</h2>
+            <div class="field">
+              <label for="fecha_examen">Fecha</label>
+              <input type="date" id="fecha_examen" name="fecha_examen" />
+            </div>
+            <div class="field">
+              <label for="optometrista">Optometrista</label>
+              <input type="text" id="optometrista" name="optometrista" autocapitalize="words" />
+            </div>
+            <div class="field">
+              <label for="capturado_por">Capturado por <span class="req">*</span></label>
+              <input type="text" id="capturado_por" name="capturado_por" autocapitalize="words" required />
+              <div class="field-err">Capturado por requerido</div>
+            </div>
+          </section>
+        </div>
+
+        <!-- ── COLUMNA DERECHA: GRADUACIÓN + OBSERVACIONES ── -->
+        <div>
+          <section class="section">
+            <h2>Graduación</h2>
+            <div class="grad-grid">
+              <div></div>
+              <div class="grad-head">Esfera</div>
+              <div class="grad-head">Cilindro</div>
+              <div class="grad-head">Eje</div>
+              <div class="grad-head">Adición</div>
+              <div class="grad-label">OD</div>
+              <div class="stepper" data-step="0.25" data-min="-25" data-max="25">
+                <button type="button" data-action="dec">−</button>
+                <input type="text" inputmode="decimal" name="od_esfera" id="od_esfera" />
+                <button type="button" data-action="inc">+</button>
+              </div>
+              <div class="stepper" data-step="0.25" data-min="-12" data-max="12">
+                <button type="button" data-action="dec">−</button>
+                <input type="text" inputmode="decimal" name="od_cilindro" id="od_cilindro" />
+                <button type="button" data-action="inc">+</button>
+              </div>
+              <div class="stepper" data-step="5" data-min="0" data-max="180">
+                <button type="button" data-action="dec">−</button>
+                <input type="text" inputmode="numeric" name="od_eje" id="od_eje" />
+                <button type="button" data-action="inc">+</button>
+              </div>
+              <div class="stepper" data-step="0.25" data-min="0" data-max="5">
+                <button type="button" data-action="dec">−</button>
+                <input type="text" inputmode="decimal" name="od_adicion" id="od_adicion" />
+                <button type="button" data-action="inc">+</button>
+              </div>
+              <div class="grad-label">OI</div>
+              <div class="stepper" data-step="0.25" data-min="-25" data-max="25">
+                <button type="button" data-action="dec">−</button>
+                <input type="text" inputmode="decimal" name="oi_esfera" id="oi_esfera" />
+                <button type="button" data-action="inc">+</button>
+              </div>
+              <div class="stepper" data-step="0.25" data-min="-12" data-max="12">
+                <button type="button" data-action="dec">−</button>
+                <input type="text" inputmode="decimal" name="oi_cilindro" id="oi_cilindro" />
+                <button type="button" data-action="inc">+</button>
+              </div>
+              <div class="stepper" data-step="5" data-min="0" data-max="180">
+                <button type="button" data-action="dec">−</button>
+                <input type="text" inputmode="numeric" name="oi_eje" id="oi_eje" />
+                <button type="button" data-action="inc">+</button>
+              </div>
+              <div class="stepper" data-step="0.25" data-min="0" data-max="5">
+                <button type="button" data-action="dec">−</button>
+                <input type="text" inputmode="decimal" name="oi_adicion" id="oi_adicion" />
+                <button type="button" data-action="inc">+</button>
+              </div>
+            </div>
+            <div class="field" style="margin-top:16px">
+              <label for="distancia_interpupilar">Distancia interpupilar (mm)</label>
+              <input type="text" inputmode="decimal" id="distancia_interpupilar" name="distancia_interpupilar" />
+            </div>
+          </section>
+
+          <section class="section" style="margin-top:20px">
+            <h2>Agudeza visual</h2>
+            <div class="field">
+              <label>OD</label>
+              <div class="av-buttons" data-target="agudeza_visual_od">
+                <button type="button" data-val="20/20">20/20</button>
+                <button type="button" data-val="20/25">20/25</button>
+                <button type="button" data-val="20/30">20/30</button>
+                <button type="button" data-val="20/40">20/40</button>
+                <button type="button" data-val="20/60">20/60</button>
+                <button type="button" data-val="20/100">20/100</button>
+                <button type="button" data-val="20/200">20/200</button>
+              </div>
+              <input type="hidden" id="agudeza_visual_od" name="agudeza_visual_od" />
+            </div>
+            <div class="field">
+              <label>OI</label>
+              <div class="av-buttons" data-target="agudeza_visual_oi">
+                <button type="button" data-val="20/20">20/20</button>
+                <button type="button" data-val="20/25">20/25</button>
+                <button type="button" data-val="20/30">20/30</button>
+                <button type="button" data-val="20/40">20/40</button>
+                <button type="button" data-val="20/60">20/60</button>
+                <button type="button" data-val="20/100">20/100</button>
+                <button type="button" data-val="20/200">20/200</button>
+              </div>
+              <input type="hidden" id="agudeza_visual_oi" name="agudeza_visual_oi" />
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- Sección ancho completo: observaciones + productos -->
+      <section class="section" style="margin-top:20px">
+        <h2>Notas clínicas</h2>
+        <div class="field">
+          <label for="antecedentes">Antecedentes</label>
+          <textarea id="antecedentes" name="antecedentes" autocapitalize="sentences"></textarea>
+        </div>
+        <div class="field">
+          <label for="observaciones">Observaciones</label>
+          <textarea id="observaciones" name="observaciones" autocapitalize="sentences"></textarea>
+        </div>
+        <div class="field">
+          <label>Productos recomendados</label>
+          <div class="chips" id="productos-chips">
+            <button type="button" data-val="Holbrook">Holbrook</button>
+            <button type="button" data-val="GioSports">GioSports</button>
+            <button type="button" data-val="Dama Luxury">Dama Luxury</button>
+            <button type="button" data-val="GioVision Entintados">GioVision</button>
+            <button type="button" data-val="Litebeam">Litebeam</button>
+            <button type="button" data-val="Mica monofocal AR">Monofocal AR</button>
+            <button type="button" data-val="Mica progresiva">Progresiva</button>
+            <button type="button" data-val="Bifocal">Bifocal</button>
+            <button type="button" data-val="Lentes de contacto">LC</button>
+          </div>
+        </div>
+      </section>
+    </form>
+  </main>
+
+  <div class="submit-bar">
+    <div class="summary" id="summary">Guarda en local cada 5s</div>
+    <button type="button" class="secondary" id="clear-btn">Limpiar</button>
+    <button type="button" id="submit-btn">Guardar expediente</button>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div>Guardando...</div>
+  </div>
+
+  <div class="modal-bg" id="modal-bg">
+    <div class="modal">
+      <div class="modal-icon" id="modal-icon">✓</div>
+      <h3 id="modal-title">Expediente guardado</h3>
+      <p id="modal-msg"></p>
+      <button type="button" id="modal-close">Continuar</button>
+    </div>
+  </div>
+
+  <script>
+    /* ── Estado + autosave ───────────────────────────────────────────────── */
+    const STORAGE_KEY = 'giocore.expediente.draft';
+    const STORAGE_TTL_MS = 24 * 3600 * 1000;
+    const form = document.getElementById('exp-form');
+    const saveStatus = document.getElementById('save-status');
+
+    function setVal(id, v) {
+      const el = document.getElementById(id);
+      if (el && v != null) el.value = v;
+    }
+    function getVal(id) {
+      const el = document.getElementById(id);
+      return el ? el.value : '';
+    }
+
+    /* ── Steppers ────────────────────────────────────────────────────────── */
+    document.querySelectorAll('.stepper').forEach((st) => {
+      const input = st.querySelector('input');
+      const step = parseFloat(st.dataset.step || '1');
+      const min = parseFloat(st.dataset.min || '-Infinity');
+      const max = parseFloat(st.dataset.max || 'Infinity');
+      const dec = step % 1 === 0 ? 0 : 2;
+      function clamp(v) { return Math.max(min, Math.min(max, v)); }
+      function bump(delta) {
+        const cur = parseFloat(input.value);
+        const base = Number.isFinite(cur) ? cur : 0;
+        const nxt = clamp(Math.round((base + delta) / step) * step);
+        input.value = nxt.toFixed(dec);
+        scheduleSave();
+      }
+      st.querySelectorAll('button').forEach((b) => {
+        b.addEventListener('click', () => bump(b.dataset.action === 'inc' ? step : -step));
+      });
+      input.addEventListener('blur', () => {
+        const v = parseFloat(input.value);
+        if (Number.isFinite(v)) input.value = clamp(v).toFixed(dec);
+      });
+    });
+
+    /* ── Agudeza visual buttons ──────────────────────────────────────────── */
+    document.querySelectorAll('.av-buttons').forEach((grp) => {
+      const target = document.getElementById(grp.dataset.target);
+      grp.querySelectorAll('button').forEach((b) => {
+        b.addEventListener('click', () => {
+          grp.querySelectorAll('button').forEach((x) => x.classList.remove('on'));
+          b.classList.add('on');
+          if (target) target.value = b.dataset.val;
+          scheduleSave();
+        });
+      });
+    });
+
+    /* ── Productos chips (multi-select) ──────────────────────────────────── */
+    const chipsBox = document.getElementById('productos-chips');
+    chipsBox.querySelectorAll('button').forEach((b) => {
+      b.addEventListener('click', () => {
+        b.classList.toggle('on');
+        scheduleSave();
+      });
+    });
+    function getSelectedProductos() {
+      return [...chipsBox.querySelectorAll('button.on')].map((b) => b.dataset.val);
+    }
+
+    /* ── Default fecha hoy ───────────────────────────────────────────────── */
+    document.getElementById('fecha_examen').value = new Date().toISOString().slice(0, 10);
+
+    /* ── Auto-save localStorage ──────────────────────────────────────────── */
+    let saveTimer = null;
+    function collectPayload() {
+      const data = {};
+      [...form.elements].forEach((el) => {
+        if (!el.name) return;
+        const v = el.value;
+        if (v !== '' && v != null) data[el.name] = v;
+      });
+      const prods = getSelectedProductos();
+      if (prods.length > 0) data.productos_recomendados = prods;
+      // Selected AV buttons
+      ['agudeza_visual_od', 'agudeza_visual_oi'].forEach((id) => {
+        if (data[id] === undefined) {
+          const hidden = document.getElementById(id);
+          if (hidden && hidden.value) data[id] = hidden.value;
+        }
+      });
+      return data;
+    }
+    function saveDraft() {
+      try {
+        const payload = collectPayload();
+        if (Object.keys(payload).length === 0) return;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ts: Date.now(), payload }));
+        saveStatus.classList.add('show');
+        setTimeout(() => saveStatus.classList.remove('show'), 1500);
+      } catch {}
+    }
+    function scheduleSave() {
+      if (saveTimer) return;
+      saveTimer = setTimeout(() => { saveTimer = null; saveDraft(); }, 800);
+    }
+    setInterval(saveDraft, 5000);
+
+    function loadDraft() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const { ts, payload } = JSON.parse(raw);
+        if (Date.now() - ts > STORAGE_TTL_MS) {
+          localStorage.removeItem(STORAGE_KEY);
+          return;
+        }
+        Object.entries(payload).forEach(([k, v]) => {
+          if (Array.isArray(v) && k === 'productos_recomendados') {
+            v.forEach((val) => {
+              const btn = chipsBox.querySelector(`button[data-val="${val}"]`);
+              if (btn) btn.classList.add('on');
+            });
+          } else {
+            setVal(k, v);
+            // restore active AV button
+            const grp = document.querySelector(`.av-buttons[data-target="${k}"]`);
+            if (grp) {
+              grp.querySelectorAll('button').forEach((b) => {
+                if (b.dataset.val === v) b.classList.add('on');
+              });
+            }
+          }
+        });
+      } catch {}
+    }
+    loadDraft();
+
+    form.addEventListener('input', scheduleSave);
+    form.addEventListener('change', scheduleSave);
+
+    /* ── Validación + Submit ─────────────────────────────────────────────── */
+    function validate() {
+      let ok = true;
+      ['paciente_nombre', 'capturado_por'].forEach((id) => {
+        const el = document.getElementById(id);
+        const field = el.closest('.field');
+        if (!el.value.trim()) {
+          field.classList.add('error');
+          ok = false;
+        } else {
+          field.classList.remove('error');
+        }
+      });
+      return ok;
+    }
+
+    async function submitForm() {
+      if (!validate()) {
+        const firstErr = document.querySelector('.field.error input');
+        if (firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      const payload = collectPayload();
+      document.getElementById('loading').classList.add('show');
+      try {
+        const res = await fetch('/api/expediente', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        document.getElementById('loading').classList.remove('show');
+        if (res.ok && data.ok) {
+          showModal('✓', 'Expediente guardado', `ID: ${data.id} · ${data.vault_md_path ? 'vault: ' + data.vault_md_path : 'sin vault path'}`);
+          localStorage.removeItem(STORAGE_KEY);
+          form.reset();
+          chipsBox.querySelectorAll('button.on').forEach((b) => b.classList.remove('on'));
+          document.querySelectorAll('.av-buttons button.on').forEach((b) => b.classList.remove('on'));
+          document.getElementById('fecha_examen').value = new Date().toISOString().slice(0, 10);
+        } else {
+          showModal('⚠', 'No se pudo guardar', data.error || `HTTP ${res.status}`);
+        }
+      } catch (e) {
+        document.getElementById('loading').classList.remove('show');
+        showModal('⚠', 'Error de red', e.message);
+      }
+    }
+
+    function showModal(icon, title, msg) {
+      document.getElementById('modal-icon').textContent = icon;
+      document.getElementById('modal-title').textContent = title;
+      document.getElementById('modal-msg').textContent = msg;
+      document.getElementById('modal-bg').classList.add('show');
+    }
+    document.getElementById('modal-close').addEventListener('click', () => {
+      document.getElementById('modal-bg').classList.remove('show');
+    });
+    document.getElementById('submit-btn').addEventListener('click', submitForm);
+    document.getElementById('clear-btn').addEventListener('click', () => {
+      if (confirm('¿Limpiar formulario?')) {
+        localStorage.removeItem(STORAGE_KEY);
+        form.reset();
+        chipsBox.querySelectorAll('button.on').forEach((b) => b.classList.remove('on'));
+        document.querySelectorAll('.av-buttons button.on').forEach((b) => b.classList.remove('on'));
+        document.querySelectorAll('.field.error').forEach((f) => f.classList.remove('error'));
+        document.getElementById('fecha_examen').value = new Date().toISOString().slice(0, 10);
+      }
+    });
+
+    /* ── Wake lock (mantiene pantalla iPad durante captura) ──────────────── */
+    (async () => {
+      if ('wakeLock' in navigator) {
+        try { await navigator.wakeLock.request('screen'); } catch {}
+      }
+    })();
+
+    /* ── Service worker (cache-first, offline base) ──────────────────────── */
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  </script>
+</body>
+</html>
