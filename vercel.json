@@ -12,13 +12,15 @@
     "api/cron/fetch-provider-usage.ts": { "maxDuration": 60 },
     "api/cron/refresh-meta-token.ts":   { "maxDuration": 30 },
     "api/cron/sync-wapify-cache.ts":    { "maxDuration": 300 },
+    "api/cron/enrich-contacts.ts":      { "maxDuration": 300 },
     "api/provider-usage.ts":     { "maxDuration": 15 }
   },
   "crons": [
     { "path": "/api/webhook?mode=cron", "schedule": "*/5 * * * *" },
     { "path": "/api/cron/fetch-provider-usage", "schedule": "0 12 * * *" },
     { "path": "/api/cron/refresh-meta-token",   "schedule": "0 13 * * *" },
-    { "path": "/api/cron/sync-wapify-cache",    "schedule": "30 12 * * *" }
+    { "path": "/api/cron/sync-wapify-cache",    "schedule": "30 12 * * *" },
+    { "path": "/api/cron/enrich-contacts",      "schedule": "0 * * * *" }
   ],
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/public/index.html" }
