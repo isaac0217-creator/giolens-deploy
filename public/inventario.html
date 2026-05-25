@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GIOCORE · Inventario</title>
+<style>
+  :root {
+    --bg-0: #f7f8fc;
+    --bg-1: #ffffff;
+    --bg-2: #eef0f6;
+    --line: #e2e6ef;
+    --text: #1e293b;
+    --text-soft: #475569;
+    --muted: #64748b;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --positive: #16a34a;
+    --negative: #dc2626;
+    --negative-soft: #fee2e2;
+    --warning: #d97706;
+    --warning-soft: #fef3c7;
+    --glass-shadow: 0 8px 32px rgba(15,23,42,0.06), 0 2px 8px rgba(15,23,42,0.04);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(160deg, #f7f8fc 0%, #eef0f6 35%, #f2f3f8 65%, #f8f9fb 100%);
+    background-attachment: fixed;
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  header {
+    background: rgba(255,255,255,0.78);
+    backdrop-filter: blur(24px) saturate(1.8);
+    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+    border-bottom: 1px solid var(--line);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.8), 0 4px 24px rgba(99,102,241,0.06);
+  }
+  header h1 { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; }
+  header .meta { color: var(--muted); font-size: 0.85rem; font-family: ui-monospace, monospace; }
+
+  main { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+  .tabs {
+    display: flex;
+    gap: 6px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 20px;
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 10px 16px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 0.92rem;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--text-soft); background: rgba(0,0,0,0.02); }
+  .tab.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .tab .badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    font-size: 0.72rem;
+    border-radius: 10px;
+    background: var(--bg-2);
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .tab.active .badge { background: var(--accent-soft); color: var(--accent); }
+  .tab.has-alerts .badge {
+    background: var(--negative-soft);
+    color: var(--negative);
+  }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+    align-items: center;
+  }
+  .controls label {
+    font-size: 0.85rem;
+    color: var(--text-soft);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  input, select, button {
+    font: inherit;
+    background: var(--bg-1);
+    color: var(--text);
+    border: 1px solid var(--line);
+    padding: 7px 11px;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.10);
+  }
+  button {
+    cursor: pointer;
+    font-weight: 500;
+  }
+  button:hover { background: var(--bg-2); }
+  button.primary {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  button.primary:hover { background: #1d4ed8; border-color: #1d4ed8; }
+  button.ghost { background: transparent; }
+  button.ghost:hover { background: var(--bg-2); }
+
+  .table-wrap {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: var(--glass-shadow);
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th, td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.86rem;
+  }
+  th {
+    background: var(--bg-2);
+    font-weight: 600;
+    color: var(--text-soft);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+  }
+  tbody tr:hover { background: rgba(37,99,235,0.04); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.center, th.center { text-align: center; }
+
+  .badge-danger {
+    background: var(--negative);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+  .badge-ok {
+    background: var(--positive);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+  .badge-warn {
+    background: var(--warning);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+  .tipo-pill {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .tipo-entrada { background: #dcfce7; color: #166534; }
+  .tipo-salida { background: #fee2e2; color: #991b1b; }
+  .tipo-ajuste { background: #fef3c7; color: #92400e; }
+  .tipo-devolucion { background: #ddd6fe; color: #5b21b6; }
+
+  .empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--muted);
+    font-style: italic;
+  }
+  .loader {
+    padding: 30px 20px;
+    text-align: center;
+    color: var(--muted);
+  }
+  .error {
+    padding: 16px;
+    margin-bottom: 14px;
+    background: var(--negative-soft);
+    border: 1px solid #fca5a5;
+    border-radius: 8px;
+    color: var(--negative);
+    font-size: 0.88rem;
+  }
+  .footer-status {
+    margin-top: 16px;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-family: ui-monospace, monospace;
+    display: flex;
+    justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>GIOCORE · Inventario</h1>
+  <div class="meta" id="meta">cargando…</div>
+</header>
+
+<main>
+  <div id="global-error"></div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="stock">Stock <span class="badge" id="badge-stock">—</span></div>
+    <div class="tab" data-tab="rotacion">Rotación <span class="badge" id="badge-rotacion">—</span></div>
+    <div class="tab" data-tab="movimientos">Movimientos <span class="badge" id="badge-mov">—</span></div>
+    <div class="tab" data-tab="alertas">Alertas <span class="badge" id="badge-alertas">—</span></div>
+  </div>
+
+  <!-- ── STOCK ── -->
+  <section id="panel-stock" class="panel active">
+    <div class="controls">
+      <input id="stock-search" placeholder="Buscar SKU o nombre…" style="min-width:220px">
+      <select id="stock-categoria"><option value="">Todas categorías</option></select>
+      <select id="stock-filtro">
+        <option value="todos">Todos</option>
+        <option value="bajos">Solo bajos (stock ≤ mínimo)</option>
+        <option value="sin_stock">Sin stock (=0)</option>
+      </select>
+      <button class="primary" onclick="loadStock()">Refrescar</button>
+      <button onclick="exportCSV('stock')">Export CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table id="tbl-stock">
+        <thead><tr>
+          <th>SKU</th><th>Nombre</th><th>Categoría</th>
+          <th class="num">Stock</th><th class="num">Mínimo</th>
+          <th class="num">Ventas 30d</th>
+          <th class="center">Estado</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── ROTACIÓN ── -->
+  <section id="panel-rotacion" class="panel">
+    <div class="controls">
+      <select id="rot-orden">
+        <option value="ventas_30d.desc">Top vendidos 30d</option>
+        <option value="ventas_90d.desc">Top vendidos 90d</option>
+        <option value="rotacion_30d.desc">Mayor rotación 30d</option>
+        <option value="unidades_30d.desc">Más unidades vendidas 30d</option>
+      </select>
+      <label><input type="checkbox" id="rot-muertos"> Solo muertos (>90d sin venta, stock>0)</label>
+      <button class="primary" onclick="loadRotacion()">Refrescar</button>
+      <button onclick="exportCSV('rotacion')">Export CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table id="tbl-rotacion">
+        <thead><tr>
+          <th>SKU</th><th>Nombre</th><th>Categoría</th>
+          <th class="num">Stock</th>
+          <th class="num">Ventas 30d</th>
+          <th class="num">Ventas 90d</th>
+          <th class="num">Rotación 30d</th>
+          <th>Última venta</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── MOVIMIENTOS ── -->
+  <section id="panel-movimientos" class="panel">
+    <div class="controls">
+      <input id="mov-sku" placeholder="SKU (slug)" style="min-width:160px">
+      <select id="mov-tipo">
+        <option value="">Todos tipos</option>
+        <option value="entrada">Entrada</option>
+        <option value="salida">Salida</option>
+        <option value="ajuste">Ajuste</option>
+        <option value="devolucion">Devolución</option>
+      </select>
+      <button class="primary" onclick="loadMovimientos()">Refrescar</button>
+      <button onclick="exportCSV('movimientos')">Export CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table id="tbl-mov">
+        <thead><tr>
+          <th>Fecha</th>
+          <th>SKU</th>
+          <th>Tipo</th>
+          <th class="num">Cantidad</th>
+          <th class="num">Antes</th>
+          <th class="num">Después</th>
+          <th>Motivo</th>
+          <th>Por</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── ALERTAS ── -->
+  <section id="panel-alertas" class="panel">
+    <div class="controls">
+      <button class="primary" onclick="loadAlertas()">Refrescar</button>
+      <button onclick="exportCSV('alertas')">Export CSV</button>
+      <span class="meta" id="alertas-meta" style="color:var(--muted);font-size:0.82rem;"></span>
+    </div>
+    <div class="table-wrap">
+      <table id="tbl-alertas">
+        <thead><tr>
+          <th>SKU</th><th>Nombre</th><th>Categoría</th>
+          <th class="num">Stock actual</th>
+          <th class="num">Mínimo</th>
+          <th class="num">Sugerencia reponer</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="footer-status">
+    <span id="footer-left">—</span>
+    <span id="footer-right">v4 · Frente E · auto-refresh 60s</span>
+  </div>
+</main>
+
+<script>
+  /* ── Estado global ──────────────────────────────────────────────────── */
+  const state = {
+    rotacion: [],      // catálogo enriquecido con ventas (matview)
+    movimientos: [],
+    lastError: null,
+    lastFetch: null,
+  };
+
+  /* ── Helpers ─────────────────────────────────────────────────────────── */
+
+  async function fetchJSON(url) {
+    const r = await fetch(url, { cache: 'no-cache' });
+    const text = await r.text();
+    let body;
+    try { body = JSON.parse(text); } catch { body = { raw: text }; }
+    if (!r.ok) {
+      throw new Error(`HTTP ${r.status}: ${body?.error || body?.raw || 'unknown'}`);
+    }
+    return body;
+  }
+
+  function fmtDate(s) {
+    if (!s) return '—';
+    try { return new Date(s).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' }); }
+    catch { return s; }
+  }
+
+  function fmtDateShort(s) {
+    if (!s) return '—';
+    try { return new Date(s).toLocaleDateString('es-MX'); }
+    catch { return s; }
+  }
+
+  function setError(msg) {
+    state.lastError = msg;
+    const box = document.getElementById('global-error');
+    if (msg) {
+      box.innerHTML = `<div class="error">${msg}</div>`;
+    } else {
+      box.innerHTML = '';
+    }
+  }
+
+  function renderTable(tblId, rows, mapper, emptyMsg) {
+    const tbody = document.querySelector(`#${tblId} tbody`);
+    if (!rows || rows.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="20" class="empty">${emptyMsg || 'Sin resultados.'}</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows.map(r => {
+      const cells = mapper(r);
+      return '<tr>' + cells.map((c, i) => {
+        const cls = c?.__class || '';
+        const val = c?.html ?? c;
+        return `<td class="${cls}">${val}</td>`;
+      }).join('') + '</tr>';
+    }).join('');
+  }
+
+  /* ── Loaders por tab ─────────────────────────────────────────────────── */
+
+  async function loadCatalogo() {
+    /* Carga la matview completa (productos_rotacion_mensual) y la usa como
+       fuente para Stock + Rotación + Alertas. La matview ya tiene stock,
+       mínimo, categoría y ventas precomputadas. */
+    const body = await fetchJSON('/api/inventario/rotacion?limit=500&orden=stock_actual.asc');
+    state.rotacion = body.data || [];
+    state.lastFetch = new Date();
+    populateCategorias();
+    updateBadges();
+    document.getElementById('meta').textContent =
+      `${state.rotacion.length} productos · actualizado ${fmtDate(state.lastFetch)}`;
+  }
+
+  function populateCategorias() {
+    const sel = document.getElementById('stock-categoria');
+    if (!sel) return;
+    const cats = new Set();
+    for (const p of state.rotacion) if (p.categoria) cats.add(p.categoria);
+    const current = sel.value;
+    sel.innerHTML = '<option value="">Todas categorías</option>' +
+      [...cats].sort().map(c => `<option value="${c}">${c}</option>`).join('');
+    sel.value = current;
+  }
+
+  function updateBadges() {
+    document.getElementById('badge-stock').textContent = state.rotacion.length;
+    document.getElementById('badge-rotacion').textContent = state.rotacion.length;
+    document.getElementById('badge-mov').textContent = state.movimientos.length || '—';
+    const bajos = state.rotacion.filter(p => p.stock_actual <= (p.stock_minimo || 0) && (p.stock_minimo || 0) > 0).length;
+    document.getElementById('badge-alertas').textContent = bajos;
+    const tabAlertas = document.querySelector('.tab[data-tab="alertas"]');
+    tabAlertas.classList.toggle('has-alerts', bajos > 0);
+  }
+
+  async function loadStock() {
+    try {
+      setError(null);
+      if (state.rotacion.length === 0) await loadCatalogo();
+      const q = document.getElementById('stock-search').value.trim().toLowerCase();
+      const cat = document.getElementById('stock-categoria').value;
+      const filtro = document.getElementById('stock-filtro').value;
+
+      let rows = state.rotacion;
+      if (q) rows = rows.filter(p =>
+        (p.sku || '').toLowerCase().includes(q) || (p.nombre || '').toLowerCase().includes(q));
+      if (cat) rows = rows.filter(p => p.categoria === cat);
+      if (filtro === 'bajos') rows = rows.filter(p => (p.stock_minimo || 0) > 0 && p.stock_actual <= p.stock_minimo);
+      if (filtro === 'sin_stock') rows = rows.filter(p => p.stock_actual === 0);
+
+      renderTable('tbl-stock', rows, p => {
+        let estado;
+        if (p.stock_actual === 0) estado = '<span class="badge-danger">SIN STOCK</span>';
+        else if ((p.stock_minimo || 0) > 0 && p.stock_actual <= p.stock_minimo) estado = '<span class="badge-warn">BAJO</span>';
+        else estado = '<span class="badge-ok">OK</span>';
+        return [
+          p.sku ?? '—',
+          p.nombre ?? '—',
+          p.categoria ?? '—',
+          { html: p.stock_actual ?? 0, __class: 'num' },
+          { html: p.stock_minimo ?? 0, __class: 'num' },
+          { html: p.ventas_30d ?? 0, __class: 'num' },
+          { html: estado, __class: 'center' },
+        ];
+      }, 'Sin productos en este filtro.');
+    } catch (e) { setError(`loadStock: ${e.message}`); }
+  }
+
+  async function loadRotacion() {
+    try {
+      setError(null);
+      const orden = document.getElementById('rot-orden').value;
+      const muertos = document.getElementById('rot-muertos').checked;
+      const url = `/api/inventario/rotacion?limit=200&orden=${encodeURIComponent(orden)}${muertos ? '&muertos=true' : ''}`;
+      const body = await fetchJSON(url);
+      const rows = body.data || [];
+      renderTable('tbl-rotacion', rows, p => [
+        p.sku ?? '—',
+        p.nombre ?? '—',
+        p.categoria ?? '—',
+        { html: p.stock_actual ?? 0, __class: 'num' },
+        { html: p.ventas_30d ?? 0, __class: 'num' },
+        { html: p.ventas_90d ?? 0, __class: 'num' },
+        { html: (p.rotacion_30d ?? 0).toFixed ? p.rotacion_30d.toFixed(3) : p.rotacion_30d, __class: 'num' },
+        fmtDateShort(p.ultima_venta_real),
+      ], 'Sin datos en este orden / filtro.');
+    } catch (e) { setError(`loadRotacion: ${e.message}`); }
+  }
+
+  async function loadMovimientos() {
+    try {
+      setError(null);
+      const slug = document.getElementById('mov-sku').value.trim();
+      const tipo = document.getElementById('mov-tipo').value;
+      let url = '/api/inventario/movimientos?limit=100';
+      if (slug) url += '&slug=' + encodeURIComponent(slug);
+      if (tipo) url += '&tipo=' + encodeURIComponent(tipo);
+      const body = await fetchJSON(url);
+      state.movimientos = body.data || [];
+      updateBadges();
+      renderTable('tbl-mov', state.movimientos, m => [
+        fmtDate(m.created_at),
+        m.producto_slug ?? '—',
+        `<span class="tipo-pill tipo-${m.tipo}">${m.tipo}</span>`,
+        { html: m.cantidad ?? 0, __class: 'num' },
+        { html: m.stock_anterior ?? 0, __class: 'num' },
+        { html: m.stock_nuevo ?? 0, __class: 'num' },
+        m.motivo ?? '—',
+        m.registrado_por ?? '—',
+      ], 'Sin movimientos en este filtro.');
+    } catch (e) { setError(`loadMovimientos: ${e.message}`); }
+  }
+
+  async function loadAlertas() {
+    try {
+      setError(null);
+      if (state.rotacion.length === 0) await loadCatalogo();
+      const bajos = state.rotacion
+        .filter(p => (p.stock_minimo || 0) > 0 && p.stock_actual <= p.stock_minimo)
+        .sort((a, b) => (a.stock_actual - a.stock_minimo) - (b.stock_actual - b.stock_minimo));
+      document.getElementById('alertas-meta').textContent =
+        `${bajos.length} producto(s) bajo mínimo`;
+      renderTable('tbl-alertas', bajos, p => [
+        p.sku ?? '—',
+        p.nombre ?? '—',
+        p.categoria ?? '—',
+        { html: p.stock_actual ?? 0, __class: 'num' },
+        { html: p.stock_minimo ?? 0, __class: 'num' },
+        { html: Math.max((p.stock_minimo || 0) * 2 - (p.stock_actual || 0), 1), __class: 'num' },
+      ], '🎉 Ningún producto bajo mínimo.');
+    } catch (e) { setError(`loadAlertas: ${e.message}`); }
+  }
+
+  /* ── Export CSV ──────────────────────────────────────────────────────── */
+  function exportCSV(tab) {
+    const tblId = { stock:'tbl-stock', rotacion:'tbl-rotacion', movimientos:'tbl-mov', alertas:'tbl-alertas' }[tab];
+    const tbl = document.getElementById(tblId);
+    if (!tbl) return;
+    const rows = Array.from(tbl.querySelectorAll('tr')).map(tr =>
+      Array.from(tr.querySelectorAll('th, td'))
+        .map(td => `"${td.innerText.replace(/"/g, '""').replace(/\n/g, ' ')}"`)
+        .join(',')
+    ).join('\n');
+    const blob = new Blob([rows], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `inventario_${tab}_${new Date().toISOString().slice(0,10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  /* ── Tabs ────────────────────────────────────────────────────────────── */
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      const tab = t.dataset.tab;
+      document.getElementById('panel-' + tab).classList.add('active');
+      ({ stock: loadStock, rotacion: loadRotacion, movimientos: loadMovimientos, alertas: loadAlertas })[tab]();
+    });
+  });
+
+  /* ── Init + auto-refresh ─────────────────────────────────────────────── */
+  (async function init() {
+    await loadCatalogo().catch(e => setError(`init: ${e.message}`));
+    await loadStock();
+  })();
+
+  setInterval(() => {
+    const active = document.querySelector('.tab.active')?.dataset.tab;
+    if (!active) return;
+    ({ stock: () => loadCatalogo().then(loadStock),
+       rotacion: loadRotacion,
+       movimientos: loadMovimientos,
+       alertas: () => loadCatalogo().then(loadAlertas) })[active]();
+    document.getElementById('footer-left').textContent = `Auto-refresh: ${new Date().toLocaleTimeString('es-MX')}`;
+  }, 60000);
+</script>
+</body>
+</html>

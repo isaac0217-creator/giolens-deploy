@@ -8,7 +8,12 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
-    include: ['agents/**/*.test.js', 'evals/**/*.test.js', 'inngest/**/*.test.js'],
+    include: [
+      'agents/**/*.test.js',
+      'evals/**/*.test.js',
+      'inngest/**/*.test.js',
+      'tests/**/*.test.js',
+    ],
     exclude: ['node_modules', '**/templates/**', '**/snapshots/**'],
     setupFiles: ['./vitest.setup.js'],
     testTimeout: 10_000,
