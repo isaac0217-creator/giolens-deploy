@@ -1,45 +1,135 @@
 {
   "functions": {
-    "api/pipeline-summary.js":   { "maxDuration": 60 },
-    "api/predictor.js":          { "maxDuration": 60 },
-    "api/microseg.js":           { "maxDuration": 60 },
-    "api/arbitraje.js":          { "maxDuration": 60 },
-    "api/webhook.js":            { "maxDuration": 60 },
-    "api/copiloto.js":           { "maxDuration": 60 },
-    "api/text-utils.js":         { "maxDuration": 60 },
-    "api/state.js":              { "maxDuration": 60 },
-    "api/inngest.js":            { "maxDuration": 300 },
-    "api/cron/fetch-provider-usage.ts": { "maxDuration": 60 },
-    "api/cron/refresh-meta-token.ts":   { "maxDuration": 30 },
-    "api/cron/sync-wapify-cache.ts":    { "maxDuration": 300 },
-    "api/cron/enrich-contacts.ts":      { "maxDuration": 300 },
-    "api/cron/snapshot-daily.ts":       { "maxDuration": 300 },
-    "api/cron/wapify-export-historical.ts": { "maxDuration": 300 },
-    "api/cron/backup-monthly.ts":       { "maxDuration": 300 },
-    "api/cron/refresh-rotacion.ts":     { "maxDuration": 60 },
-    "api/cron/alertas-stock-bajo.ts":   { "maxDuration": 30 },
-    "api/inventario/operaciones.ts":    { "maxDuration": 10 },
-    "api/inventario/rotacion.ts":       { "maxDuration": 10 },
-    "api/inventario/movimientos.ts":    { "maxDuration": 10 },
-    "api/admin/restore.ts":             { "maxDuration": 300 },
-    "api/expediente.ts":                { "maxDuration": 15 },
-    "api/provider-usage.ts":     { "maxDuration": 15 }
+    "api/pipeline-summary.js": {
+      "maxDuration": 60
+    },
+    "api/predictor.js": {
+      "maxDuration": 60
+    },
+    "api/microseg.js": {
+      "maxDuration": 60
+    },
+    "api/arbitraje.js": {
+      "maxDuration": 60
+    },
+    "api/webhook.js": {
+      "maxDuration": 60
+    },
+    "api/copiloto.js": {
+      "maxDuration": 60
+    },
+    "api/text-utils.js": {
+      "maxDuration": 60
+    },
+    "api/state.js": {
+      "maxDuration": 60
+    },
+    "api/inngest.js": {
+      "maxDuration": 300
+    },
+    "api/cron/fetch-provider-usage.ts": {
+      "maxDuration": 60
+    },
+    "api/cron/refresh-meta-token.ts": {
+      "maxDuration": 30
+    },
+    "api/cron/sync-wapify-cache.ts": {
+      "maxDuration": 300
+    },
+    "api/cron/enrich-contacts.ts": {
+      "maxDuration": 300
+    },
+    "api/cron/snapshot-daily.ts": {
+      "maxDuration": 300
+    },
+    "api/cron/wapify-export-historical.ts": {
+      "maxDuration": 300
+    },
+    "api/cron/backup-monthly.ts": {
+      "maxDuration": 300
+    },
+    "api/cron/refresh-rotacion.ts": {
+      "maxDuration": 60
+    },
+    "api/cron/alertas-stock-bajo.ts": {
+      "maxDuration": 30
+    },
+    "api/inventario/operaciones.ts": {
+      "maxDuration": 10
+    },
+    "api/inventario/rotacion.ts": {
+      "maxDuration": 10
+    },
+    "api/inventario/movimientos.ts": {
+      "maxDuration": 10
+    },
+    "api/admin/restore.ts": {
+      "maxDuration": 300
+    },
+    "api/expediente.ts": {
+      "maxDuration": 15
+    },
+    "api/provider-usage.ts": {
+      "maxDuration": 15
+    },
+    "api/auto-prompt.js": {
+      "maxDuration": 60
+    }
   },
   "crons": [
-    { "path": "/api/webhook?mode=cron", "schedule": "*/5 * * * *" },
-    { "path": "/api/cron/fetch-provider-usage", "schedule": "0 12 * * *" },
-    { "path": "/api/cron/refresh-meta-token",   "schedule": "0 13 * * *" },
-    { "path": "/api/cron/sync-wapify-cache",    "schedule": "30 12 * * *" },
-    { "path": "/api/cron/enrich-contacts",      "schedule": "0 * * * *" },
-    { "path": "/api/cron/refresh-rotacion",     "schedule": "0 9 * * *" },
-    { "path": "/api/cron/snapshot-daily",       "schedule": "0 10 * * *" },
-    { "path": "/api/cron/wapify-export-historical", "schedule": "30 10 * * *" },
-    { "path": "/api/cron/alertas-stock-bajo",   "schedule": "15 * * * *" },
-    { "path": "/api/cron/backup-monthly",       "schedule": "0 8 1 * *" }
+    {
+      "path": "/api/webhook?mode=cron",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/fetch-provider-usage",
+      "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-meta-token",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/sync-wapify-cache",
+      "schedule": "30 12 * * *"
+    },
+    {
+      "path": "/api/cron/enrich-contacts",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/refresh-rotacion",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/snapshot-daily",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/wapify-export-historical",
+      "schedule": "30 10 * * *"
+    },
+    {
+      "path": "/api/cron/alertas-stock-bajo",
+      "schedule": "15 * * * *"
+    },
+    {
+      "path": "/api/cron/backup-monthly",
+      "schedule": "0 8 1 * *"
+    }
   ],
   "rewrites": [
-    { "source": "/inventario.html", "destination": "/public/inventario.html" },
-    { "source": "/inventario",      "destination": "/public/inventario.html" },
-    { "source": "/((?!api/).*)",    "destination": "/public/index.html" }
+    {
+      "source": "/inventario.html",
+      "destination": "/public/inventario.html"
+    },
+    {
+      "source": "/inventario",
+      "destination": "/public/inventario.html"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/public/index.html"
+    }
   ]
 }
