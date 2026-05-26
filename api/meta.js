@@ -21,29 +21,48 @@ function buildTimeRanges() {
   };
 }
 
+const FALLBACK_OVERVIEW = {
+  spend: 0, impressions: 0, clicks: 0, conv: 0,
+  ctr: 0, cpc: 0, cpm: 0, reach: 0,
+};
+
 async function fetchAccount(accountId, level) {
   const { curr, prev } = buildTimeRanges();
   const base = `${GRAPH}/${accountId}/insights?access_token=${META_TOKEN}`;
 
   if (level === 'campaign') {
-    const [c, p] = await Promise.all([
-      fetch(`${base}&fields=${FIELDS}&time_range=${encodeURIComponent(curr)}&level=campaign`).then(r=>r.json()),
-      fetch(`${base}&fields=${FIELDS}&time_range=${encodeURIComponent(prev)}&level=campaign`).then(r=>r.json()),
-    ]);
-    const prevMap = {};
-    (p.data||[]).forEach(x => { prevMap[x.campaign_id] = x; });
-    return { data: (c.data||[]).map(x => ({ ...x, prev: prevMap[x.campaign_id]||null })) };
+    try {
+      const [c, p] = await Promise.all([
+        fetch(`${base}&fields=${FIELDS}&time_range=${encodeURIComponent(curr)}&level=campaign`).then(r=>r.json()),
+        fetch(`${base}&fields=${FIELDS}&time_range=${encodeURIComponent(prev)}&level=campaign`).then(r=>r.json()),
+      ]);
+      if (c.error) throw new Error(c.error.type || 'Meta Graph error (campaign curr)');
+      if (p.error) throw new Error(p.error.type || 'Meta Graph error (campaign prev)');
+      const prevMap = {};
+      (p.data||[]).forEach(x => { prevMap[x.campaign_id] = x; });
+      return { data: (c.data||[]).map(x => ({ ...x, prev: prevMap[x.campaign_id]||null })), source: 'live' };
+    } catch (e) {
+      return { data: [], source: 'fallback', error: 'Meta Ads no disponible en este momento' };
+    }
   }
 
   const overviewFields = 'spend,cpc,cpm,impressions,clicks,ctr,reach,actions';
-  const [c, p] = await Promise.all([
-    fetch(`${base}&fields=${overviewFields}&time_range=${encodeURIComponent(curr)}`).then(r=>r.json()),
-    fetch(`${base}&fields=${overviewFields}&time_range=${encodeURIComponent(prev)}`).then(r=>r.json()),
-  ]);
-  return {
-    curr: c.data?.[0] || null,
-    prev: p.data?.[0] || null,
-  };
+  try {
+    const [c, p] = await Promise.all([
+      fetch(`${base}&fields=${overviewFields}&time_range=${encodeURIComponent(curr)}`).then(r=>r.json()),
+      fetch(`${base}&fields=${overviewFields}&time_range=${encodeURIComponent(prev)}`).then(r=>r.json()),
+    ]);
+    if (c.error) throw new Error(c.error.type || 'Meta Graph error (overview curr)');
+    if (p.error) throw new Error(p.error.type || 'Meta Graph error (overview prev)');
+    const currData = c.data?.[0] || null;
+    const prevData = p.data?.[0] || null;
+    if (!currData && !prevData) {
+      return { curr: { ...FALLBACK_OVERVIEW }, prev: { ...FALLBACK_OVERVIEW }, source: 'fallback', error: 'Sin actividad en el período' };
+    }
+    return { curr: currData, prev: prevData, source: 'live' };
+  } catch (e) {
+    return { curr: { ...FALLBACK_OVERVIEW }, prev: { ...FALLBACK_OVERVIEW }, source: 'fallback', error: 'Meta Ads no disponible en este momento' };
+  }
 }
 
 // Fetch 30-day daily breakdown for trend charts
@@ -97,11 +116,19 @@ export default async function handler(req, res) {
   try {
     if (level === 'daily') {
       const data = await fetchDaily(accountId, days ? parseInt(days) : 30);
+      res.setHeader('X-Meta-Source', 'live');
       return res.status(200).json({ data });
     }
     const data = await fetchAccount(accountId, level === 'campaign' ? 'campaign' : 'overview');
+    res.setHeader('X-Meta-Source', data.source || 'live');
     res.status(200).json(data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.setHeader('X-Meta-Source', 'fallback');
+    res.status(200).json({
+      curr: { ...FALLBACK_OVERVIEW },
+      prev: { ...FALLBACK_OVERVIEW },
+      source: 'fallback',
+      error: 'Meta Ads no disponible en este momento',
+    });
   }
 }

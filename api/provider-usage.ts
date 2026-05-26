@@ -146,11 +146,6 @@ export default async function handler(
   const provider = pickParam(q, 'provider') ?? q.provider;
   const daysRaw = pickParam(q, 'days') ?? q.days;
 
-  if (!provider) {
-    res.status(400).json({ error: 'Falta query param `provider`' });
-    return;
-  }
-
   let days = parseInt(String(daysRaw ?? DEFAULT_DAYS), 10);
   if (!Number.isFinite(days) || days <= 0) days = DEFAULT_DAYS;
   if (days > MAX_DAYS) days = MAX_DAYS;
@@ -160,6 +155,84 @@ export default async function handler(
   const from = isoDay(minusDays(now, days));
   const prevFrom = isoDay(minusDays(now, days * 2));
   const prevTo = isoDay(minusDays(now, days));
+
+  // Si no se pasa ?provider (o viene vacío), devolver agregado de todos los providers conocidos
+  if (!provider || provider.trim() === '') {
+    const KNOWN_PROVIDERS = ['anthropic', 'openai', 'meta', 'vercel'];
+    let supabaseAll: ReturnType<typeof buildSupabaseClient>;
+    try {
+      supabaseAll = buildSupabaseClient();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: msg });
+      return;
+    }
+    const { data: allData, error: allError } = await supabaseAll
+      .from('provider_usage')
+      .select(
+        'provider, period_start, model, cost_usd, tokens_in, tokens_in_cached, tokens_out, requests, messages_sent, invocations',
+      )
+      .in('provider', KNOWN_PROVIDERS)
+      .gte('period_start', prevFrom)
+      .lte('period_start', to)
+      .order('period_start', { ascending: true });
+
+    if (allError) {
+      res.status(500).json({ error: `Query agregada a provider_usage falló: ${allError.message}` });
+      return;
+    }
+
+    let costTotal = 0, costPrev = 0, tokensTotal = 0, requestsTotal = 0;
+    const byDayAll = new Map<string, { cost_usd: number; tokens: number }>();
+    const byModelAll = new Map<string, { cost_usd: number; tokens: number }>();
+
+    for (const row of ((allData ?? []) as (UsageRow & { provider?: string })[])) {
+      const cost = n(row.cost_usd);
+      const tokens = n(row.tokens_in) + n(row.tokens_in_cached) + n(row.tokens_out);
+      const requests = n(row.requests);
+      if (row.period_start >= from) {
+        costTotal += cost;
+        tokensTotal += tokens;
+        requestsTotal += requests;
+        const dayKey = row.period_start;
+        const prev = byDayAll.get(dayKey) ?? { cost_usd: 0, tokens: 0 };
+        prev.cost_usd += cost; prev.tokens += tokens;
+        byDayAll.set(dayKey, prev);
+        if (row.model) {
+          const m = byModelAll.get(row.model) ?? { cost_usd: 0, tokens: 0 };
+          m.cost_usd += cost; m.tokens += tokens;
+          byModelAll.set(row.model, m);
+        }
+      } else {
+        costPrev += cost;
+      }
+    }
+
+    const by_day_all = Array.from(byDayAll.entries())
+      .map(([date, v]) => ({ date, cost_usd: Number(v.cost_usd.toFixed(4)), tokens: v.tokens }))
+      .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    const by_model_all = Array.from(byModelAll.entries())
+      .map(([model, v]) => ({ model, cost_usd: Number(v.cost_usd.toFixed(4)), tokens: v.tokens }))
+      .sort((a, b) => b.cost_usd - a.cost_usd);
+
+    res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300');
+    res.status(200).json({
+      provider: 'all',
+      providers: KNOWN_PROVIDERS,
+      range: { from, to },
+      kpis: {
+        cost_usd_total: Number(costTotal.toFixed(4)),
+        cost_usd_prev_period: Number(costPrev.toFixed(4)),
+        delta_pct: deltaPct(costTotal, costPrev),
+        tokens_total: tokensTotal,
+        requests_total: requestsTotal,
+      },
+      by_day: by_day_all,
+      by_model: by_model_all,
+      prev_range: { from: prevFrom, to: prevTo },
+    });
+    return;
+  }
 
   // D2=a: Wapify excluido de v1 — bypass con shape consistente
   if (provider === 'wapify') {
