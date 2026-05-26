@@ -342,6 +342,96 @@
   .exp-section-title{font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--faint);
     margin:16px 0 8px;padding-bottom:4px;border-bottom:1px solid var(--line)}
 
+  /* ══ Agenda · Citas ══ */
+  #agenda-panel{}
+  .agenda-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .agenda-date-nav{display:flex;align-items:center;gap:8px}
+  .agenda-nav-btn{min-height:44px;min-width:44px;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;color:var(--txt);font-family:inherit;font-size:16px;cursor:pointer;transition:.2s;
+    display:flex;align-items:center;justify-content:center}
+  .agenda-nav-btn:hover{border-color:var(--a1)}
+  .agenda-date-label{font-size:14px;font-weight:600;color:var(--txt);min-width:180px;text-align:center}
+  .agenda-hoy-btn{min-height:44px;padding:0 16px;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;color:var(--dim);font-family:inherit;font-size:12px;cursor:pointer;transition:.2s}
+  .agenda-hoy-btn:hover{border-color:var(--a1);color:var(--txt)}
+  .agenda-nueva-btn{min-height:44px;padding:0 20px;background:linear-gradient(92deg,var(--a1),var(--a2));
+    color:#06121a;border:0;border-radius:10px;font-size:13px;font-weight:600;font-family:inherit;
+    cursor:pointer;transition:.2s;white-space:nowrap;margin-left:auto}
+  .agenda-nueva-btn:hover{filter:brightness(1.1);transform:translateY(-1px)}
+  .agenda-nueva-btn:active{transform:scale(.96)}
+  .agenda-list{display:flex;flex-direction:column;gap:8px;min-height:60px}
+  .agenda-cita{display:flex;align-items:center;gap:14px;padding:14px 16px;
+    background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:14px;
+    cursor:pointer;transition:.25s}
+  .agenda-cita:hover{border-color:rgba(255,255,255,.16);transform:translateX(3px)}
+  .agenda-hora{font-size:15px;font-weight:600;color:var(--txt);min-width:52px}
+  .agenda-info{flex:1;min-width:0}
+  .agenda-tipo{font-size:13px;font-weight:500;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .agenda-hash{font-size:11px;font-family:monospace;color:var(--faint);letter-spacing:.04em}
+  .agenda-opto{font-size:12px;color:var(--dim)}
+  .agenda-chip{font-size:10px;font-weight:700;padding:3px 10px;border-radius:99px;border:1px solid;
+    white-space:nowrap;letter-spacing:.04em}
+  .agenda-chip.agendada{color:var(--amber);border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.08)}
+  .agenda-chip.confirmada{color:var(--up);border-color:rgba(52,211,153,.35);background:rgba(52,211,153,.08)}
+  .agenda-chip.cancelada{color:var(--faint);border-color:var(--line);background:rgba(255,255,255,.03)}
+  .agenda-chip.realizada{color:var(--a1);border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.08)}
+  .agenda-empty{text-align:center;padding:32px 16px;color:var(--faint);font-size:13px}
+  .agenda-spinner{display:inline-block;width:20px;height:20px;border:2px solid rgba(255,255,255,.1);
+    border-top-color:var(--a1);border-radius:50%;animation:spin .8s linear infinite;
+    vertical-align:middle;margin-right:8px}
+  /* Modal nueva cita / detalle */
+  .agenda-modal-backdrop{position:fixed;inset:0;background:rgba(8,8,12,.82);backdrop-filter:blur(6px);
+    z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;
+    opacity:0;pointer-events:none;transition:.25s}
+  .agenda-modal-backdrop.open{opacity:1;pointer-events:auto}
+  .agenda-modal{background:#13141a;border:1px solid rgba(255,255,255,.12);border-radius:20px;
+    width:100%;max-width:540px;max-height:90vh;overflow-y:auto;padding:26px;position:relative}
+  .agenda-modal h3{font-size:16px;font-weight:600;margin-bottom:20px;
+    background:linear-gradient(92deg,var(--a1),var(--a2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .agenda-modal-close{position:absolute;top:16px;right:16px;background:transparent;border:0;
+    color:var(--faint);font-size:20px;cursor:pointer;min-height:44px;min-width:44px;
+    border-radius:50%;display:flex;align-items:center;justify-content:center;transition:.2s}
+  .agenda-modal-close:hover{background:rgba(255,255,255,.07);color:var(--txt)}
+  /* Formulario nueva cita */
+  .agenda-form-field{margin-bottom:14px}
+  .agenda-form-field label{display:block;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--faint);margin-bottom:5px}
+  .agenda-form-field input,.agenda-form-field select,.agenda-form-field textarea{
+    width:100%;min-height:44px;padding:10px 12px;font-size:13px;font-family:inherit;
+    background:rgba(255,255,255,.05);color:var(--txt);border:1px solid var(--line);
+    border-radius:10px;transition:.2s}
+  .agenda-form-field input:focus,.agenda-form-field select:focus,.agenda-form-field textarea:focus{
+    outline:none;border-color:var(--a1);box-shadow:0 0 0 3px rgba(34,211,238,.12)}
+  .agenda-form-field select option{background:#13141a;color:var(--txt)}
+  .agenda-form-field textarea{min-height:80px;resize:vertical}
+  .agenda-form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:500px){.agenda-form-row{grid-template-columns:1fr}}
+  .agenda-form-actions{display:flex;gap:10px;margin-top:20px;flex-wrap:wrap}
+  .agenda-btn-primary{flex:1;min-height:44px;background:linear-gradient(92deg,var(--a1),var(--a2));
+    color:#06121a;border:0;border-radius:10px;font-size:13px;font-weight:700;font-family:inherit;
+    cursor:pointer;transition:.2s}
+  .agenda-btn-primary:hover{filter:brightness(1.1)}
+  .agenda-btn-primary:active{transform:scale(.97)}
+  .agenda-btn-primary:disabled{opacity:.5;cursor:wait}
+  .agenda-btn-ghost{min-height:44px;padding:0 16px;background:rgba(255,255,255,.06);
+    color:var(--txt);border:1px solid var(--line);border-radius:10px;font-size:13px;
+    font-family:inherit;cursor:pointer;transition:.2s}
+  .agenda-btn-ghost:hover{border-color:var(--a1)}
+  .agenda-btn-danger{min-height:44px;padding:0 16px;background:rgba(251,113,133,.1);
+    color:var(--down);border:1px solid rgba(251,113,133,.35);border-radius:10px;font-size:13px;
+    font-family:inherit;cursor:pointer;transition:.2s}
+  .agenda-btn-danger:hover{background:rgba(251,113,133,.2)}
+  /* Detalle filas */
+  .agenda-drow{display:flex;gap:14px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+  .agenda-drow:last-child{border:0}
+  .agenda-dl{color:var(--faint);min-width:120px;font-size:11px;text-transform:uppercase;letter-spacing:.07em;padding-top:2px}
+  .agenda-dv{flex:1;color:var(--dim);word-break:break-word}
+  .agenda-toast{position:fixed;bottom:24px;right:24px;border-radius:12px;padding:12px 18px;
+    font-size:13px;z-index:9999;opacity:0;transform:translateY(12px);transition:.3s;pointer-events:none}
+  .agenda-toast.ok{background:rgba(52,211,153,.15);border:1px solid rgba(52,211,153,.4);color:var(--up)}
+  .agenda-toast.err{background:rgba(251,113,133,.15);border:1px solid rgba(251,113,133,.4);color:var(--down)}
+  .agenda-toast.show{opacity:1;transform:none}
+
   /* ══ CRM Metrics — tema oscuro ══ */
   .crm-metrics-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px;margin-bottom:14px}
   @media(max-width:640px){.crm-metrics-grid{grid-template-columns:1fr}}
@@ -511,6 +601,98 @@
 
   <!-- Toast de error global -->
   <div class="exp-toast" id="exp-toast"></div>
+
+  <!-- ══ Agenda · Citas ══ -->
+  <div class="sec-t">Agenda · Citas del día</div>
+  <div class="chart" id="agenda-panel">
+    <h4>Citas <span style="font-size:10.5px;color:var(--faint)">· sin PII · acceso interno</span></h4>
+    <div class="agenda-toolbar">
+      <div class="agenda-date-nav">
+        <button class="agenda-nav-btn" id="agenda-prev-day" title="Día anterior">‹</button>
+        <div class="agenda-date-label" id="agenda-date-label">cargando…</div>
+        <button class="agenda-nav-btn" id="agenda-next-day" title="Día siguiente">›</button>
+      </div>
+      <button class="agenda-hoy-btn" id="agenda-hoy-btn">Hoy</button>
+      <button class="agenda-nueva-btn" id="agenda-nueva-btn">+ Nueva cita</button>
+    </div>
+    <div id="agenda-status" style="font-size:12px;color:var(--faint);min-height:18px;margin-bottom:6px"></div>
+    <div class="agenda-list" id="agenda-list">
+      <div class="agenda-empty"><span class="agenda-spinner"></span>Cargando citas…</div>
+    </div>
+  </div>
+
+  <!-- Modal detalle / edición cita -->
+  <div class="agenda-modal-backdrop" id="agenda-modal-backdrop">
+    <div class="agenda-modal" id="agenda-modal">
+      <button class="agenda-modal-close" id="agenda-modal-close">✕</button>
+      <h3 id="agenda-modal-title">Detalle de cita</h3>
+      <div id="agenda-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Modal nueva cita -->
+  <div class="agenda-modal-backdrop" id="agenda-nueva-backdrop">
+    <div class="agenda-modal" id="agenda-nueva-modal">
+      <button class="agenda-modal-close" id="agenda-nueva-close">✕</button>
+      <h3>Nueva cita</h3>
+      <div class="agenda-form-field">
+        <label>Paciente hash <span style="color:var(--faint);font-size:9px;text-transform:none">(SHA256[:16] o dejar vacío + ingresar email/tel)</span></label>
+        <input type="text" id="ncita-hash" placeholder="a1b2c3d4e5f6a7b8" maxlength="64" style="font-family:monospace">
+      </div>
+      <div class="agenda-form-row">
+        <div class="agenda-form-field">
+          <label>Email paciente <span style="color:var(--faint);font-size:9px;text-transform:none">(para hash)</span></label>
+          <input type="email" id="ncita-email" placeholder="paciente@email.com" autocapitalize="none">
+        </div>
+        <div class="agenda-form-field">
+          <label>Teléfono paciente <span style="color:var(--faint);font-size:9px;text-transform:none">(para hash)</span></label>
+          <input type="tel" id="ncita-tel" placeholder="+52 663 …">
+        </div>
+      </div>
+      <div class="agenda-form-row">
+        <div class="agenda-form-field">
+          <label>Fecha <span style="color:var(--down)">*</span></label>
+          <input type="date" id="ncita-fecha" style="min-height:44px">
+        </div>
+        <div class="agenda-form-field">
+          <label>Hora <span style="color:var(--down)">*</span></label>
+          <input type="time" id="ncita-hora" style="min-height:44px">
+        </div>
+      </div>
+      <div class="agenda-form-row">
+        <div class="agenda-form-field">
+          <label>Tipo de consulta</label>
+          <select id="ncita-tipo" style="min-height:44px">
+            <option value="">— seleccionar —</option>
+            <option value="revision_visual">Revisión visual</option>
+            <option value="contactologia">Contactología</option>
+            <option value="entrega_producto">Entrega de producto</option>
+            <option value="seguimiento">Seguimiento</option>
+          </select>
+        </div>
+        <div class="agenda-form-field">
+          <label>Duración (min)</label>
+          <input type="number" id="ncita-duracion" value="30" min="5" max="240" step="5" style="min-height:44px">
+        </div>
+      </div>
+      <div class="agenda-form-field">
+        <label>Optometrista</label>
+        <input type="text" id="ncita-opto" placeholder="Nombre del optometrista">
+      </div>
+      <div class="agenda-form-field">
+        <label>Notas</label>
+        <textarea id="ncita-notas" placeholder="Observaciones, motivo de consulta…"></textarea>
+      </div>
+      <div class="agenda-form-actions">
+        <button class="agenda-btn-primary" id="ncita-submit-btn">Guardar cita</button>
+        <button class="agenda-btn-ghost" id="agenda-nueva-cancel">Cancelar</button>
+      </div>
+      <div id="ncita-error" style="margin-top:10px;font-size:12px;color:var(--down);min-height:16px"></div>
+    </div>
+  </div>
+
+  <!-- Toast Agenda -->
+  <div class="agenda-toast" id="agenda-toast"></div>
 
   <div class="sec-t">Motores IA · Copilot Sales (Haiku)</div>
   <div id="motores"></div>
@@ -1532,7 +1714,316 @@ async function expAbrirDetalle(id){
 }
 
 // Cerrar modal con Escape
-document.addEventListener('keydown',e=>{if(e.key==='Escape')expCerrarModal(null);});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    expCerrarModal(null);
+    agendaCerrarModal();
+    agendaCerrarNueva();
+  }
+});
+
+/* ════ Agenda · Citas ════════════════════════════════════════════════ */
+(function(){
+  let AGENDA_FECHA = new Date().toISOString().slice(0,10); // YYYY-MM-DD
+
+  const TIPO_LABEL = {
+    revision_visual:  'Revisión visual',
+    contactologia:    'Contactología',
+    entrega_producto: 'Entrega de producto',
+    seguimiento:      'Seguimiento',
+  };
+  const ESTADO_CHIP = {
+    agendada:   'agenda-chip agendada',
+    confirmada: 'agenda-chip confirmada',
+    cancelada:  'agenda-chip cancelada',
+    realizada:  'agenda-chip realizada',
+  };
+
+  function agendaFmtFecha(s){
+    if(!s)return'—';
+    try{
+      const [y,m,d]=s.split('-');
+      const dt=new Date(Number(y),Number(m)-1,Number(d));
+      return dt.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    }catch{return s;}
+  }
+
+  function agendaToast(msg,tipo='ok'){
+    const t=$('#agenda-toast');
+    if(!t)return;
+    t.textContent=msg;
+    t.className='agenda-toast '+tipo+' show';
+    setTimeout(()=>t.classList.remove('show'),3800);
+  }
+
+  function agendaStatus(msg){
+    const el=$('#agenda-status');
+    if(el)el.innerHTML=msg;
+  }
+
+  // ── Render lista del día ──────────────────────────────────────────
+  function agendaRenderLista(citas){
+    const list=$('#agenda-list');
+    if(!list)return;
+    if(!citas||citas.length===0){
+      list.innerHTML='<div class="agenda-empty">Sin citas para este día.</div>';
+      return;
+    }
+    list.innerHTML=citas.map(c=>{
+      const hora=String(c.hora||'').slice(0,5);
+      const tipo=TIPO_LABEL[c.tipo_consulta]||c.tipo_consulta||'Consulta';
+      const hash=String(c.paciente_hash||'').slice(0,12);
+      const opto=esc(c.optometrista||'—');
+      const chip=ESTADO_CHIP[c.estado]||'agenda-chip agendada';
+      const estado=esc(c.estado||'agendada');
+      return`<div class="agenda-cita" onclick="window.__agendaAbrirDetalle(${c.id})">
+        <div class="agenda-hora">${esc(hora)}</div>
+        <div class="agenda-info">
+          <div class="agenda-tipo">${esc(tipo)}</div>
+          <div class="agenda-hash">${esc(hash)}…</div>
+          <div class="agenda-opto">${opto}</div>
+        </div>
+        <span class="${chip}">${estado}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // ── Cargar citas del día ─────────────────────────────────────────
+  async function agendaCargar(){
+    agendaStatus('<span class="agenda-spinner"></span>Cargando…');
+    $('#agenda-list').innerHTML='<div class="agenda-empty"><span class="agenda-spinner"></span>Cargando…</div>';
+    const params=new URLSearchParams({
+      fecha_desde: AGENDA_FECHA,
+      fecha_hasta: AGENDA_FECHA,
+      page_size: '100',
+    });
+    try{
+      const r=await fetch(`/api/citas?${params}`);
+      if(!r.ok)throw new Error(`HTTP ${r.status}`);
+      const d=await r.json();
+      if(!d||d.ok===false)throw new Error(d?.error||'Error del servidor');
+      const citas=d.citas||[];
+      agendaRenderLista(citas);
+      agendaStatus(citas.length===0?'Sin citas.':`${citas.length} cita${citas.length!==1?'s':''}.`);
+    }catch(e){
+      agendaStatus('<span style="color:var(--down)">Error al cargar. Reintenta.</span>');
+      $('#agenda-list').innerHTML='<div class="agenda-empty" style="color:var(--down)">Error: '+esc(e.message)+'</div>';
+    }
+  }
+
+  // ── Navegación por fecha ─────────────────────────────────────────
+  function agendaSetFecha(iso){
+    AGENDA_FECHA=iso;
+    const lbl=$('#agenda-date-label');
+    if(lbl)lbl.textContent=agendaFmtFecha(iso);
+    agendaCargar();
+  }
+
+  function agendaNavDia(delta){
+    const d=new Date(AGENDA_FECHA+'T12:00:00');
+    d.setDate(d.getDate()+delta);
+    agendaSetFecha(d.toISOString().slice(0,10));
+  }
+
+  // ── Modal detalle ────────────────────────────────────────────────
+  function agendaCerrarModal(){
+    const bd=$('#agenda-modal-backdrop');
+    if(bd)bd.classList.remove('open');
+  }
+
+  function agendaRenderDetalle(c){
+    const fila=(lbl,val)=>`<div class="agenda-drow">
+      <div class="agenda-dl">${lbl}</div>
+      <div class="agenda-dv">${val==null||val===''?'<span style="color:var(--faint)">—</span>':String(val)}</div>
+    </div>`;
+    const tipo=TIPO_LABEL[c.tipo_consulta]||c.tipo_consulta||'—';
+    const chip=ESTADO_CHIP[c.estado]||'agenda-chip agendada';
+    const gcalLink=c.gcal_event_id
+      ?`<a href="https://calendar.google.com/calendar/event?eid=${encodeURIComponent(c.gcal_event_id)}" target="_blank" rel="noopener" style="color:var(--a1)">${esc(c.gcal_event_id.slice(0,20))}…</a>`
+      :'—';
+    return`
+      <div style="margin-bottom:16px">
+        <span class="${chip}" style="font-size:11px">${esc(c.estado||'agendada')}</span>
+      </div>
+      ${fila('Fecha',esc(c.fecha||'—'))}
+      ${fila('Hora',esc(String(c.hora||'—').slice(0,5)))}
+      ${fila('Tipo',esc(tipo))}
+      ${fila('Optometrista',esc(c.optometrista||'—'))}
+      ${fila('Hash paciente','<span style="font-family:monospace;font-size:11px;color:var(--faint)">'+esc(c.paciente_hash||'—')+'</span>')}
+      ${fila('Duración',c.duracion_min?(c.duracion_min+' min'):'—')}
+      ${fila('Notas',esc(c.notas||'—'))}
+      ${fila('GCal',gcalLink)}
+      ${fila('Creado',c.created_at?new Date(c.created_at).toLocaleString('es-MX'):'—')}
+      <div class="agenda-form-actions" style="margin-top:20px">
+        <button class="agenda-btn-primary" style="flex:none;padding:0 18px"
+          onclick="window.__agendaConfirmar(${c.id})">Confirmar</button>
+        <button class="agenda-btn-ghost"
+          onclick="window.__agendaIniciarExp('${esc(c.paciente_hash||'')}','${esc(c.tipo_consulta||'')}')">Iniciar expediente</button>
+        <button class="agenda-btn-danger"
+          onclick="window.__agendaCancelar(${c.id})">Cancelar cita</button>
+      </div>`;
+  }
+
+  window.__agendaAbrirDetalle = async function(id){
+    const bd=$('#agenda-modal-backdrop'),body=$('#agenda-modal-body'),title=$('#agenda-modal-title');
+    if(!bd||!body)return;
+    title.textContent='Detalle de cita';
+    body.innerHTML='<div class="agenda-empty"><span class="agenda-spinner"></span>Cargando…</div>';
+    bd.classList.add('open');
+    try{
+      const r=await fetch(`/api/citas?fecha_desde=2020-01-01&fecha_hasta=2099-12-31&page_size=1&page=1`);
+      // Cargamos el día actual y buscamos el id — en producción habría /api/citas/:id
+      // Fallback: releer lista del día y encontrar por id
+      const lista=await fetch(`/api/citas?fecha_desde=${AGENDA_FECHA}&fecha_hasta=${AGENDA_FECHA}&page_size=100`);
+      if(!lista.ok)throw new Error(`HTTP ${lista.status}`);
+      const d=await lista.json();
+      const cita=(d.citas||[]).find(c=>c.id===id);
+      if(!cita)throw new Error('Cita no encontrada');
+      body.innerHTML=agendaRenderDetalle(cita);
+    }catch(e){
+      body.innerHTML=`<div class="agenda-empty" style="color:var(--down)">Error: ${esc(e.message)}</div>`;
+    }
+  };
+
+  window.__agendaConfirmar = async function(id){
+    if(!confirm('¿Confirmar esta cita?'))return;
+    try{
+      const r=await fetch(`/api/citas?id=${id}`,{method:'PUT',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify({estado:'confirmada'})});
+      const d=await r.json();
+      if(!d.ok)throw new Error(d.error||'Error');
+      agendaToast('Cita confirmada','ok');
+      agendaCerrarModal();
+      agendaCargar();
+    }catch(e){agendaToast('Error: '+e.message,'err');}
+  };
+
+  window.__agendaCancelar = async function(id){
+    if(!confirm('¿Cancelar esta cita? Esta acción también cancela el evento en Google Calendar.'))return;
+    try{
+      const r=await fetch(`/api/citas?id=${id}`,{method:'PUT',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify({estado:'cancelada'})});
+      const d=await r.json();
+      if(!d.ok)throw new Error(d.error||'Error');
+      agendaToast('Cita cancelada','ok');
+      agendaCerrarModal();
+      agendaCargar();
+    }catch(e){agendaToast('Error: '+e.message,'err');}
+  };
+
+  window.__agendaIniciarExp = function(paciente_hash,tipo_consulta){
+    const params=new URLSearchParams();
+    if(paciente_hash)params.set('paciente_hash',paciente_hash);
+    if(tipo_consulta)params.set('tipo_consulta',tipo_consulta);
+    const url='/expediente-form.html'+(params.toString()?'?'+params.toString():'');
+    window.open(url,'_blank');
+    agendaCerrarModal();
+  };
+
+  // ── Modal nueva cita ─────────────────────────────────────────────
+  function agendaCerrarNueva(){
+    const bd=$('#agenda-nueva-backdrop');
+    if(bd)bd.classList.remove('open');
+  }
+
+  function agendaAbrirNueva(){
+    const bd=$('#agenda-nueva-backdrop');
+    if(!bd)return;
+    // Pre-fill fecha con el día actual de la agenda
+    const fi=$('#ncita-fecha');if(fi)fi.value=AGENDA_FECHA;
+    const he=$('#ncita-error');if(he)he.textContent='';
+    bd.classList.add('open');
+  }
+
+  async function agendaSubmitNueva(){
+    const btn=$('#ncita-submit-btn');
+    const errEl=$('#ncita-error');
+    if(btn)btn.disabled=true;
+    if(errEl)errEl.textContent='';
+
+    const fecha=($('#ncita-fecha')||{}).value||'';
+    const hora=($('#ncita-hora')||{}).value||'';
+    const p_hash=($('#ncita-hash')||{}).value.trim()||'';
+    const email=($('#ncita-email')||{}).value.trim()||'';
+    const tel=($('#ncita-tel')||{}).value.trim()||'';
+
+    if(!fecha){if(errEl)errEl.textContent='Fecha requerida.';if(btn)btn.disabled=false;return;}
+    if(!hora){if(errEl)errEl.textContent='Hora requerida.';if(btn)btn.disabled=false;return;}
+    if(!p_hash&&!email&&!tel){
+      if(errEl)errEl.textContent='Ingresa hash, email o teléfono del paciente.';
+      if(btn)btn.disabled=false;return;
+    }
+
+    const body={
+      fecha,
+      hora,
+      tipo_consulta:($('#ncita-tipo')||{}).value||null,
+      optometrista:($('#ncita-opto')||{}).value.trim()||null,
+      notas:($('#ncita-notas')||{}).value.trim()||null,
+      duracion_min:parseInt(($('#ncita-duracion')||{}).value||'30',10)||30,
+    };
+    if(p_hash)body.paciente_hash=p_hash;
+    else{if(email)body.paciente_email=email;if(tel)body.paciente_telefono=tel;}
+
+    try{
+      const r=await fetch('/api/citas',{method:'POST',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const d=await r.json();
+      if(!d.ok)throw new Error(d.error||'Error del servidor');
+      agendaToast('Cita creada correctamente','ok');
+      agendaCerrarNueva();
+      // Resetear form
+      ['ncita-hash','ncita-email','ncita-tel','ncita-hora','ncita-opto','ncita-notas']
+        .forEach(id=>{const el=$('#'+id);if(el)el.value='';});
+      const sel=$('#ncita-tipo');if(sel)sel.value='';
+      const dur=$('#ncita-duracion');if(dur)dur.value='30';
+      // Navegar al día de la cita creada
+      agendaSetFecha(fecha);
+    }catch(e){
+      if(errEl)errEl.textContent='Error: '+e.message;
+      agendaToast('Error al crear cita: '+e.message,'err');
+    }finally{
+      if(btn)btn.disabled=false;
+    }
+  }
+
+  // ── Wire events ──────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded',function(){
+    // navegación
+    const prev=$('#agenda-prev-day');if(prev)prev.addEventListener('click',()=>agendaNavDia(-1));
+    const next=$('#agenda-next-day');if(next)next.addEventListener('click',()=>agendaNavDia(+1));
+    const hoy=$('#agenda-hoy-btn');if(hoy)hoy.addEventListener('click',()=>agendaSetFecha(new Date().toISOString().slice(0,10)));
+    // modales
+    const closeD=$('#agenda-modal-close');if(closeD)closeD.addEventListener('click',agendaCerrarModal);
+    const bd=$('#agenda-modal-backdrop');if(bd)bd.addEventListener('click',e=>{if(e.target===bd)agendaCerrarModal();});
+    const nueva=$('#agenda-nueva-btn');if(nueva)nueva.addEventListener('click',agendaAbrirNueva);
+    const closeN=$('#agenda-nueva-close');if(closeN)closeN.addEventListener('click',agendaCerrarNueva);
+    const cancelN=$('#agenda-nueva-cancel');if(cancelN)cancelN.addEventListener('click',agendaCerrarNueva);
+    const bdN=$('#agenda-nueva-backdrop');if(bdN)bdN.addEventListener('click',e=>{if(e.target===bdN)agendaCerrarNueva();});
+    const submitN=$('#ncita-submit-btn');if(submitN)submitN.addEventListener('click',agendaSubmitNueva);
+    // carga inicial
+    agendaSetFecha(AGENDA_FECHA);
+  });
+
+  // Si el DOM ya cargó (script al final del body)
+  if(document.readyState!=='loading'){
+    const prev=$('#agenda-prev-day');if(prev)prev.addEventListener('click',()=>agendaNavDia(-1));
+    const next=$('#agenda-next-day');if(next)next.addEventListener('click',()=>agendaNavDia(+1));
+    const hoy=$('#agenda-hoy-btn');if(hoy)hoy.addEventListener('click',()=>agendaSetFecha(new Date().toISOString().slice(0,10)));
+    const closeD=$('#agenda-modal-close');if(closeD)closeD.addEventListener('click',agendaCerrarModal);
+    const bd=$('#agenda-modal-backdrop');if(bd)bd.addEventListener('click',e=>{if(e.target===bd)agendaCerrarModal();});
+    const nueva=$('#agenda-nueva-btn');if(nueva)nueva.addEventListener('click',agendaAbrirNueva);
+    const closeN=$('#agenda-nueva-close');if(closeN)closeN.addEventListener('click',agendaCerrarNueva);
+    const cancelN=$('#agenda-nueva-cancel');if(cancelN)cancelN.addEventListener('click',agendaCerrarNueva);
+    const bdN=$('#agenda-nueva-backdrop');if(bdN)bdN.addEventListener('click',e=>{if(e.target===bdN)agendaCerrarNueva();});
+    const submitN=$('#ncita-submit-btn');if(submitN)submitN.addEventListener('click',agendaSubmitNueva);
+    agendaSetFecha(AGENDA_FECHA);
+  }
+
+  // Exponer para que otros módulos puedan navegar a una fecha
+  window.agendaIrFecha = agendaSetFecha;
+
+})();
 
 </script>
 </body>

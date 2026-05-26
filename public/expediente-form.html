@@ -476,6 +476,63 @@
       return el ? el.value : '';
     }
 
+    /* ── Pre-fill desde URL params (Frente G · Integración citas) ──────── */
+    (function prefillFromCita() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const hash = params.get('paciente_hash');
+        const tipo = params.get('tipo_consulta');
+        if (hash) {
+          // paciente_hash ya calculado — no hay email/tel en claro, solo mostrar referencia
+          // Escribirlo en un campo de referencia oculto o en notas si aplica
+          const notasEl = document.getElementById('observaciones');
+          if (notasEl && !notasEl.value) {
+            notasEl.value = `Ref. cita hash: ${hash}`;
+          }
+          // Si hay campo paciente_hash (futuro), llenar también
+          const hashEl = document.getElementById('paciente_hash');
+          if (hashEl) hashEl.value = hash;
+        }
+        if (tipo) {
+          // Mapear tipo_consulta → motivo de consulta legible
+          const tipoMap = {
+            revision_visual:  'Revisión visual',
+            contactologia:    'Adaptación lentes de contacto',
+            entrega_producto: 'Entrega de producto',
+            seguimiento:      'Seguimiento / control',
+          };
+          const label = tipoMap[tipo] || tipo;
+          // Pre-fill campo optometrista / motivo si existe, o notas
+          const motivoEl = document.getElementById('motivo_consulta') || document.getElementById('tipo_consulta');
+          if (motivoEl) {
+            motivoEl.value = label;
+          } else {
+            // Agregar al campo de observaciones si no hay campo específico
+            const notasEl = document.getElementById('observaciones');
+            if (notasEl) {
+              const current = notasEl.value;
+              const prefix = `Tipo cita: ${label}`;
+              if (!current.includes(prefix)) {
+                notasEl.value = [prefix, current].filter(Boolean).join('\n');
+              }
+            }
+          }
+        }
+        if (hash || tipo) {
+          // Mostrar banner de referencia
+          const header = document.querySelector('header');
+          if (header) {
+            const banner = document.createElement('div');
+            banner.style.cssText = 'background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);border-radius:8px;padding:8px 14px;font-size:13px;color:#818cf8;margin-top:8px;width:100%';
+            banner.textContent = `Expediente iniciado desde cita${tipo ? ' · ' + (tipoMap ? ({revision_visual:'Revisión visual',contactologia:'Contactología',entrega_producto:'Entrega producto',seguimiento:'Seguimiento'}[tipo]||tipo) : tipo) : ''}.`;
+            header.appendChild(banner);
+          }
+        }
+      } catch (e) {
+        // silencioso — pre-fill es opcional
+      }
+    })();
+
     /* ── Steppers ────────────────────────────────────────────────────────── */
     document.querySelectorAll('.stepper').forEach((st) => {
       const input = st.querySelector('input');
