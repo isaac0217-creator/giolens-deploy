@@ -151,6 +151,8 @@ interface ExpedientePayload {
   productos_recomendados?: string[] | null;
   firma_data_url?: string | null;
   capturado_por: string;
+  duracion_minutos?: number | null;
+  precio_consulta?: number | null;
 }
 
 function pickNum(v: unknown, min: number, max: number): number | null {
@@ -222,6 +224,9 @@ function validatePayload(input: unknown): ValidationResult {
     productos_recomendados: productos && productos.length > 0 ? productos : null,
     firma_data_url: pickStr(r.firma_data_url, 200_000),
     capturado_por: capturadoPor,
+    // Campos Fase 2 (DC brief) — columnas dedicadas en la tabla expedientes.
+    duracion_minutos: pickNum(r.duracion_minutos, 0, 480),
+    precio_consulta: pickNum(r.precio_consulta, 0, 99999),
   };
 
   return { ok: true, payload };
@@ -396,6 +401,8 @@ export default async function handler(
     firma_data_url: payload.firma_data_url,
     capturado_por: payload.capturado_por,
     capturado_desde: 'web_form_ipad',
+    duracion_minutos: payload.duracion_minutos ?? null,
+    precio_consulta: payload.precio_consulta ?? null,
     raw_form_data: req.body ?? null,
   };
 

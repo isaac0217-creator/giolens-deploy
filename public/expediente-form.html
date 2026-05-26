@@ -155,20 +155,108 @@
     .loading.show { display: flex; }
     .spinner { width: 48px; height: 48px; border: 4px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Timer ────────────────────────────────────────────────────────────── */
+    #timer {
+      font-size: 18px; font-weight: 700; color: var(--accent);
+      font-variant-numeric: tabular-nums; letter-spacing: 0.04em;
+      background: rgba(99,102,241,0.08); padding: 4px 10px; border-radius: 6px;
+      min-width: 72px; text-align: center;
+    }
+
+    /* ── Dos fases ────────────────────────────────────────────────────────── */
+    #phase2-col { display: none; }
+    #notas-section { display: none; }
+
+    /* Campos congelados Fase 1 */
+    #phase1-col.frozen .field input,
+    #phase1-col.frozen .field textarea,
+    #phase1-col.frozen .field select {
+      background: var(--bg); color: var(--dim);
+      border-color: transparent; pointer-events: none; opacity: 0.75;
+    }
+    #phase1-col.frozen .field label { opacity: 0.65; }
+    #phase1-col.frozen { opacity: 0.90; }
+
+    /* Badge de fase en summary */
+    .fase-badge {
+      display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.10em;
+      text-transform: uppercase; padding: 2px 8px; border-radius: 999px;
+      background: var(--accent); color: white; margin-right: 8px;
+    }
+
+    /* ── Print — no muestra PII (email/teléfono) ──────────────────────────── */
+    .print-only { display: none; }
+
+    @media print {
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+
+      html, body { background: white; font-size: 13px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      body { padding: 0; }
+
+      header {
+        position: static !important; backdrop-filter: none !important;
+        border-bottom: 2px solid #1e293b; padding: 10px 16px;
+      }
+      header #timer { display: none !important; }
+      header .save-status { display: none !important; }
+
+      /* Grid → single column en print */
+      .grid { grid-template-columns: 1fr !important; }
+
+      /* Sections limpias */
+      .section {
+        border: 1px solid #cbd5e1 !important; border-radius: 4px !important;
+        box-shadow: none !important; break-inside: avoid; margin-bottom: 10px;
+        page-break-inside: avoid;
+      }
+
+      /* Ocultar controles innecesarios */
+      .submit-bar { display: none !important; }
+      .modal-bg { display: none !important; }
+      .loading { display: none !important; }
+
+      /* Steppers: ocultar botones +/− */
+      .stepper button { display: none !important; }
+      .stepper { border: none !important; }
+      .stepper input { border: none !important; border-bottom: 1px solid #e2e8f0 !important; text-align: left !important; }
+
+      /* Agudeza: solo mostrar seleccionado */
+      .av-buttons button:not(.on) { display: none !important; }
+      .av-buttons button.on { background: #1e293b !important; color: white !important; border-radius: 4px !important; }
+
+      /* Chips: solo mostrar seleccionados */
+      .chips button:not(.on) { display: none !important; }
+      .chips button.on { background: #1e293b !important; color: white !important; }
+
+      /* Inputs en modo lectura */
+      .field input, .field textarea, .field select {
+        border: none !important; border-bottom: 1px solid #e2e8f0 !important;
+        border-radius: 0 !important; padding: 4px 0 !important;
+        background: transparent !important; color: #1e293b !important;
+        min-height: auto !important;
+      }
+
+      /* Phase 2 visible en print aunque esté en display:none */
+      #phase2-col { display: block !important; }
+      #notas-section { display: block !important; }
+    }
   </style>
 </head>
 <body>
   <header>
     <div class="brand">GIOCORE</div>
     <div class="meta">Captura de expediente</div>
+    <div id="timer" aria-label="Tiempo de consulta">00:00</div>
     <div class="save-status" id="save-status">✓ Guardado</div>
   </header>
 
   <main>
     <form id="exp-form" novalidate>
       <div class="grid">
-        <!-- ── COLUMNA IZQUIERDA: PACIENTE + EXAMEN ── -->
-        <div>
+        <!-- ── COLUMNA IZQUIERDA: PACIENTE + EXAMEN (Fase 1) ── -->
+        <div id="phase1-col">
           <section class="section">
             <h2>Datos del paciente</h2>
             <div class="field">
@@ -176,11 +264,11 @@
               <input type="text" id="paciente_nombre" name="paciente_nombre" autocomplete="name" autocapitalize="words" required />
               <div class="field-err">Nombre requerido</div>
             </div>
-            <div class="field">
+            <div class="field no-print">
               <label for="paciente_telefono">Teléfono</label>
               <input type="tel" id="paciente_telefono" name="paciente_telefono" inputmode="tel" autocomplete="tel" placeholder="+52 663 118 0788" />
             </div>
-            <div class="field">
+            <div class="field no-print">
               <label for="paciente_email">Email</label>
               <input type="email" id="paciente_email" name="paciente_email" inputmode="email" autocomplete="email" autocapitalize="none" />
             </div>
@@ -204,8 +292,8 @@
           </section>
         </div>
 
-        <!-- ── COLUMNA DERECHA: GRADUACIÓN + OBSERVACIONES ── -->
-        <div>
+        <!-- ── COLUMNA DERECHA: GRADUACIÓN + AGUDEZA (Fase 2 — oculta hasta "Entregar al doctor") ── -->
+        <div id="phase2-col">
           <section class="section">
             <h2>Graduación</h2>
             <div class="grad-grid">
@@ -292,11 +380,21 @@
               <input type="hidden" id="agudeza_visual_oi" name="agudeza_visual_oi" />
             </div>
           </section>
+
+          <section class="section" style="margin-top:20px">
+            <h2>Consulta</h2>
+            <div class="field">
+              <label for="precio_consulta">Precio consulta (MXN)</label>
+              <input type="number" id="precio_consulta" name="precio_consulta" inputmode="decimal" min="0" step="0.01" placeholder="0.00" />
+            </div>
+          </section>
         </div>
       </div>
 
-      <!-- Sección ancho completo: observaciones + productos -->
-      <section class="section" style="margin-top:20px">
+      <!-- Sección ancho completo: observaciones + productos (Fase 2) -->
+      <section class="section" id="notas-section" style="margin-top:20px">
+        <!-- Sólo visible en PDF impreso -->
+        <div class="print-only" id="print-duration" style="font-size:13px; color:#64748b; margin-bottom:8px; border-bottom:1px solid #e2e8f0; padding-bottom:8px;"></div>
         <h2>Notas clínicas</h2>
         <div class="field">
           <label for="antecedentes">Antecedentes</label>
@@ -321,13 +419,17 @@
           </div>
         </div>
       </section>
+
+      <!-- Campos ocultos de sesión -->
+      <input type="hidden" id="duracion_minutos" name="duracion_minutos" />
     </form>
   </main>
 
-  <div class="submit-bar">
-    <div class="summary" id="summary">Guarda en local cada 5s</div>
+  <div class="submit-bar no-print">
+    <div class="summary" id="summary"><span class="fase-badge">Fase 1</span>Captura de paciente</div>
     <button type="button" class="secondary" id="clear-btn">Limpiar</button>
-    <button type="button" id="submit-btn">Guardar expediente</button>
+    <button type="button" id="btn-entregar">Entregar al doctor ›</button>
+    <button type="button" id="btn-finalizar" style="display:none; background:var(--ok)">Finalizar y exportar PDF ↓</button>
   </div>
 
   <div class="loading" id="loading">
@@ -345,6 +447,20 @@
   </div>
 
   <script>
+    /* ── Timer MM:SS ─────────────────────────────────────────────────────── */
+    let startTime = Date.now();
+    let timerInterval = null;
+    const timerEl = document.getElementById('timer');
+
+    function updateTimer() {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
+      const ss = String(elapsed % 60).padStart(2, '0');
+      timerEl.textContent = mm + ':' + ss;
+    }
+    timerInterval = setInterval(updateTimer, 1000);
+    updateTimer();
+
     /* ── Estado + autosave ───────────────────────────────────────────────── */
     const STORAGE_KEY = 'giocore.expediente.draft';
     const STORAGE_TTL_MS = 24 * 3600 * 1000;
@@ -537,11 +653,83 @@
     document.getElementById('modal-close').addEventListener('click', () => {
       document.getElementById('modal-bg').classList.remove('show');
     });
-    document.getElementById('submit-btn').addEventListener('click', submitForm);
+
+    /* ── Flujo dos fases ─────────────────────────────────────────────────── */
+    const phase1Col    = document.getElementById('phase1-col');
+    const phase2Col    = document.getElementById('phase2-col');
+    const notasSection = document.getElementById('notas-section');
+    const btnEntregar  = document.getElementById('btn-entregar');
+    const btnFinalizar = document.getElementById('btn-finalizar');
+    const summaryEl    = document.getElementById('summary');
+
+    function freezePhase1() {
+      phase1Col.classList.add('frozen');
+      phase1Col.querySelectorAll('input:not([type=hidden]), textarea, select').forEach((el) => {
+        el.readOnly = true;
+      });
+    }
+
+    function resetPhases() {
+      phase1Col.classList.remove('frozen');
+      phase1Col.querySelectorAll('input:not([type=hidden]), textarea, select').forEach((el) => {
+        el.readOnly = false;
+      });
+      phase2Col.style.display  = 'none';
+      notasSection.style.display = 'none';
+      btnEntregar.style.display  = '';
+      btnFinalizar.style.display = 'none';
+      summaryEl.innerHTML = '<span class="fase-badge">Fase 1</span>Captura de paciente';
+    }
+
+    btnEntregar.addEventListener('click', () => {
+      if (!validate()) {
+        const firstErr = document.querySelector('.field.error input');
+        if (firstErr) firstErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      // Congelar Fase 1
+      freezePhase1();
+      // Revelar Fase 2
+      phase2Col.style.display    = 'block';
+      notasSection.style.display = 'block';
+      // Intercambiar botones
+      btnEntregar.style.display  = 'none';
+      btnFinalizar.style.display = '';
+      summaryEl.innerHTML = '<span class="fase-badge" style="background:var(--ok)">Fase 2</span>Examen clínico · Doctor';
+      // Scroll suave al inicio de Fase 2
+      phase2Col.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    btnFinalizar.addEventListener('click', async () => {
+      // 1 · Detener timer y calcular duración
+      clearInterval(timerInterval);
+      const elapsedMs = Date.now() - startTime;
+      const durMinutos = Math.max(1, Math.round(elapsedMs / 60000));
+      document.getElementById('duracion_minutos').value = durMinutos;
+      document.getElementById('print-duration').textContent =
+        `Duración consulta: ${durMinutos} min · Fecha: ${new Date().toLocaleDateString('es-MX')}`;
+
+      // 2 · Abrir diálogo de impresión (PDF client-side — sin PII en output)
+      window.print();
+
+      // 3 · POST al backend (después de print)
+      await submitForm();
+    });
+
     document.getElementById('clear-btn').addEventListener('click', () => {
-      if (confirm('¿Limpiar formulario?')) {
+      if (confirm('¿Limpiar formulario y reiniciar sesión?')) {
+        // Reiniciar timer
+        clearInterval(timerInterval);
+        startTime = Date.now();
+        updateTimer();
+        timerInterval = setInterval(updateTimer, 1000);
+        // Reiniciar fases
+        resetPhases();
+        // Reiniciar formulario
         localStorage.removeItem(STORAGE_KEY);
         form.reset();
+        document.getElementById('duracion_minutos').value = '';
+        document.getElementById('print-duration').textContent = '';
         chipsBox.querySelectorAll('button.on').forEach((b) => b.classList.remove('on'));
         document.querySelectorAll('.av-buttons button.on').forEach((b) => b.classList.remove('on'));
         document.querySelectorAll('.field.error').forEach((f) => f.classList.remove('error'));
