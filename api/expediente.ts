@@ -1,14 +1,18 @@
 /// <reference types="node" />
 /**
- * GIOCORE Frente D — POST /api/expediente
+ * GIOCORE Frente D — /api/expediente  (GET + POST)
  *
- * Spec: BRIEF_CODE_FRENTE_D_CAPTURA_EXPEDIENTES.md
+ * POST: Captura de expedientes clínicos.
+ *   Spec: BRIEF_CODE_FRENTE_D_CAPTURA_EXPEDIENTES.md
+ *   Endpoint público usado por `public/expediente-form.html` desde iPads.
+ *   Sin auth Bearer en MVP — protección por origen + rate-limit Vercel.
  *
- * Endpoint público (open POST) usado por `public/expediente-form.html` desde
- * iPads dedicados al punto de captura. Sin auth Bearer en MVP — la protección
- * es por origen + rate-limit Vercel + form rendering controlado.
+ * GET: Lista paginada de expedientes (acceso programático / crons).
+ *   Auth: Bearer {CRON_SECRET} requerido.
+ *   Responde sólo campos NO-PII: id, paciente_hash, fecha_examen,
+ *   optometrista, observaciones, capturado_por, created_at.
  *
- * Flujo:
+ * Flujo POST:
  *   1. Validar payload (shape + rangos clínicos).
  *   2. Lookup contact_id por teléfono normalizado (E.164 mexicano).
  *   3. INSERT en `expedientes` (con `raw_form_data` JSONB como backup).
@@ -18,14 +22,24 @@
  * Seguridad:
  *   - Cache-Control: no-store (PII en payload).
  *   - CORS: solo origen prod (`giolens-dashboard.vercel.app`) — preview/dev allowlisted.
- *   - Response NO incluye PII innecesaria (solo id + path).
+ *   - Response POST NO incluye PII innecesaria (solo id + path).
+ *   - Response GET usa lista explícita de columnas (sin campos PII directos).
  */
 
+import { createHash } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import {
   generateObsidianMd,
   type ExpedienteInput,
 } from '../agents/_shared/providers/obsidian-writer.js';
+
+/* ── PII sanitizer ──────────────────────────────────────────────────────── */
+
+/** Computa un hash sha256(email|telefono).slice(0,16) — NUNCA devuelve PII. */
+function pacienteHash(row: { paciente_email?: string | null; paciente_telefono?: string | null }): string {
+  const seed = `${row.paciente_email ?? ''}|${row.paciente_telefono ?? ''}`;
+  return createHash('sha256').update(seed).digest('hex').slice(0, 16);
+}
 
 /* ── Tipos handler ──────────────────────────────────────────────────────── */
 
@@ -67,9 +81,22 @@ function setBaseHeaders(res: VercelLikeRes, origin: string | undefined): void {
       ? origin
       : 'https://giolens-dashboard.vercel.app';
   res.setHeader('Access-Control-Allow-Origin', allowOrigin);
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Vary', 'Origin');
+}
+
+/** Verifica Authorization: Bearer {CRON_SECRET}.
+ *  Devuelve true si es válido, false si no (el caller debe enviar 401). */
+function checkBearer(req: VercelLikeReq): boolean {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return false;
+  const auth = typeof req.headers.authorization === 'string'
+    ? req.headers.authorization
+    : Array.isArray(req.headers.authorization)
+      ? req.headers.authorization[0] ?? ''
+      : '';
+  return auth === `Bearer ${secret}`;
 }
 
 function buildSupabaseClient() {
@@ -199,7 +226,95 @@ function validatePayload(input: unknown): ValidationResult {
   return { ok: true, payload };
 }
 
-/* ── Handler ────────────────────────────────────────────────────────────── */
+/* ── Handlers ───────────────────────────────────────────────────────────── */
+
+/** GET /api/expediente — lista paginada, sólo campos no-PII, Bearer requerido. */
+async function handleList(req: VercelLikeReq, res: VercelLikeRes): Promise<void> {
+  if (!checkBearer(req)) {
+    res.status(401).json({ ok: false, error: 'unauthorized' });
+    return;
+  }
+
+  let supabase: ReturnType<typeof buildSupabaseClient>;
+  try {
+    supabase = buildSupabaseClient();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[api/expediente GET] buildSupabaseClient:', msg);
+    res.status(500).json({ ok: false, error: 'service_unavailable' });
+    return;
+  }
+
+  const q = (req.query ?? {}) as Record<string, string | string[] | undefined>;
+  const getStr = (k: string): string | null => {
+    const v = q[k];
+    return typeof v === 'string' && v.trim() ? v.trim() : null;
+  };
+
+  const fecha_desde = getStr('fecha_desde');
+  const fecha_hasta = getStr('fecha_hasta');
+  const optometrista = getStr('optometrista');
+  // pipeline_id no existe en la tabla expedientes — ignorado.
+  // TODO: si se añade pipeline_id en el futuro, reactivar aquí.
+
+  const rawLimit = parseInt(String(q.limit ?? '20'), 10);
+  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 20;
+  const rawOffset = parseInt(String(q.offset ?? '0'), 10);
+  const offset = Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
+
+  // Columnas internas — incluye email+telefono para computar hash; se stripean antes del response.
+  const SELECT_COLS = [
+    'id',
+    'paciente_email',
+    'paciente_telefono',
+    'fecha_examen',
+    'optometrista',
+    'observaciones',
+    'capturado_por',
+    'created_at',
+  ].join(', ');
+
+  let query = supabase
+    .from('expedientes')
+    .select(SELECT_COLS, { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (fecha_desde) query = query.gte('fecha_examen', fecha_desde);
+  if (fecha_hasta) query = query.lte('fecha_examen', fecha_hasta);
+  if (optometrista) query = query.ilike('optometrista', `%${optometrista}%`);
+
+  const { data, error, count } = await query;
+
+  if (error) {
+    console.error('[api/expediente GET] query error:', error.message);
+    res.status(500).json({ ok: false, error: error.message });
+    return;
+  }
+
+  // Strip PII — nunca devolver email/telefono/nombre al cliente.
+  type RawRow = { id: unknown; paciente_email?: string | null; paciente_telefono?: string | null; fecha_examen?: unknown; optometrista?: unknown; observaciones?: unknown; capturado_por?: unknown; created_at?: unknown };
+  const sanitized = ((data ?? []) as unknown as RawRow[]).map((r) => ({
+    id: r.id,
+    paciente_hash: pacienteHash(r),
+    fecha_examen: r.fecha_examen,
+    optometrista: r.optometrista,
+    observaciones: r.observaciones,
+    capturado_por: r.capturado_por,
+    created_at: r.created_at,
+  }));
+
+  const total = count ?? 0;
+  res.status(200).json({
+    data: sanitized,
+    total,
+    limit,
+    offset,
+    has_more: offset + limit < total,
+  });
+
+  // TODO: webhook vault — pendiente decisión arquitectura (daemon local vs cron periódico)
+}
 
 export default async function handler(
   req: VercelLikeReq,
@@ -214,8 +329,11 @@ export default async function handler(
     return;
   }
 
+  if (req.method === 'GET') return handleList(req, res);
+
   if (req.method !== 'POST') {
-    res.status(405).json({ ok: false, error: 'Method Not Allowed' });
+    res.setHeader?.('Allow', 'GET, POST');
+    res.status(405).json({ ok: false, error: 'method_not_allowed' });
     return;
   }
 
@@ -368,4 +486,6 @@ export default async function handler(
     contact_id: contactId,
     fecha_examen: payload.fecha_examen,
   });
+
+  // TODO: webhook vault — pendiente decisión arquitectura (daemon local vs cron periódico)
 }
