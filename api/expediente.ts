@@ -32,6 +32,7 @@ import {
   generateObsidianMd,
   type ExpedienteInput,
 } from '../agents/_shared/providers/obsidian-writer.js';
+import { sendWhatsApp } from '../agents/_shared/providers/wapify-notify.js';
 
 /* ── PII sanitizer ──────────────────────────────────────────────────────── */
 
@@ -412,6 +413,35 @@ export default async function handler(
 
   const expId = (inserted as { id: number }).id;
   const createdAt = (inserted as { created_at?: string }).created_at ?? null;
+
+  // 5.5 · Notificación Wapify post-consulta — fire-and-forget, NO PII.
+  //       Si Wapify falla o WHATSAPP_ISAAC no está seteada → log y seguir.
+  //       NO `await` — el response no debe esperar al envío.
+  try {
+    const numero = process.env.WHATSAPP_ISAAC;
+    if (numero) {
+      const fechaMx = new Date(createdAt ?? Date.now()).toLocaleString('es-MX', {
+        timeZone: 'America/Tijuana',
+        dateStyle: 'short',
+        timeStyle: 'short',
+      });
+      const msg = [
+        '🔬 *Nuevo expediente clínico*',
+        `📋 ID: ${expId}`,
+        `👤 Hash: ${pacienteHash({ paciente_email: payload.paciente_email, paciente_telefono: phoneNorm })}`,
+        `👁️ Optometrista: ${payload.optometrista ?? 'N/A'}`,
+        `📅 ${fechaMx}`,
+      ].join('\n');
+      sendWhatsApp(numero, msg)
+        .then((r) => {
+          if (!r.ok) console.error('[api/expediente] Wapify notify failed:', r.error);
+        })
+        .catch((err) => console.error('[api/expediente] Wapify notify threw:', err));
+    }
+  } catch (waSetupErr) {
+    const m = waSetupErr instanceof Error ? waSetupErr.message : String(waSetupErr);
+    console.error('[api/expediente] Wapify setup error:', m);
+  }
 
   // 6 · Generar `.md` Obsidian (pura). Si falla, log a agent_decisions pero
   //     NO bloquea la respuesta (el row ya está en DB con raw_form_data).
