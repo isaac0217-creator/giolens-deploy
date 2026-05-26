@@ -165,15 +165,22 @@ export default async function handler(
   }
 
   if (res.setHeader) {
-    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=60');
+    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=120');
   }
 
+  const total = count ?? 0;
   res.status(200).json({
     ok: true,
     data: data ?? [],
-    count: count ?? 0,
+    count: total,
     limit,
     offset,
+    pagination: {
+      limit,
+      offset,
+      total,
+      has_more: offset + limit < total,
+    },
     mode: isAdmin ? 'admin' : 'public',
     filters: { categoria, orden: ordenRaw, muertos },
   });

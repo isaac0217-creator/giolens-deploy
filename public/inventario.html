@@ -229,6 +229,117 @@
     display: flex;
     justify-content: space-between;
   }
+
+  /* ── Registrar movimiento ─────────────────────────────────────────────── */
+  .reg-form {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--glass-shadow);
+    padding: 28px 32px;
+    max-width: 560px;
+  }
+  .reg-form h2 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: var(--text);
+  }
+  .reg-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 16px;
+  }
+  .reg-field label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .reg-field input,
+  .reg-field select,
+  .reg-field textarea {
+    width: 100%;
+  }
+  .reg-field textarea {
+    resize: vertical;
+    min-height: 72px;
+    font-family: inherit;
+    font-size: 0.88rem;
+  }
+  .reg-field .field-hint {
+    font-size: 0.76rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .autocomplete-wrap { position: relative; }
+  .autocomplete-list {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    box-shadow: var(--glass-shadow);
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 200;
+    display: none;
+  }
+  .autocomplete-list.open { display: block; }
+  .autocomplete-item {
+    padding: 9px 12px;
+    cursor: pointer;
+    font-size: 0.86rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .autocomplete-item:last-child { border-bottom: none; }
+  .autocomplete-item:hover { background: var(--accent-soft); }
+  .autocomplete-item .ac-sku {
+    font-size: 0.74rem;
+    color: var(--muted);
+    font-family: ui-monospace, monospace;
+    margin-left: 6px;
+  }
+  .reg-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 22px;
+    align-items: center;
+  }
+  #reg-spinner {
+    display: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(37,99,235,0.25);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Toast ────────────────────────────────────────────────────────────── */
+  #toast {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    padding: 13px 20px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    transform: translateY(80px);
+    opacity: 0;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+    z-index: 9999;
+    max-width: 360px;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.ok  { background: #166534; color: #fff; }
+  #toast.err { background: var(--negative); color: #fff; }
 </style>
 </head>
 <body>
@@ -245,6 +356,7 @@
     <div class="tab" data-tab="rotacion">Rotación <span class="badge" id="badge-rotacion">—</span></div>
     <div class="tab" data-tab="movimientos">Movimientos <span class="badge" id="badge-mov">—</span></div>
     <div class="tab" data-tab="alertas">Alertas <span class="badge" id="badge-alertas">—</span></div>
+    <div class="tab" data-tab="registrar">+ Registrar</div>
   </div>
 
   <!-- ── STOCK ── -->
@@ -285,6 +397,7 @@
       <label><input type="checkbox" id="rot-muertos"> Solo muertos (>90d sin venta, stock>0)</label>
       <button class="primary" onclick="loadRotacion()">Refrescar</button>
       <button onclick="exportCSV('rotacion')">Export CSV</button>
+      <span id="rot-count-label" style="color:var(--muted);font-size:0.82rem;"></span>
     </div>
     <div class="table-wrap">
       <table id="tbl-rotacion">
@@ -298,6 +411,9 @@
         </tr></thead>
         <tbody></tbody>
       </table>
+    </div>
+    <div id="rot-load-more-wrap" style="display:none;text-align:center;margin-top:14px;">
+      <button id="rot-load-more-btn" onclick="loadRotacionMore()">Cargar más</button>
     </div>
   </section>
 
@@ -352,6 +468,71 @@
     </div>
   </section>
 
+  <!-- ── REGISTRAR MOVIMIENTO ── -->
+  <section id="panel-registrar" class="panel">
+    <div class="reg-form">
+      <h2>Registrar movimiento de inventario</h2>
+
+      <!-- Producto (autocomplete desde state.rotacion) -->
+      <div class="reg-field">
+        <label for="reg-producto-input">Producto *</label>
+        <div class="autocomplete-wrap">
+          <input id="reg-producto-input" autocomplete="off"
+                 placeholder="Buscar por nombre o SKU…"
+                 style="width:100%">
+          <div id="reg-autocomplete" class="autocomplete-list" role="listbox"></div>
+        </div>
+        <input type="hidden" id="reg-sku">
+        <span class="field-hint" id="reg-producto-hint"></span>
+      </div>
+
+      <!-- Tipo -->
+      <div class="reg-field">
+        <label for="reg-tipo">Tipo *</label>
+        <select id="reg-tipo">
+          <option value="">— Selecciona tipo —</option>
+          <option value="entrada">Entrada (compra / reposición)</option>
+          <option value="salida">Salida (venta / consumo)</option>
+          <option value="ajuste">Ajuste (corrección de conteo)</option>
+          <option value="devolucion">Devolución</option>
+        </select>
+      </div>
+
+      <!-- Cantidad -->
+      <div class="reg-field">
+        <label for="reg-cantidad">Cantidad *</label>
+        <input type="number" id="reg-cantidad" min="1" step="1"
+               placeholder="Unidades (entero positivo)">
+        <span class="field-hint">Para ajuste o salida, la cantidad puede ser negativa.</span>
+      </div>
+
+      <!-- Costo unitario (opcional, solo visible en entrada) -->
+      <div class="reg-field" id="reg-costo-wrap" style="display:none">
+        <label for="reg-costo">Costo unitario (opcional)</label>
+        <input type="number" id="reg-costo" min="0" step="0.01"
+               placeholder="Ej: 45.00">
+        <span class="field-hint">Pre-llenado con precio_costo del producto si disponible.</span>
+      </div>
+
+      <!-- Notas -->
+      <div class="reg-field">
+        <label for="reg-notas">Notas (opcional)</label>
+        <textarea id="reg-notas" placeholder="Proveedor, motivo, observaciones…"></textarea>
+      </div>
+
+      <div class="reg-actions">
+        <button class="primary" id="reg-btn" onclick="registrarMovimiento()">
+          Registrar movimiento
+        </button>
+        <div id="reg-spinner"></div>
+        <button class="ghost" onclick="resetRegForm()">Limpiar</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── TOAST ── -->
+  <div id="toast" role="alert" aria-live="polite"></div>
+
   <div class="footer-status">
     <span id="footer-left">—</span>
     <span id="footer-right">v4 · Frente E · auto-refresh 60s</span>
@@ -362,6 +543,7 @@
   /* ── Estado global ──────────────────────────────────────────────────── */
   const state = {
     rotacion: [],      // catálogo enriquecido con ventas (matview)
+    rotacionPag: { offset: 0, limit: 100, total: 0, has_more: false, orden: null, muertos: false },
     movimientos: [],
     lastError: null,
     lastFetch: null,
@@ -487,25 +669,67 @@
     } catch (e) { setError(`loadStock: ${e.message}`); }
   }
 
+  function renderRotacionTable() {
+    renderTable('tbl-rotacion', state.rotacion, p => [
+      p.sku ?? '—',
+      p.nombre ?? '—',
+      p.categoria ?? '—',
+      { html: p.stock_actual ?? 0, __class: 'num' },
+      { html: p.ventas_30d ?? 0, __class: 'num' },
+      { html: p.ventas_90d ?? 0, __class: 'num' },
+      { html: (p.rotacion_30d ?? 0).toFixed ? p.rotacion_30d.toFixed(3) : p.rotacion_30d, __class: 'num' },
+      fmtDateShort(p.ultima_venta_real),
+    ], 'Sin datos en este orden / filtro.');
+    const pag = state.rotacionPag;
+    const label = document.getElementById('rot-count-label');
+    if (label) label.textContent = pag.total > 0
+      ? `Mostrando ${state.rotacion.length} de ${pag.total}`
+      : '';
+    const wrap = document.getElementById('rot-load-more-wrap');
+    if (wrap) wrap.style.display = pag.has_more ? 'block' : 'none';
+  }
+
   async function loadRotacion() {
     try {
       setError(null);
       const orden = document.getElementById('rot-orden').value;
       const muertos = document.getElementById('rot-muertos').checked;
-      const url = `/api/inventario/rotacion?limit=200&orden=${encodeURIComponent(orden)}${muertos ? '&muertos=true' : ''}`;
+      const limit = 100;
+      const url = `/api/inventario/rotacion?limit=${limit}&offset=0&orden=${encodeURIComponent(orden)}${muertos ? '&muertos=true' : ''}`;
       const body = await fetchJSON(url);
       const rows = body.data || [];
-      renderTable('tbl-rotacion', rows, p => [
-        p.sku ?? '—',
-        p.nombre ?? '—',
-        p.categoria ?? '—',
-        { html: p.stock_actual ?? 0, __class: 'num' },
-        { html: p.ventas_30d ?? 0, __class: 'num' },
-        { html: p.ventas_90d ?? 0, __class: 'num' },
-        { html: (p.rotacion_30d ?? 0).toFixed ? p.rotacion_30d.toFixed(3) : p.rotacion_30d, __class: 'num' },
-        fmtDateShort(p.ultima_venta_real),
-      ], 'Sin datos en este orden / filtro.');
+      const pag = body.pagination || { limit, offset: 0, total: body.count ?? rows.length, has_more: false };
+      // Reset acumulado: nueva búsqueda siempre reemplaza
+      state.rotacion = rows;
+      state.rotacionPag = { offset: 0, limit, total: pag.total, has_more: pag.has_more, orden, muertos };
+      // Re-poblar dropdown de categorías con los productos recién cargados
+      populateCategorias();
+      renderRotacionTable();
     } catch (e) { setError(`loadRotacion: ${e.message}`); }
+  }
+
+  async function loadRotacionMore() {
+    try {
+      setError(null);
+      const btn = document.getElementById('rot-load-more-btn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Cargando…'; }
+      const pag = state.rotacionPag;
+      const nextOffset = pag.offset + pag.limit;
+      const url = `/api/inventario/rotacion?limit=${pag.limit}&offset=${nextOffset}&orden=${encodeURIComponent(pag.orden || 'ventas_30d.desc')}${pag.muertos ? '&muertos=true' : ''}`;
+      const body = await fetchJSON(url);
+      const rows = body.data || [];
+      const newPag = body.pagination || { limit: pag.limit, offset: nextOffset, total: pag.total, has_more: false };
+      // Acumular productos
+      state.rotacion = state.rotacion.concat(rows);
+      state.rotacionPag = { ...pag, offset: nextOffset, total: newPag.total, has_more: newPag.has_more };
+      // Re-poblar dropdown de categorías con el set acumulado ampliado
+      populateCategorias();
+      renderRotacionTable();
+    } catch (e) { setError(`loadRotacionMore: ${e.message}`); }
+    finally {
+      const btn = document.getElementById('rot-load-more-btn');
+      if (btn) { btn.disabled = false; btn.textContent = 'Cargar más'; }
+    }
   }
 
   async function loadMovimientos() {
@@ -552,7 +776,7 @@
     } catch (e) { setError(`loadAlertas: ${e.message}`); }
   }
 
-  /* ── Export CSV ──────────────────────────────────────────────────────── */
+  /* ── Export CSV (UTF-8 BOM para Excel/Numbers macOS) ────────────────── */
   function exportCSV(tab) {
     const tblId = { stock:'tbl-stock', rotacion:'tbl-rotacion', movimientos:'tbl-mov', alertas:'tbl-alertas' }[tab];
     const tbl = document.getElementById(tblId);
@@ -562,13 +786,159 @@
         .map(td => `"${td.innerText.replace(/"/g, '""').replace(/\n/g, ' ')}"`)
         .join(',')
     ).join('\n');
-    const blob = new Blob([rows], { type: 'text/csv;charset=utf-8;' });
+    // UTF-8 BOM (﻿) para compatibilidad con Excel y Numbers en macOS
+    const bom = '﻿';
+    const blob = new Blob([bom + rows], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `inventario_${tab}_${new Date().toISOString().slice(0,10)}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+  }
+
+  /* ── Toast ───────────────────────────────────────────────────────────── */
+  let _toastTimer = null;
+  function showToast(msg, type) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'show ' + (type === 'err' ? 'err' : 'ok');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => { el.className = ''; }, 3800);
+  }
+
+  /* ── Autocomplete para Registrar ─────────────────────────────────────── */
+  let _acTimer = null;
+
+  function buildAcList(q) {
+    const list = document.getElementById('reg-autocomplete');
+    const src = state.rotacion;
+    if (!q || src.length === 0) { list.classList.remove('open'); return; }
+    const ql = q.toLowerCase();
+    const hits = src.filter(p =>
+      (p.nombre || '').toLowerCase().includes(ql) ||
+      (p.sku || '').toLowerCase().includes(ql)
+    ).slice(0, 12);
+    if (hits.length === 0) { list.classList.remove('open'); return; }
+    list.innerHTML = hits.map(p => `
+      <div class="autocomplete-item"
+           data-sku="${p.sku}"
+           data-nombre="${(p.nombre || '').replace(/"/g, '&quot;')}"
+           data-costo="${p.precio_costo ?? ''}"
+           data-stock="${p.stock_actual ?? 0}"
+           data-minimo="${p.stock_minimo ?? 0}">
+        ${p.nombre || p.sku}
+        <span class="ac-sku">${p.sku}</span>
+      </div>`).join('');
+    list.classList.add('open');
+    list.querySelectorAll('.autocomplete-item').forEach(item => {
+      item.addEventListener('mousedown', e => {
+        e.preventDefault();
+        selectProduct(item.dataset.sku, item.dataset.nombre,
+                      item.dataset.costo, item.dataset.stock, item.dataset.minimo);
+      });
+    });
+  }
+
+  function selectProduct(sku, nombre, costo, stock, minimo) {
+    document.getElementById('reg-producto-input').value = nombre + ' [' + sku + ']';
+    document.getElementById('reg-sku').value = sku;
+    document.getElementById('reg-autocomplete').classList.remove('open');
+    const hint = document.getElementById('reg-producto-hint');
+    hint.textContent = `Stock actual: ${stock} · Mínimo: ${minimo}`;
+    // pre-fill costo si entrada seleccionada
+    const costoInput = document.getElementById('reg-costo');
+    if (costo && costo !== '') costoInput.value = parseFloat(costo).toFixed(2);
+  }
+
+  document.getElementById('reg-producto-input').addEventListener('input', function() {
+    const val = this.value.trim();
+    // limpiar selección si usuario edita
+    document.getElementById('reg-sku').value = '';
+    document.getElementById('reg-producto-hint').textContent = '';
+    clearTimeout(_acTimer);
+    _acTimer = setTimeout(() => buildAcList(val), 300);
+  });
+
+  document.getElementById('reg-producto-input').addEventListener('blur', function() {
+    setTimeout(() => document.getElementById('reg-autocomplete').classList.remove('open'), 150);
+  });
+
+  // Mostrar/ocultar campo costo según tipo
+  document.getElementById('reg-tipo').addEventListener('change', function() {
+    const wrap = document.getElementById('reg-costo-wrap');
+    wrap.style.display = (this.value === 'entrada') ? 'flex' : 'none';
+    if (this.value !== 'entrada') document.getElementById('reg-costo').value = '';
+  });
+
+  /* ── Registrar movimiento (POST /api/inventario/operaciones-ui) ───────── */
+  async function registrarMovimiento() {
+    const sku      = document.getElementById('reg-sku').value.trim();
+    const tipo     = document.getElementById('reg-tipo').value;
+    const cantRaw  = document.getElementById('reg-cantidad').value;
+    const costo    = document.getElementById('reg-costo').value;
+    const notas    = document.getElementById('reg-notas').value.trim();
+
+    // Validación cliente
+    if (!sku) { showToast('Selecciona un producto de la lista.', 'err'); return; }
+    if (!tipo) { showToast('Elige el tipo de movimiento.', 'err'); return; }
+    const cantidad = parseInt(cantRaw, 10);
+    if (!cantRaw || isNaN(cantidad) || cantidad === 0) {
+      showToast('La cantidad debe ser un entero distinto de 0.', 'err'); return;
+    }
+
+    // Spinner ON
+    const btn = document.getElementById('reg-btn');
+    const spinner = document.getElementById('reg-spinner');
+    btn.disabled = true;
+    spinner.style.display = 'block';
+
+    const payload = {
+      sku,
+      tipo,
+      cantidad,
+      registrado_por: 'dashboard',
+    };
+    if (notas) payload.motivo = notas;
+    if (tipo === 'entrada' && costo !== '') {
+      const cv = parseFloat(costo);
+      if (!isNaN(cv) && cv >= 0) payload.costo_unitario = cv;
+    }
+
+    try {
+      const r = await fetch('/api/inventario/operaciones-ui', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) {
+        throw new Error(data.error || data.detail || `HTTP ${r.status}`);
+      }
+      const stockInfo = data.stock_nuevo !== null && data.stock_nuevo !== undefined
+        ? ` · Stock nuevo: ${data.stock_nuevo}` : '';
+      showToast(`✓ Movimiento registrado${stockInfo}`, 'ok');
+      resetRegForm();
+      // Refrescar catálogo para que Stock y Alertas reflejen el nuevo nivel
+      loadCatalogo().then(loadStock);
+    } catch (e) {
+      showToast(`Error: ${e.message}`, 'err');
+    } finally {
+      btn.disabled = false;
+      spinner.style.display = 'none';
+    }
+  }
+
+  function resetRegForm() {
+    document.getElementById('reg-producto-input').value = '';
+    document.getElementById('reg-sku').value = '';
+    document.getElementById('reg-tipo').value = '';
+    document.getElementById('reg-cantidad').value = '';
+    document.getElementById('reg-costo').value = '';
+    document.getElementById('reg-notas').value = '';
+    document.getElementById('reg-producto-hint').textContent = '';
+    document.getElementById('reg-costo-wrap').style.display = 'none';
+    document.getElementById('reg-autocomplete').classList.remove('open');
   }
 
   /* ── Tabs ────────────────────────────────────────────────────────────── */
@@ -579,7 +949,14 @@
       t.classList.add('active');
       const tab = t.dataset.tab;
       document.getElementById('panel-' + tab).classList.add('active');
-      ({ stock: loadStock, rotacion: loadRotacion, movimientos: loadMovimientos, alertas: loadAlertas })[tab]();
+      const loaders = {
+        stock: loadStock,
+        rotacion: loadRotacion,
+        movimientos: loadMovimientos,
+        alertas: loadAlertas,
+        registrar: () => { /* formulario estático, no loader */ },
+      };
+      if (loaders[tab]) loaders[tab]();
     });
   });
 
