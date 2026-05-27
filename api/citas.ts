@@ -11,22 +11,83 @@
  *   - Solo exponer: paciente_hash (SHA256[:16]), fecha, hora, estado, tipo_consulta,
  *     optometrista, gcal_event_id, expediente_id, created_at.
  *
- * GCal (G-1 ✅ aprobado):
+ * GCal (G-1 ⏳ PENDIENTE Isaac):
  *   - Service Account del consultorio vía GCAL_SERVICE_ACCOUNT_JSON (nunca al repo).
  *   - Calendar ID vía GCAL_CALENDAR_ID.
- *   - Sync unidireccional: GioLens → GCal (G-3 ✅).
+ *   - Sync unidireccional: GioLens → GCal (G-3 ⏳ PENDIENTE Isaac).
  *   - Sin googleapis npm: JWT firmado con crypto nativo Node 22.
  *
- * Wapify (G-2 ✅ aprobado):
+ * Wapify (G-2 ⏳ PENDIENTE Isaac):
  *   - Pipeline exclusivo citas vía WAPIFY_PIPELINE_CITAS (nunca al repo).
  *   - NO tocar pipelines protegidos 252999 ni 273944.
  *   - Reutiliza sendWhatsApp de wapify-notify.js (mismo patrón Frente INV/EXP).
  */
 
-import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { createHash, createSign } from 'crypto';
 import { sendWhatsApp } from '../agents/_shared/providers/wapify-notify.js';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface VercelLikeReq {
+  url?: string;
+  method?: string;
+  query?: Record<string, string | string[] | undefined>;
+  headers: Record<string, string | string[] | undefined>;
+  body?: unknown;
+}
+
+interface VercelLikeRes {
+  status(code: number): VercelLikeRes;
+  json(body: unknown): VercelLikeRes;
+  end(): void;
+  setHeader?(name: string, value: string): VercelLikeRes;
+}
+
+// ---------------------------------------------------------------------------
+// Auth & CORS Constants
+// ---------------------------------------------------------------------------
+
+const ALLOWED_ORIGINS = new Set<string>([
+  'https://giolens-dashboard.vercel.app',
+]);
+
+/** Regex que matchea solo deployments del proyecto giolens-dashboard.
+ *  Cubre prod (`giolens-dashboard.vercel.app`), preview branches
+ *  (`giolens-dashboard-git-{branch}-{team}.vercel.app`), y deploys instantáneos
+ *  (`giolens-dashboard-{hash}-{team}.vercel.app`). NO matchea proyectos
+ *  terceros en *.vercel.app. */
+const PROJECT_VERCEL_RE = /^https:\/\/giolens-dashboard(-[a-z0-9-]+){0,3}\.vercel\.app$/;
+
+function setBaseHeaders(res: VercelLikeRes, origin: string | undefined): void {
+  if (typeof res.setHeader !== 'function') return;
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+
+  const allowOrigin =
+    origin && (ALLOWED_ORIGINS.has(origin) || PROJECT_VERCEL_RE.test(origin))
+      ? origin
+      : 'https://giolens-dashboard.vercel.app';
+  res.setHeader('Access-Control-Allow-Origin', allowOrigin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Vary', 'Origin');
+}
+
+/** Verifica Authorization: Bearer {CRON_SECRET}.
+ *  Devuelve true si es válido, false si no (el caller debe enviar 401). */
+function checkBearer(req: VercelLikeReq): boolean {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return false;
+  const auth = typeof req.headers.authorization === 'string'
+    ? req.headers.authorization
+    : Array.isArray(req.headers.authorization)
+      ? req.headers.authorization[0] ?? ''
+      : '';
+  return auth === `Bearer ${secret}`;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -56,6 +117,11 @@ function getInt(v: unknown, fallback: number | null = null): number | null {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
 }
 
+// Regex de validación A-4 (R-7 + hash format)
+const FECHA_RE = /^\d{4}-\d{2}-\d{2}$/;
+const HORA_RE  = /^\d{2}:\d{2}$/;
+const HASH_RE  = /^[a-f0-9]{16}$/;
+
 // Campos seguros a exponer (sin PII)
 const SELECT_COLS = [
   'id',
@@ -69,6 +135,7 @@ const SELECT_COLS = [
   'notas',
   'gcal_event_id',
   'expediente_id',
+  'confirmacion_enviada_at',
   'created_at',
   'updated_at',
 ].join(', ');
@@ -317,7 +384,9 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
   const estado_inicial    = (getStr(b.estado, 50) as EstadoCita | null) ?? 'agendada';
 
   if (!fecha) return res.status(400).json({ ok: false, error: 'fecha requerida (YYYY-MM-DD)' });
+  if (!FECHA_RE.test(fecha)) return res.status(400).json({ ok: false, error: 'fecha debe ser YYYY-MM-DD' });
   if (!hora)  return res.status(400).json({ ok: false, error: 'hora requerida (HH:MM)' });
+  if (!HORA_RE.test(hora))   return res.status(400).json({ ok: false, error: 'hora debe ser HH:MM' });
   if (!paciente_hash_raw && !paciente_email && !paciente_telefono) {
     return res.status(400).json({ ok: false, error: 'Se requiere paciente_hash, paciente_email o paciente_telefono' });
   }
@@ -333,18 +402,13 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
 
   const p_hash = paciente_hash_raw ?? pacienteHash(paciente_email, paciente_telefono);
 
-  // GCal — graceful fallback si creds no están configuradas
-  const gcal_event_id = await createGCalEvent({
-    titulo: `GioLens · ${tipo_consulta ?? 'consulta'} · ${p_hash.slice(0, 8)}`,
-    fecha,
-    hora,
-    duracion_min,
-    notas,
-  }).catch(e => {
-    console.error('[api/citas POST] createGCalEvent unexpected:', e);
-    return null;
-  });
+  // A-4: validación formato hash (R-5)
+  if (!HASH_RE.test(p_hash)) {
+    return res.status(400).json({ ok: false, error: 'paciente_hash debe ser 16 chars hex (0-9, a-f)' });
+  }
 
+  // A-2/A-3: Transacción ordenada
+  // 1️⃣ INSERT primero (con null gcal_event_id) para capturar race condition (error 23505)
   const { data, error } = await supabase
     .from('citas')
     .insert({
@@ -356,29 +420,69 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
       tipo_consulta,
       estado: estado_inicial,
       notas,
-      gcal_event_id,
+      gcal_event_id: null,  // null inicialmente; será actualizado en paso 3️⃣
       expediente_id,
     })
     .select(SELECT_COLS)
     .single();
 
+  // Captura error 23505 (violación de UNIQUE en (fecha, hora, optometrista))
   if (error) {
-    console.error('[api/citas POST]', error.message);
+    if (error.code === '23505') {
+      console.warn('[api/citas POST] Slot occupied (23505):', error.message);
+      return res.status(409).json({ ok: false, error: 'slot_ocupado' });
+    }
+    console.error('[api/citas POST] INSERT error:', error.message);
     return res.status(500).json({ ok: false, error: error.message });
   }
 
-  // Wapify si la cita ya nace confirmada
-  if (estado_inicial === 'confirmada') {
-    sendWapifyConfirmacion({
-      paciente_hash: p_hash,
+  const cita_id = (data as { id: number }).id;
+
+  // 2️⃣ Crear evento en GCal (graceful fallback si creds no están configuradas)
+  let gcal_event_id: string | null = null;
+  try {
+    gcal_event_id = await createGCalEvent({
+      titulo: `GioLens · ${tipo_consulta ?? 'consulta'} · ${p_hash.slice(0, 8)}`,
       fecha,
       hora,
-      tipo_consulta,
-      gcal_event_id,
-    }).catch(e => console.error('[api/citas POST] Wapify error:', e));
+      duracion_min,
+      notas,
+    });
+  } catch (e) {
+    console.error('[api/citas POST] createGCalEvent error:', e);
+    // Graceful fallback: continuar sin gcal_event_id
   }
 
-  return res.status(201).json({ ok: true, id: (data as { id: number }).id, gcal_event_id, cita: data });
+  // 3️⃣ UPDATE con gcal_event_id (si fue generado)
+  if (gcal_event_id) {
+    await supabase
+      .from('citas')
+      .update({ gcal_event_id })
+      .eq('id', cita_id)
+      .catch(e => console.error('[api/citas POST] UPDATE gcal_event_id error:', e));
+  }
+
+  // Wapify si la cita ya nace confirmada · A-4 R-4 (tracking idempotente)
+  if (estado_inicial === 'confirmada') {
+    try {
+      await sendWapifyConfirmacion({
+        paciente_hash: p_hash,
+        fecha,
+        hora,
+        tipo_consulta,
+        gcal_event_id,
+      });
+      await supabase
+        .from('citas')
+        .update({ confirmacion_enviada_at: new Date().toISOString() })
+        .eq('id', cita_id);
+    } catch (e) {
+      console.error('[api/citas POST] Wapify error:', e);
+      // Graceful: cita ya está en DB. NO actualizar timestamp → próximo retry reintenta limpiamente.
+    }
+  }
+
+  return res.status(201).json({ ok: true, id: cita_id, gcal_event_id, cita: data });
 }
 
 async function handleGet(req: NextApiRequest, res: NextApiResponse) {
@@ -404,7 +508,11 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
   if (fecha_desde)  query = query.gte('fecha', fecha_desde);
   if (fecha_hasta)  query = query.lte('fecha', fecha_hasta);
   if (estado && ESTADOS_VALIDOS.includes(estado)) query = query.eq('estado', estado);
-  if (optometrista) query = query.ilike('optometrista', `%${optometrista}%`);
+  if (optometrista) {
+    // A-4 R-11: escape % y _ y \ para evitar wildcard injection
+    const escaped = optometrista.replace(/[%_\\]/g, '\\$&');
+    query = query.ilike('optometrista', `%${escaped}%`);
+  }
 
   const { data, error, count } = await query;
 
@@ -449,9 +557,10 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
   }
 
   // Leer registro actual para obtener gcal_event_id y datos para Wapify
+  // A-4 R-4: incluir estado + confirmacion_enviada_at para idempotency guard
   const { data: existing } = await supabase
     .from('citas')
-    .select('gcal_event_id, estado, fecha, hora, tipo_consulta, paciente_hash')
+    .select('gcal_event_id, estado, fecha, hora, tipo_consulta, paciente_hash, confirmacion_enviada_at')
     .eq('id', id)
     .single();
 
@@ -469,10 +578,12 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
 
   type ExistingRow = {
     gcal_event_id?: string | null;
+    estado?: EstadoCita;
     fecha?: string;
     hora?: string;
     tipo_consulta?: string | null;
     paciente_hash?: string;
+    confirmacion_enviada_at?: string | null;
   };
   const ex = existing as ExistingRow | null;
   const gcalId = ex?.gcal_event_id ?? null;
@@ -489,15 +600,30 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
     }
   }
 
-  // Wapify si estado → confirmada
-  if (nuevo_estado === 'confirmada' && ex) {
-    sendWapifyConfirmacion({
-      paciente_hash: ex.paciente_hash ?? '',
-      fecha:         ex.fecha         ?? '',
-      hora:          ex.hora          ?? '',
-      tipo_consulta: ex.tipo_consulta ?? null,
-      gcal_event_id: gcalId,
-    }).catch(e => console.error('[api/citas PUT] Wapify error:', e));
+  // Wapify si estado → confirmada · A-4 R-4 idempotente
+  // Solo dispara si: cambio real de estado + no se envió antes
+  if (
+    nuevo_estado === 'confirmada' &&
+    ex &&
+    ex.estado !== 'confirmada' &&
+    !ex.confirmacion_enviada_at
+  ) {
+    try {
+      await sendWapifyConfirmacion({
+        paciente_hash: ex.paciente_hash ?? '',
+        fecha:         ex.fecha         ?? '',
+        hora:          ex.hora          ?? '',
+        tipo_consulta: ex.tipo_consulta ?? null,
+        gcal_event_id: gcalId,
+      });
+      await supabase
+        .from('citas')
+        .update({ confirmacion_enviada_at: new Date().toISOString() })
+        .eq('id', id);
+    } catch (e) {
+      console.error('[api/citas PUT] Wapify error:', e);
+      // Graceful: estado ya actualizado. NO timestamp → próximo retry reintenta.
+    }
   }
 
   return res.status(200).json({ ok: true, cita: data });
@@ -507,9 +633,33 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
 // Router principal
 // ---------------------------------------------------------------------------
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method === 'POST') return handlePost(req, res);
-  if (req.method === 'GET')  return handleGet(req, res);
-  if (req.method === 'PUT')  return handlePut(req, res);
-  return res.status(405).json({ ok: false, error: 'Method Not Allowed' });
+export default async function handler(
+  req: VercelLikeReq,
+  res: VercelLikeRes
+): Promise<void> {
+  setBaseHeaders(res, req.headers.origin as string | undefined);
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  if (!checkBearer(req)) {
+    res.status(401).json({ ok: false, error: 'Unauthorized' });
+    return;
+  }
+
+  switch (req.method) {
+    case 'GET':
+      await handleGet(req as any, res as any);
+      break;
+    case 'POST':
+      await handlePost(req as any, res as any);
+      break;
+    case 'PUT':
+      await handlePut(req as any, res as any);
+      break;
+    default:
+      res.status(405).json({ ok: false, error: 'Method not allowed' });
+  }
 }
