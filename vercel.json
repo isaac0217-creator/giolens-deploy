@@ -129,6 +129,10 @@
     {
       "path": "/api/cron/refresh-analitica",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/refresh-clinica",
+      "schedule": "30 * * * *"
     }
   ],
   "rewrites": [
