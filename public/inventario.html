@@ -340,7 +340,82 @@
   #toast.show { transform: translateY(0); opacity: 1; }
   #toast.ok  { background: #166534; color: #fff; }
   #toast.err { background: var(--negative); color: #fff; }
+
+  /* ── Frente I.1 · Analítica (mobile-first) ─────────────────────────── */
+  .analitica-controls { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:14px; }
+  .periodo-radios { display:inline-flex; gap:0; border:1px solid var(--border,#334155); border-radius:6px; overflow:hidden; }
+  .periodo-radios label { padding:8px 14px; cursor:pointer; min-height:44px; display:flex; align-items:center; font-size:0.9rem; }
+  .periodo-radios input[type="radio"] { display:none; }
+  .periodo-radios input[type="radio"]:checked + span { background: var(--accent,#2563eb); color:#fff; }
+  .periodo-radios span { padding:0; }
+
+  .analitica-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  @media (min-width: 768px) {
+    .analitica-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (min-width: 1100px) {
+    .analitica-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  .kpi-card {
+    background: var(--card-bg, #1e293b);
+    border: 1px solid var(--border, #334155);
+    border-radius: 8px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 88px;
+  }
+  .kpi-card .kpi-label { font-size: 0.78rem; color: var(--muted, #94a3b8); text-transform: uppercase; letter-spacing: 0.05em; }
+  .kpi-card .kpi-value { font-size: 1.6rem; font-weight: 700; color: var(--fg, #f1f5f9); }
+  .kpi-card .kpi-hint  { font-size: 0.78rem; color: var(--muted, #94a3b8); }
+
+  .analitica-chart-wrap {
+    background: var(--card-bg, #1e293b);
+    border: 1px solid var(--border, #334155);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 18px;
+    height: 360px;            /* altura fija evita layout shift */
+    position: relative;
+  }
+  .analitica-chart-fallback {
+    display: none;
+    color: var(--muted, #94a3b8);
+    font-size: 0.85rem;
+    text-align: center;
+    padding: 24px 0;
+  }
+  .analitica-chart-wrap.fallback-mode .analitica-chart-fallback { display: block; }
+  .analitica-chart-wrap.fallback-mode canvas { display: none; }
+
+  /* Estado bajo_minimo: ícono ⚠️ + texto + color (no color-only · WCAG) */
+  .badge-stockout {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .badge-stockout::before { content: "⚠️"; }
 </style>
+<!-- Chart.js v4.4.7 con SRI (Frente I.1 · D-2 anticipa R-B6) -->
+<script
+  src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"
+  integrity="sha384-vsrfeLOOY6KuIYKDlmVH5UiBmgIdB1oEf7p01YgWHuqmOHfZr374+odEv96n9tNC"
+  crossorigin="anonymous"
+  onerror="window.__chartjsFailed = true;"
+  defer></script>
 </head>
 <body>
 <header>
@@ -356,6 +431,7 @@
     <div class="tab" data-tab="rotacion">Rotación <span class="badge" id="badge-rotacion">—</span></div>
     <div class="tab" data-tab="movimientos">Movimientos <span class="badge" id="badge-mov">—</span></div>
     <div class="tab" data-tab="alertas">Alertas <span class="badge" id="badge-alertas">—</span></div>
+    <div class="tab" data-tab="analitica">Analítica <span class="badge" id="badge-analitica">—</span></div>
     <div class="tab" data-tab="registrar">+ Registrar</div>
   </div>
 
@@ -462,6 +538,92 @@
           <th class="num">Stock actual</th>
           <th class="num">Mínimo</th>
           <th class="num">Sugerencia reponer</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── ANALÍTICA (Frente I.1) ── -->
+  <section id="panel-analitica" class="panel">
+    <div class="analitica-controls">
+      <div class="periodo-radios" role="radiogroup" aria-label="Periodo de análisis">
+        <label><input type="radio" name="anal-periodo" value="30" checked><span>30 días</span></label>
+        <label><input type="radio" name="anal-periodo" value="90"><span>90 días</span></label>
+      </div>
+      <select id="anal-categoria" aria-label="Filtrar por categoría">
+        <option value="">Todas las categorías</option>
+      </select>
+      <button class="primary" onclick="loadAnalitica()">Refrescar</button>
+      <button onclick="exportAnaliticaCSV()">Export CSV</button>
+      <span id="anal-meta" style="color:var(--muted,#94a3b8);font-size:0.82rem;"></span>
+    </div>
+
+    <!-- 6 KPI cards -->
+    <div class="analitica-grid" role="region" aria-label="Indicadores clave">
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Valor total stock</span>
+        <span class="kpi-value" id="kpi-valor-stock">—</span>
+        <span class="kpi-hint">Stock × costo</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">% Bajo mínimo</span>
+        <span class="kpi-value" id="kpi-pct-bajo">—</span>
+        <span class="kpi-hint">SKUs con stock &lt; mínimo</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Sin movimiento 30d</span>
+        <span class="kpi-value" id="kpi-sin-mov">—</span>
+        <span class="kpi-hint">Productos sin venta reciente</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Ingresos 30d</span>
+        <span class="kpi-value" id="kpi-ing-30">—</span>
+        <span class="kpi-hint">Revenue aproximado</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Ingresos 90d</span>
+        <span class="kpi-value" id="kpi-ing-90">—</span>
+        <span class="kpi-hint">Revenue aproximado</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Rotación promedio</span>
+        <span class="kpi-value" id="kpi-rotacion">—</span>
+        <span class="kpi-hint">Veces/mes (avg)</span>
+      </div>
+    </div>
+
+    <!-- Gráfica top-10 rotación (con fallback a tabla si chartjs falla) -->
+    <div id="anal-chart-wrap" class="analitica-chart-wrap" aria-label="Top 10 rotación 30 días">
+      <canvas id="anal-chart-rotacion"></canvas>
+      <div class="analitica-chart-fallback" id="anal-chart-fallback">
+        Gráfica no disponible offline · viendo tabla equivalente:
+        <div class="table-wrap" style="margin-top:12px;">
+          <table id="tbl-top-rotacion-fb">
+            <thead><tr>
+              <th scope="col">SKU</th>
+              <th scope="col">Nombre</th>
+              <th scope="col" class="num">Rotación 30d</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabla top-10 stockout -->
+    <h3 style="margin-top:24px;margin-bottom:8px;">Top 10 riesgo de stockout</h3>
+    <div class="table-wrap">
+      <table id="tbl-stockout">
+        <thead><tr>
+          <th scope="col">SKU</th>
+          <th scope="col">Nombre</th>
+          <th scope="col">Categoría</th>
+          <th scope="col" class="num">Stock</th>
+          <th scope="col" class="num">Mínimo</th>
+          <th scope="col" class="num">Ratio riesgo</th>
+          <th scope="col" class="num">Días inventario</th>
+          <th scope="col" class="center">Estado</th>
         </tr></thead>
         <tbody></tbody>
       </table>
@@ -972,9 +1134,224 @@
     ({ stock: () => loadCatalogo().then(loadStock),
        rotacion: loadRotacion,
        movimientos: loadMovimientos,
-       alertas: () => loadCatalogo().then(loadAlertas) })[active]();
+       alertas: () => loadCatalogo().then(loadAlertas),
+       analitica: loadAnalitica })[active]?.();
     document.getElementById('footer-left').textContent = `Auto-refresh: ${new Date().toLocaleTimeString('es-MX')}`;
   }, 60000);
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // Frente I.1 · Analítica Inventario (B-3 scaffold)
+  // ═════════════════════════════════════════════════════════════════════════
+
+  function getBearerToken() {
+    // Reutiliza patrón existente si está en sessionStorage/localStorage; sino prompt una vez.
+    let t = localStorage.getItem('giolens_bearer') || '';
+    if (!t) {
+      t = (window.prompt('Bearer CRON_SECRET (queda en localStorage):') || '').trim();
+      if (t) localStorage.setItem('giolens_bearer', t);
+    }
+    return t;
+  }
+
+  function fmtMoney(n) {
+    if (n == null || isNaN(n)) return '—';
+    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(Number(n));
+  }
+  function fmtPct(n) {
+    if (n == null || isNaN(n)) return '—';
+    return Number(n).toFixed(1) + '%';
+  }
+  function fmtNum(n, decimals = 2) {
+    if (n == null || isNaN(n)) return '—';
+    return Number(n).toFixed(decimals);
+  }
+
+  let __analChart = null;
+
+  // Mock data para desarrollo local (mientras endpoint no esté vivo)
+  const MOCK_ANAL = {
+    kpis: {
+      valor_total_stock: 1245680.5,
+      pct_bajo_minimo: 8.4,
+      productos_sin_movimiento_30d_count: 312,
+      ingresos_30d_total: 187420.0,
+      ingresos_90d_total: 524300.0,
+      rotacion_promedio: 1.85
+    },
+    top_rotacion: [
+      { sku: 'AC-001', nombre: 'Solución multipropósito 360ml', rotacion_30d: 4.2 },
+      { sku: 'LC-014', nombre: 'Lente contacto mensual', rotacion_30d: 3.8 },
+      { sku: 'AC-007', nombre: 'Estuche premium', rotacion_30d: 3.5 },
+      { sku: 'AC-022', nombre: 'Gotas lubricantes 15ml', rotacion_30d: 3.1 },
+      { sku: 'LC-031', nombre: 'Lente contacto diario', rotacion_30d: 2.9 }
+    ],
+    stockout: [
+      { sku: 'AC-105', nombre: 'Estuche viaje', categoria: 'Accesorios', stock_actual: 2, stock_minimo: 10, ratio_riesgo: 0.20, dias_inventario: 4.0 },
+      { sku: 'LC-203', nombre: 'Lente prog. esférico', categoria: 'Lentes', stock_actual: 1, stock_minimo: 6, ratio_riesgo: 0.17, dias_inventario: 3.2 }
+    ]
+  };
+
+  async function fetchMetric(metric, periodo, extra = {}) {
+    const token = getBearerToken();
+    if (!token) throw new Error('bearer_missing');
+    const params = new URLSearchParams({ metric, periodo: String(periodo), ...extra });
+    const r = await fetch(`/api/analitica/inventario?${params}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+      cache: 'no-cache',
+    });
+    if (r.status === 503) {
+      const body = await r.json().catch(() => ({}));
+      throw new Error(body.error || 'service_unavailable');
+    }
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  }
+
+  function paintKpis(k) {
+    document.getElementById('kpi-valor-stock').textContent = fmtMoney(k.valor_total_stock);
+    document.getElementById('kpi-pct-bajo').textContent    = fmtPct(k.pct_bajo_minimo);
+    document.getElementById('kpi-sin-mov').textContent     = (k.productos_sin_movimiento_30d_count ?? '—') + '';
+    document.getElementById('kpi-ing-30').textContent      = fmtMoney(k.ingresos_30d_total);
+    document.getElementById('kpi-ing-90').textContent      = fmtMoney(k.ingresos_90d_total);
+    document.getElementById('kpi-rotacion').textContent    = fmtNum(k.rotacion_promedio, 2);
+  }
+
+  function paintTopRotacion(rows) {
+    const wrap = document.getElementById('anal-chart-wrap');
+    const fbTbody = document.querySelector('#tbl-top-rotacion-fb tbody');
+    fbTbody.innerHTML = '';
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.sku ?? ''}</td><td>${r.nombre ?? ''}</td><td class="num">${fmtNum(r.rotacion_30d, 2)}</td>`;
+      fbTbody.appendChild(tr);
+    });
+
+    if (window.__chartjsFailed || typeof Chart === 'undefined') {
+      wrap.classList.add('fallback-mode');
+      return;
+    }
+    wrap.classList.remove('fallback-mode');
+    const ctx = document.getElementById('anal-chart-rotacion').getContext('2d');
+    if (__analChart) __analChart.destroy();
+    __analChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: rows.map(r => r.sku),
+        datasets: [{
+          label: 'Rotación 30d',
+          data: rows.map(r => Number(r.rotacion_30d) || 0),
+          backgroundColor: 'rgba(37, 99, 235, 0.6)',
+          borderColor: 'rgba(37, 99, 235, 1)',
+          borderWidth: 1,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true } },
+      },
+    });
+  }
+
+  function paintStockout(rows) {
+    const tbody = document.querySelector('#tbl-stockout tbody');
+    tbody.innerHTML = '';
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.sku ?? ''}</td>
+        <td>${r.nombre ?? ''}</td>
+        <td>${r.categoria ?? ''}</td>
+        <td class="num">${r.stock_actual ?? 0}</td>
+        <td class="num">${r.stock_minimo ?? 0}</td>
+        <td class="num">${fmtNum(r.ratio_riesgo, 2)}</td>
+        <td class="num">${r.dias_inventario != null ? fmtNum(r.dias_inventario, 1) : '—'}</td>
+        <td class="center"><span class="badge-stockout">Bajo mínimo</span></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function getSelectedPeriodo() {
+    const r = document.querySelector('input[name="anal-periodo"]:checked');
+    return r ? Number(r.value) : 30;
+  }
+
+  async function loadAnalitica() {
+    const periodo = getSelectedPeriodo();
+    const categoria = document.getElementById('anal-categoria').value || undefined;
+    const meta = document.getElementById('anal-meta');
+    meta.textContent = 'Cargando…';
+    try {
+      const extra = categoria ? { categoria } : {};
+      const [kpis, top, sto] = await Promise.all([
+        fetchMetric('kpis', periodo, extra),
+        fetchMetric('top_rotacion', periodo, { ...extra, limit: '10' }),
+        fetchMetric('stockout', periodo, { ...extra, limit: '10' }),
+      ]);
+      paintKpis(kpis.data || {});
+      paintTopRotacion(top.data || []);
+      paintStockout(sto.data || []);
+      const badge = document.getElementById('badge-analitica');
+      if (badge) badge.textContent = String((top.data || []).length);
+      meta.textContent = `Actualizado: ${new Date().toLocaleTimeString('es-MX')}`;
+    } catch (e) {
+      console.warn('[analitica] endpoint no disponible, usando mock data:', e.message);
+      paintKpis(MOCK_ANAL.kpis);
+      paintTopRotacion(MOCK_ANAL.top_rotacion);
+      paintStockout(MOCK_ANAL.stockout);
+      meta.textContent = `Mock data (endpoint pending): ${e.message}`;
+    }
+  }
+
+  async function exportAnaliticaCSV() {
+    const periodo = getSelectedPeriodo();
+    const token = getBearerToken();
+    if (!token) return;
+    try {
+      const r = await fetch(`/api/analitica/inventario?metric=top_rotacion&periodo=${periodo}&limit=10000`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const j = await r.json();
+      const rows = j.data || [];
+      const cols = ['sku', 'nombre', 'categoria', 'rotacion_30d', 'unidades_30d', 'ingresos_30d'];
+      const csv = '﻿' + [
+        cols.join(','),
+        ...rows.map(row => cols.map(c => `"${String(row[c] ?? '').replace(/"/g, '""')}"`).join(',')),
+      ].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a');
+      const yyyymmdd = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      a.href = URL.createObjectURL(blob);
+      a.download = `analitica_inventario_${periodo}d_${yyyymmdd}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      alert('Export falló: ' + e.message);
+    }
+  }
+
+  // Lazy-load al activar la tab + cuando cambia periodo
+  document.addEventListener('DOMContentLoaded', () => {
+    const tabAnal = document.querySelector('.tab[data-tab="analitica"]');
+    if (tabAnal) {
+      tabAnal.addEventListener('click', () => {
+        if (!document.getElementById('panel-analitica').dataset.loaded) {
+          loadAnalitica();
+          document.getElementById('panel-analitica').dataset.loaded = '1';
+        }
+      });
+    }
+    document.querySelectorAll('input[name="anal-periodo"]').forEach(r => {
+      r.addEventListener('change', () => {
+        if (document.getElementById('panel-analitica').classList.contains('active')) {
+          loadAnalitica();
+        }
+      });
+    });
+  });
 </script>
 </body>
 </html>
