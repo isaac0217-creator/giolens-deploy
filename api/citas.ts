@@ -468,11 +468,28 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     .select(SELECT_COLS)
     .single();
 
-  // Captura error 23505 (violación de UNIQUE en (fecha, hora, optometrista))
+  // G-8: refina catch 23505 por nombre de constraint. Antes: cualquier UNIQUE
+  // violation respondía 'slot_ocupado' (engañoso si en el futuro se agrega
+  // otra UNIQUE distinta, ej. UNIQUE(paciente_hash, fecha) para anti-doble-
+  // booking). Ahora: solo idx_citas_slot_unique dispara 'slot_ocupado';
+  // cualquier otra UNIQUE devuelve 'duplicate_entry' + constraint name.
   if (error) {
     if (error.code === '23505') {
-      console.warn('[api/citas POST] Slot occupied (23505):', error.message);
-      return res.status(409).json({ ok: false, error: 'slot_ocupado' });
+      const { isSlot, constraintName } = classifySlotConflict(error);
+      if (isSlot) {
+        console.warn('[api/citas POST] Slot occupied (23505):', error.message);
+        return res.status(409).json({ ok: false, error: 'slot_ocupado' });
+      }
+      console.error('[api/citas POST] Unexpected 23505 constraint:', {
+        constraint: constraintName,
+        table: 'citas',
+        message: error.message,
+      });
+      return res.status(409).json({
+        ok: false,
+        error: 'duplicate_entry',
+        constraint: constraintName,
+      });
     }
     console.error('[api/citas POST] INSERT error:', error.message);
     return res.status(500).json({ ok: false, error: error.message });
