@@ -26,6 +26,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { createHash, createSign } from 'crypto';
 import { sendWhatsApp } from '../agents/_shared/providers/wapify-notify.js';
+import { getOpticaTimezone } from '../agents/_shared/config/timezone.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -267,6 +268,7 @@ async function createGCalEvent(payload: {
   const startDt = `${payload.fecha}T${payload.hora}:00`;
   const endMs   = new Date(startDt).getTime() + payload.duracion_min * 60 * 1000;
   const endDt   = new Date(endMs).toISOString().slice(0, 19);
+  const tz      = getOpticaTimezone();
 
   try {
     const ctl   = new AbortController();
@@ -279,8 +281,8 @@ async function createGCalEvent(payload: {
         body: JSON.stringify({
           summary: payload.titulo,
           description: payload.notas ?? undefined,
-          start: { dateTime: startDt, timeZone: 'America/Tijuana' },
-          end:   { dateTime: endDt,   timeZone: 'America/Tijuana' },
+          start: { dateTime: startDt, timeZone: tz },
+          end:   { dateTime: endDt,   timeZone: tz },
         }),
         signal: ctl.signal,
       },
@@ -317,8 +319,9 @@ async function updateGCalEvent(gcalEventId: string, patch: {
   if (patch.fecha && patch.hora) {
     const startDt = `${patch.fecha}T${patch.hora}:00`;
     const endMs   = new Date(startDt).getTime() + (patch.duracion_min ?? 30) * 60 * 1000;
-    body.start = { dateTime: startDt, timeZone: 'America/Tijuana' };
-    body.end   = { dateTime: new Date(endMs).toISOString().slice(0, 19), timeZone: 'America/Tijuana' };
+    const tz      = getOpticaTimezone();
+    body.start = { dateTime: startDt, timeZone: tz };
+    body.end   = { dateTime: new Date(endMs).toISOString().slice(0, 19), timeZone: tz };
   }
   if (Object.keys(body).length === 0) return;
 

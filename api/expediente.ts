@@ -33,6 +33,7 @@ import {
   type ExpedienteInput,
 } from '../agents/_shared/providers/obsidian-writer.js';
 import { sendWhatsApp } from '../agents/_shared/providers/wapify-notify.js';
+import { getOpticaTimezone } from '../agents/_shared/config/timezone.js';
 
 /* ── PII sanitizer ──────────────────────────────────────────────────────── */
 
@@ -428,7 +429,7 @@ export default async function handler(
     const numero = process.env.WHATSAPP_ISAAC;
     if (numero) {
       const fechaMx = new Date(createdAt ?? Date.now()).toLocaleString('es-MX', {
-        timeZone: 'America/Tijuana',
+        timeZone: getOpticaTimezone(),
         dateStyle: 'short',
         timeStyle: 'short',
       });
