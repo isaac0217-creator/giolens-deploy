@@ -51,6 +51,12 @@
     "api/cron/refresh-rotacion.ts": {
       "maxDuration": 60
     },
+    "api/cron/refresh-analitica.ts": {
+      "maxDuration": 60
+    },
+    "api/analitica/inventario.ts": {
+      "maxDuration": 15
+    },
     "api/cron/alertas-stock-bajo.ts": {
       "maxDuration": 30
     },
@@ -119,6 +125,10 @@
     {
       "path": "/api/cron/backup-monthly",
       "schedule": "0 8 1 * *"
+    },
+    {
+      "path": "/api/cron/refresh-analitica",
+      "schedule": "0 * * * *"
     }
   ],
   "rewrites": [
