@@ -637,6 +637,35 @@ describe('api/citas.ts — handler', () => {
     expect(res.body.error).toBe('optometrista_requerido_para_slot_unique');
   });
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Bloque 9 · G-12 Concurrencia real (Promise.all)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  it.todo('T35 · G-12 · 2 POSTs paralelos al mismo slot → 1×201 + 1×409 (DB real)');
+  // ⚠️ DESACTIVADO it.todo — no ejecutable con el mock supabase actual.
+  //
+  // Por qué: el mock supabase de este suite es determinístico — cada llamada
+  // retorna un único resultado predefinido en citasCfg. NO modela UNIQUE
+  // INDEX enforcement entre llamadas concurrentes. Promise.all([POST, POST])
+  // con citasCfg.simulateSlotConflict=true devolvería 2×409, no 1×201+1×409.
+  //
+  // Cobertura equivalente actual:
+  //   - T14: simula 23505 sobre 1 POST (mock secuencial) → 409 OK.
+  //   - Smoke 4 manual contra DB real (PR #1 reporte): 1×201 + 1×409 OK.
+  //
+  // Recomendación follow-up: levantar Supabase test instance con un seed
+  // mínimo, agregar suite tests/integration/citas-concurrency.test.ts que
+  // dispare Promise.all reales sobre preview deploy + DB efímera. Tiempo
+  // estimado: 1h (instance + suite + cleanup), recomendado pre-LANZAMIENTO
+  // operacional pleno (Sprint +4).
+
+  it.todo('T36 · G-12 · PUT cancela + PUT confirma en paralelo sobre misma cita → estado consistente');
+  // ⚠️ Mismo motivo que T35: mock no enforça optimistic concurrency en
+  // updates concurrentes. Race condition real requiere DB con MVCC.
+  // El handler maneja 23505 (G-7) en caso de UNIQUE violation; el caso PUT-vs-PUT
+  // sobre misma fila puede causar lost update (último gana), que es comportamiento
+  // PG por default sin SELECT ... FOR UPDATE. Test integration cubrirá esto.
+
   it('T34 · G-9 · PUT estado=cancelada sobre cita sin optometrista → 200 (cancelar siempre OK)', async () => {
     // Cancelar NO requiere optometrista (slot unique excluye estado=cancelada).
     mocks.setCitasCfg({
