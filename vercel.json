@@ -137,6 +137,14 @@
   ],
   "rewrites": [
     {
+      "source": "/analitica.html",
+      "destination": "/public/analitica.html"
+    },
+    {
+      "source": "/analitica",
+      "destination": "/public/analitica.html"
+    },
+    {
       "source": "/inventario.html",
       "destination": "/public/inventario.html"
     },

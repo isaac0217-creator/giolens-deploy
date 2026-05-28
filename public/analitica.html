@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GIOCORE · Analítica</title>
+<style>
+  :root {
+    --bg-0: #f7f8fc;
+    --bg-1: #ffffff;
+    --bg-2: #eef0f6;
+    --line: #e2e6ef;
+    --text: #1e293b;
+    --text-soft: #475569;
+    --muted: #64748b;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+    --positive: #16a34a;
+    --negative: #dc2626;
+    --negative-soft: #fee2e2;
+    --warning: #d97706;
+    --warning-soft: #fef3c7;
+    --glass-shadow: 0 8px 32px rgba(15,23,42,0.06), 0 2px 8px rgba(15,23,42,0.04);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(160deg, #f7f8fc 0%, #eef0f6 35%, #f2f3f8 65%, #f8f9fb 100%);
+    background-attachment: fixed;
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  header {
+    background: rgba(255,255,255,0.78);
+    backdrop-filter: blur(24px) saturate(1.8);
+    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+    border-bottom: 1px solid var(--line);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.8), 0 4px 24px rgba(99,102,241,0.06);
+  }
+  header h1 { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; }
+  header .meta { color: var(--muted); font-size: 0.85rem; font-family: ui-monospace, monospace; }
+  header .header-links { display: flex; gap: 14px; align-items: center; }
+  header .header-links a { color: var(--accent); font-size: 0.85rem; text-decoration: none; font-weight: 500; }
+  header .header-links a:hover { text-decoration: underline; }
+
+  main { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+  .tabs {
+    display: flex;
+    gap: 6px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 20px;
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 10px 16px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 0.92rem;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--text-soft); background: rgba(0,0,0,0.02); }
+  .tab.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .tab[aria-selected="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .tab .badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 7px;
+    font-size: 0.72rem;
+    border-radius: 10px;
+    background: var(--bg-2);
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .tab.active .badge { background: var(--accent-soft); color: var(--accent); }
+  .tab.tab-soon { color: var(--muted); opacity: 0.55; cursor: not-allowed; }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  input, select, button {
+    font: inherit;
+    background: var(--bg-1);
+    color: var(--text);
+    border: 1px solid var(--line);
+    padding: 7px 11px;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  input:focus, select:focus, button:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.10);
+  }
+  button { cursor: pointer; font-weight: 500; }
+  button:hover { background: var(--bg-2); }
+  button.primary { background: var(--accent); color: white; border-color: var(--accent); }
+  button.primary:hover { background: #1d4ed8; border-color: #1d4ed8; }
+
+  .table-wrap {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: var(--glass-shadow);
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); font-size: 0.86rem; }
+  th {
+    background: var(--bg-2);
+    font-weight: 600;
+    color: var(--text-soft);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    position: sticky;
+    top: 0;
+  }
+  tbody tr:hover { background: rgba(37,99,235,0.04); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.center, th.center { text-align: center; }
+  td.mono { font-family: ui-monospace, monospace; font-size: 0.8rem; }
+
+  .empty { padding: 40px 20px; text-align: center; color: var(--muted); font-style: italic; }
+  .loader { padding: 30px 20px; text-align: center; color: var(--muted); }
+  .error {
+    padding: 16px;
+    margin-bottom: 14px;
+    background: var(--negative-soft);
+    border: 1px solid #fca5a5;
+    border-radius: 8px;
+    color: var(--negative);
+    font-size: 0.88rem;
+  }
+  .error.hidden { display: none; }
+
+  .badge-warn-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--warning-soft);
+    color: var(--warning);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .badge-warn-pill::before { content: "⚠"; }
+  .badge-alert {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(239, 68, 68, 0.15);
+    color: #b91c1c;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+  .badge-alert::before { content: "⏰"; }
+
+  /* ── Controles analítica (mobile-first) ─────────────────────────── */
+  .analitica-controls { display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:14px; }
+  .periodo-radios { display:inline-flex; gap:0; border:1px solid var(--line); border-radius:6px; overflow:hidden; }
+  .periodo-radios label { padding:8px 14px; cursor:pointer; min-height:44px; display:flex; align-items:center; font-size:0.9rem; }
+  .periodo-radios input[type="radio"] { display:none; }
+  .periodo-radios input[type="radio"]:checked + span { background: var(--accent); color:#fff; }
+  .periodo-radios span { padding:0 2px; }
+  .anal-meta { color: var(--muted); font-size: 0.82rem; }
+
+  .analitica-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 18px; }
+  @media (min-width: 600px) { .analitica-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1000px) { .analitica-grid { grid-template-columns: repeat(4, 1fr); } }
+
+  .kpi-card {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: var(--glass-shadow);
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 88px;
+  }
+  .kpi-card .kpi-label { font-size: 0.74rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .kpi-card .kpi-value { font-size: 1.6rem; font-weight: 700; color: var(--text); }
+  .kpi-card .kpi-hint  { font-size: 0.76rem; color: var(--muted); }
+  .kpi-card.kpi-pending { opacity: 0.6; cursor: help; }
+  .kpi-card.kpi-pending::after {
+    content: "⚠ datos pendientes";
+    font-size: 0.7em;
+    color: var(--warning);
+    display: block;
+    margin-top: 0.25rem;
+    line-height: 1.1;
+  }
+
+  .analitica-chart-wrap {
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: var(--glass-shadow);
+    padding: 16px;
+    margin-bottom: 18px;
+    height: 340px;
+    position: relative;
+  }
+  .analitica-chart-wrap h3 { font-size: 0.92rem; margin-bottom: 10px; color: var(--text-soft); }
+  .chart-canvas-box { position: relative; height: 260px; }
+  .analitica-chart-fallback { display: none; color: var(--muted); font-size: 0.85rem; }
+  .analitica-chart-wrap.fallback-mode .analitica-chart-fallback { display: block; }
+  .analitica-chart-wrap.fallback-mode .chart-canvas-box canvas { display: none; }
+
+  @media (min-width: 900px) {
+    .chart-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  }
+
+  h2.section-title { font-size: 1rem; margin: 22px 0 10px; color: var(--text); }
+  .pii-note { font-size: 0.76rem; color: var(--muted); margin-bottom: 8px; }
+</style>
+<!-- Chart.js v4.4.7 con SRI (mismo pin que inventario.html · Frente I.1 D-2) -->
+<script
+  src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"
+  integrity="sha384-vsrfeLOOY6KuIYKDlmVH5UiBmgIdB1oEf7p01YgWHuqmOHfZr374+odEv96n9tNC"
+  crossorigin="anonymous"
+  onerror="window.__chartjsFailed = true;"
+  defer></script>
+</head>
+<body>
+<header>
+  <h1>GIOCORE · Analítica</h1>
+  <div class="header-links">
+    <a href="/inventario">← Inventario operativo</a>
+    <span class="meta" id="meta">cargando…</span>
+  </div>
+</header>
+
+<main>
+  <div id="global-error" class="error hidden" role="alert"></div>
+
+  <div class="tabs" role="tablist" aria-label="Secciones de analítica">
+    <button class="tab active" role="tab" id="tab-inventario" aria-selected="true"
+            aria-controls="panel-inventario" data-tab="inventario">
+      Inventario <span class="badge" id="badge-inventario">—</span>
+    </button>
+    <button class="tab" role="tab" id="tab-clinica" aria-selected="false"
+            aria-controls="panel-clinica" data-tab="clinica">
+      Clínica <span class="badge" id="badge-clinica">—</span>
+    </button>
+    <button class="tab tab-soon" role="tab" aria-disabled="true" tabindex="-1" disabled
+            title="Próximo sprint">Marketing</button>
+    <button class="tab tab-soon" role="tab" aria-disabled="true" tabindex="-1" disabled
+            title="Próximo sprint">Caja</button>
+  </div>
+
+  <!-- ════════════════════════ INVENTARIO (I.1) ════════════════════════ -->
+  <section id="panel-inventario" class="panel active" role="tabpanel" aria-labelledby="tab-inventario">
+    <div class="analitica-controls">
+      <div class="periodo-radios" role="radiogroup" aria-label="Periodo de análisis inventario">
+        <label><input type="radio" name="inv-periodo" value="30" checked><span>30 días</span></label>
+        <label><input type="radio" name="inv-periodo" value="90"><span>90 días</span></label>
+      </div>
+      <button class="primary" id="inv-refresh">Refrescar</button>
+      <button id="inv-export">Export CSV</button>
+      <span class="anal-meta" id="inv-meta"></span>
+    </div>
+
+    <div class="analitica-grid" role="region" aria-label="Indicadores clave inventario">
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Valor total stock</span>
+        <span class="kpi-value" id="inv-kpi-valor-stock">—</span>
+        <span class="kpi-hint">Stock × costo</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">% Bajo mínimo</span>
+        <span class="kpi-value" id="inv-kpi-pct-bajo">—</span>
+        <span class="kpi-hint">SKUs con stock &lt; mínimo</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Sin movimiento 30d</span>
+        <span class="kpi-value" id="inv-kpi-sin-mov">—</span>
+        <span class="kpi-hint">Productos sin venta reciente</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Ingresos 30d</span>
+        <span class="kpi-value" id="inv-kpi-ing-30">—</span>
+        <span class="kpi-hint">Revenue aproximado</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Ingresos 90d</span>
+        <span class="kpi-value" id="inv-kpi-ing-90">—</span>
+        <span class="kpi-hint">Revenue aproximado</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Rotación promedio</span>
+        <span class="kpi-value" id="inv-kpi-rotacion">—</span>
+        <span class="kpi-hint">Veces/mes (avg)</span>
+      </div>
+    </div>
+
+    <div id="inv-chart-wrap" class="analitica-chart-wrap" aria-label="Top 10 rotación">
+      <h3>Top 10 rotación</h3>
+      <div class="chart-canvas-box"><canvas id="inv-chart-rotacion"></canvas></div>
+      <div class="analitica-chart-fallback" id="inv-chart-fallback">
+        Gráfica no disponible · tabla equivalente:
+        <div class="table-wrap" style="margin-top:12px;">
+          <table id="inv-tbl-top-rotacion-fb">
+            <thead><tr>
+              <th scope="col">SKU</th><th scope="col">Nombre</th>
+              <th scope="col" class="num">Rotación</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="section-title">Top 10 riesgo de stockout</h2>
+    <div class="table-wrap">
+      <table id="inv-tbl-stockout">
+        <thead><tr>
+          <th scope="col">SKU</th><th scope="col">Nombre</th><th scope="col">Categoría</th>
+          <th scope="col" class="num">Stock</th><th scope="col" class="num">Mínimo</th>
+          <th scope="col" class="num">Ratio riesgo</th><th scope="col" class="num">Días inv.</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ════════════════════════ CLÍNICA (I.2) ════════════════════════ -->
+  <section id="panel-clinica" class="panel" role="tabpanel" aria-labelledby="tab-clinica" hidden>
+    <div class="analitica-controls">
+      <div class="periodo-radios" role="radiogroup" aria-label="Periodo de análisis clínica">
+        <label><input type="radio" name="cli-periodo" value="30" checked><span>30 días</span></label>
+        <label><input type="radio" name="cli-periodo" value="60"><span>60 días</span></label>
+        <label><input type="radio" name="cli-periodo" value="90"><span>90 días</span></label>
+        <label><input type="radio" name="cli-periodo" value="180"><span>180 días</span></label>
+      </div>
+      <button class="primary" id="cli-refresh">Refrescar</button>
+      <span class="anal-meta" id="cli-meta"></span>
+    </div>
+
+    <div class="analitica-grid" role="region" aria-label="Indicadores clave clínica">
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Expediente → Cita</span>
+        <span class="kpi-value" id="cli-kpi-exp-cita">—</span>
+        <span class="kpi-hint">% expedientes 90d con ≥1 cita</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Show rate citas</span>
+        <span class="kpi-value" id="cli-kpi-show">—</span>
+        <span class="kpi-hint">Confirmadas/realizadas vs resueltas</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Expediente → Venta</span>
+        <span class="kpi-value" id="cli-kpi-exp-venta">—</span>
+        <span class="kpi-hint">% expedientes 60d con venta</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Recurrencia 60d</span>
+        <span class="kpi-value" id="cli-kpi-recurrencia">—</span>
+        <span class="kpi-hint">% pacientes con ≥2 citas</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Tiempo entre citas</span>
+        <span class="kpi-value" id="cli-kpi-tiempo">—</span>
+        <span class="kpi-hint">Días promedio (180d)</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Citas confirmadas 30d</span>
+        <span class="kpi-value" id="cli-kpi-citas">—</span>
+        <span class="kpi-hint">Confirmadas + realizadas</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Salidas (proxy venta) 30d</span>
+        <span class="kpi-value" id="cli-kpi-salidas">—</span>
+        <span class="kpi-hint">Unidades · proxy, no venta directa</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Alertas seguimiento</span>
+        <span class="kpi-value" id="cli-kpi-alertas">—</span>
+        <span class="kpi-hint">Pacientes sin cita real &gt;180d</span>
+      </div>
+    </div>
+
+    <div class="chart-row">
+      <div id="cli-funnel-wrap" class="analitica-chart-wrap" aria-label="Embudo de conversión">
+        <h3>Embudo de conversión</h3>
+        <div class="chart-canvas-box"><canvas id="cli-chart-funnel"></canvas></div>
+        <div class="analitica-chart-fallback" id="cli-funnel-fallback">
+          <div class="table-wrap" style="margin-top:12px;">
+            <table id="cli-tbl-funnel-fb">
+              <thead><tr><th scope="col">Etapa</th><th scope="col" class="num">Cantidad</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="cli-recurr-wrap" class="analitica-chart-wrap" aria-label="Recurrencia de pacientes">
+        <h3>Recurrencia (citas 90d)</h3>
+        <div class="chart-canvas-box"><canvas id="cli-chart-recurrencia"></canvas></div>
+        <div class="analitica-chart-fallback" id="cli-recurr-fallback">
+          <div class="table-wrap" style="margin-top:12px;">
+            <table id="cli-tbl-recurr-fb">
+              <thead><tr><th scope="col">Nº citas</th><th scope="col" class="num">Pacientes</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="section-title">Productividad optometristas (30d)</h2>
+    <div class="table-wrap">
+      <table id="cli-tbl-productividad">
+        <thead><tr>
+          <th scope="col">Optometrista</th>
+          <th scope="col" class="num">Citas confirmadas 30d</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <h2 class="section-title">Alertas de seguimiento (sin cita real &gt;180d)</h2>
+    <p class="pii-note">Identificador anonimizado (paciente_hash). No se expone nombre, teléfono, email ni diagnóstico.</p>
+    <div class="table-wrap">
+      <table id="cli-tbl-alertas">
+        <thead><tr>
+          <th scope="col">Paciente (hash)</th>
+          <th scope="col">Última cita</th>
+          <th scope="col" class="num">Días sin cita</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="footer-status" style="margin-top:18px;color:var(--muted);font-size:0.78rem;font-family:ui-monospace,monospace;">
+    <span id="footer-left">GIOCORE · Analítica hub</span>
+  </div>
+</main>
+
+<script>
+  'use strict';
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Auth · patrón compartido con inventario.html (CRON_SECRET en localStorage,
+  // nunca embebido en el bundle). Mismo storage key → un solo prompt.
+  // ═══════════════════════════════════════════════════════════════════════
+  function getBearerToken() {
+    let t = localStorage.getItem('giolens_bearer') || '';
+    if (!t) {
+      t = (window.prompt('Bearer CRON_SECRET (queda en localStorage):') || '').trim();
+      if (t) localStorage.setItem('giolens_bearer', t);
+    }
+    return t;
+  }
+
+  // ── Formatters ──
+  function fmtMoney(n) {
+    if (n == null || isNaN(n)) return '—';
+    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(Number(n));
+  }
+  function fmtPct(n) {
+    // Los rate clínicos/inv ya vienen en escala 0–100 (migrations ROUND(..*100)).
+    if (n == null || isNaN(n)) return '—';
+    return Number(n).toFixed(1) + '%';
+  }
+  function fmtNum(n, decimals = 2) {
+    if (n == null || isNaN(n)) return '—';
+    return Number(n).toFixed(decimals);
+  }
+  function fmtInt(n) {
+    if (n == null || isNaN(n)) return '—';
+    return String(Math.round(Number(n)));
+  }
+  function fmtDate(s) {
+    if (!s) return '—';
+    // s es DATE (YYYY-MM-DD) o ISO; mostrar sólo fecha.
+    return String(s).slice(0, 10);
+  }
+
+  // ── XSS-safe table builders (textContent, nunca innerHTML con datos API) ──
+  function clearTbody(tableId) {
+    const tb = document.querySelector(`#${tableId} tbody`);
+    if (tb) tb.replaceChildren();
+    return tb;
+  }
+  function td(text, cls) {
+    const el = document.createElement('td');
+    el.textContent = text;
+    if (cls) el.className = cls;
+    return el;
+  }
+  function emptyRow(tbody, colspan, msg) {
+    const tr = document.createElement('tr');
+    const c = document.createElement('td');
+    c.colSpan = colspan;
+    c.className = 'empty';
+    c.textContent = msg || 'Sin datos en este periodo';
+    tr.appendChild(c);
+    tbody.appendChild(tr);
+  }
+
+  function showGlobalError(msg) {
+    const box = document.getElementById('global-error');
+    box.textContent = msg;
+    box.classList.remove('hidden');
+  }
+  function clearGlobalError() {
+    const box = document.getElementById('global-error');
+    box.textContent = '';
+    box.classList.add('hidden');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Fetch genérico (auth + 401/403/503 handling)
+  // ═══════════════════════════════════════════════════════════════════════
+  async function fetchMetric(base, metric, periodo, extra = {}) {
+    const token = getBearerToken();
+    if (!token) throw new Error('Bearer ausente · ingresa CRON_SECRET');
+    const params = new URLSearchParams({ metric, periodo: String(periodo), ...extra });
+    const r = await fetch(`${base}?${params}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+      cache: 'no-cache',
+    });
+    if (r.status === 401 || r.status === 403) {
+      localStorage.removeItem('giolens_bearer');
+      throw new Error('Auth rechazada · revisa CRON_SECRET (se limpió, reintenta)');
+    }
+    if (r.status === 503) {
+      const body = await r.json().catch(() => ({}));
+      throw new Error(body.error || 'service_unavailable');
+    }
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // INVENTARIO (I.1)
+  // ═══════════════════════════════════════════════════════════════════════
+  const INV_BASE = '/api/analitica/inventario';
+  let __invChart = null;
+
+  function invPeriodo() {
+    const r = document.querySelector('input[name="inv-periodo"]:checked');
+    return r ? Number(r.value) : 30;
+  }
+
+  function invPaintKpis(k) {
+    document.getElementById('inv-kpi-valor-stock').textContent = fmtMoney(k.valor_total_stock);
+    document.getElementById('inv-kpi-pct-bajo').textContent    = fmtPct(k.pct_bajo_minimo);
+    document.getElementById('inv-kpi-sin-mov').textContent     = fmtInt(k.productos_sin_movimiento_30d_count);
+    document.getElementById('inv-kpi-ing-30').textContent      = fmtMoney(k.ingresos_30d_total);
+    document.getElementById('inv-kpi-ing-90').textContent      = fmtMoney(k.ingresos_90d_total);
+    document.getElementById('inv-kpi-rotacion').textContent    = fmtNum(k.rotacion_promedio, 2);
+  }
+
+  function applyKpiPendingBadges(warnings, issueUrl) {
+    const cardOf = (id) => document.getElementById(id)?.closest('.kpi-card');
+    const TARGETS = ['inv-kpi-valor-stock', 'inv-kpi-ing-30', 'inv-kpi-ing-90'];
+    TARGETS.forEach(id => {
+      const card = cardOf(id);
+      if (card) { card.classList.remove('kpi-pending'); card.removeAttribute('title'); }
+    });
+    if (!Array.isArray(warnings) || warnings.length === 0) return;
+    if (warnings.includes('precio_costo_pendiente')) cardOf('inv-kpi-valor-stock')?.classList.add('kpi-pending');
+    if (warnings.includes('precio_publico_pendiente')) {
+      cardOf('inv-kpi-ing-30')?.classList.add('kpi-pending');
+      cardOf('inv-kpi-ing-90')?.classList.add('kpi-pending');
+    }
+    if (issueUrl) {
+      document.querySelectorAll('#panel-inventario .kpi-card.kpi-pending').forEach(el => {
+        el.title = `Datos pendientes — ver issue: ${issueUrl}`;
+      });
+    }
+  }
+
+  function invPaintTopRotacion(rows) {
+    const wrap = document.getElementById('inv-chart-wrap');
+    const fbTbody = clearTbody('inv-tbl-top-rotacion-fb');
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.appendChild(td(r.sku ?? ''));
+      tr.appendChild(td(r.nombre ?? ''));
+      tr.appendChild(td(fmtNum(r.rotacion_30d, 2), 'num'));
+      fbTbody.appendChild(tr);
+    });
+    if (window.__chartjsFailed || typeof Chart === 'undefined') { wrap.classList.add('fallback-mode'); return; }
+    wrap.classList.remove('fallback-mode');
+    const ctx = document.getElementById('inv-chart-rotacion').getContext('2d');
+    if (__invChart) __invChart.destroy();
+    __invChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: rows.map(r => r.sku),
+        datasets: [{
+          label: 'Rotación', data: rows.map(r => Number(r.rotacion_30d) || 0),
+          backgroundColor: 'rgba(37, 99, 235, 0.6)', borderColor: 'rgba(37, 99, 235, 1)', borderWidth: 1,
+        }],
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } },
+      },
+    });
+  }
+
+  function invPaintStockout(rows) {
+    const tbody = clearTbody('inv-tbl-stockout');
+    if (!rows.length) { emptyRow(tbody, 7, 'Sin riesgos de stockout'); return; }
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.appendChild(td(r.sku ?? ''));
+      tr.appendChild(td(r.nombre ?? ''));
+      tr.appendChild(td(r.categoria ?? ''));
+      tr.appendChild(td(fmtInt(r.stock_actual ?? 0), 'num'));
+      tr.appendChild(td(fmtInt(r.stock_minimo ?? 0), 'num'));
+      tr.appendChild(td(fmtNum(r.ratio_riesgo, 2), 'num'));
+      tr.appendChild(td(r.dias_inventario != null ? fmtNum(r.dias_inventario, 1) : '—', 'num'));
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function loadInventario() {
+    const periodo = invPeriodo();
+    const meta = document.getElementById('inv-meta');
+    meta.textContent = 'Cargando…';
+    try {
+      const [kpis, top, sto] = await Promise.all([
+        fetchMetric(INV_BASE, 'kpis', periodo),
+        fetchMetric(INV_BASE, 'top_rotacion', periodo, { limit: '10' }),
+        fetchMetric(INV_BASE, 'stockout', periodo, { limit: '10' }),
+      ]);
+      invPaintKpis(kpis.data || {});
+      applyKpiPendingBadges(kpis._warnings || [], kpis.issue_url);
+      invPaintTopRotacion(top.data || []);
+      invPaintStockout(sto.data || []);
+      const badge = document.getElementById('badge-inventario');
+      if (badge) badge.textContent = String((sto.data || []).length);
+      meta.textContent = `Actualizado: ${new Date().toLocaleTimeString('es-MX')}`;
+      clearGlobalError();
+    } catch (e) {
+      meta.textContent = 'Error';
+      showGlobalError(`Inventario: ${e.message}`);
+    }
+  }
+
+  async function exportInventarioCSV() {
+    const periodo = invPeriodo();
+    const token = getBearerToken();
+    if (!token) return;
+    try {
+      const r = await fetch(`${INV_BASE}?metric=top_rotacion&periodo=${periodo}&limit=10000`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const j = await r.json();
+      const rows = j.data || [];
+      const cols = ['sku', 'nombre', 'categoria', 'rotacion_30d', 'unidades_30d', 'ingresos_30d'];
+      const csv = '﻿' + [
+        cols.join(','),
+        ...rows.map(row => cols.map(c => `"${String(row[c] ?? '').replace(/"/g, '""')}"`).join(',')),
+      ].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a');
+      const yyyymmdd = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      a.href = URL.createObjectURL(blob);
+      a.download = `analitica_inventario_${periodo}d_${yyyymmdd}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      showGlobalError('Export inventario falló: ' + e.message);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CLÍNICA (I.2)
+  // ═══════════════════════════════════════════════════════════════════════
+  const CLI_BASE = '/api/analitica/clinica';
+  let __cliFunnelChart = null;
+  let __cliRecurrChart = null;
+
+  function cliPeriodo() {
+    const r = document.querySelector('input[name="cli-periodo"]:checked');
+    return r ? Number(r.value) : 30;
+  }
+
+  function cliPaintKpis(k) {
+    document.getElementById('cli-kpi-exp-cita').textContent   = fmtPct(k.expediente_to_cita_rate);
+    document.getElementById('cli-kpi-show').textContent       = fmtPct(k.cita_show_rate);
+    document.getElementById('cli-kpi-exp-venta').textContent  = fmtPct(k.expediente_to_venta_rate);
+    document.getElementById('cli-kpi-recurrencia').textContent = fmtPct(k.recurrencia_60d);
+    document.getElementById('cli-kpi-tiempo').textContent     = k.tiempo_entre_citas_promedio_dias != null ? fmtNum(k.tiempo_entre_citas_promedio_dias, 1) + ' d' : '—';
+    document.getElementById('cli-kpi-citas').textContent      = fmtInt(k.citas_confirmadas_30d);
+    document.getElementById('cli-kpi-salidas').textContent    = fmtInt(k.salidas_unidades_30d);
+    document.getElementById('cli-kpi-alertas').textContent    = fmtInt(k.alertas_seguimiento_count);
+  }
+
+  function cliApplyPendingBadges(warnings) {
+    const cards = document.querySelectorAll('#panel-clinica .kpi-card');
+    const pending = Array.isArray(warnings) && warnings.includes('datos_clinicos_pendientes');
+    cards.forEach(c => c.classList.toggle('kpi-pending', pending));
+  }
+
+  function cliPaintFunnel(d) {
+    const wrap = document.getElementById('cli-funnel-wrap');
+    const stages = [
+      { label: 'Expedientes 90d', value: Number(d.expedientes_90d) || 0 },
+      { label: 'Con cita 90d',    value: Number(d.expedientes_con_cita_90d) || 0 },
+      { label: 'Con venta 60d',   value: Number(d.expedientes_con_venta_60d) || 0 },
+    ];
+    const fbTbody = clearTbody('cli-tbl-funnel-fb');
+    stages.forEach(s => {
+      const tr = document.createElement('tr');
+      tr.appendChild(td(s.label));
+      tr.appendChild(td(fmtInt(s.value), 'num'));
+      fbTbody.appendChild(tr);
+    });
+    if (window.__chartjsFailed || typeof Chart === 'undefined') { wrap.classList.add('fallback-mode'); return; }
+    wrap.classList.remove('fallback-mode');
+    const ctx = document.getElementById('cli-chart-funnel').getContext('2d');
+    if (__cliFunnelChart) __cliFunnelChart.destroy();
+    __cliFunnelChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: stages.map(s => s.label),
+        datasets: [{
+          label: 'Cantidad', data: stages.map(s => s.value),
+          backgroundColor: 'rgba(22, 163, 74, 0.6)', borderColor: 'rgba(22, 163, 74, 1)', borderWidth: 1,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } },
+      },
+    });
+  }
+
+  function cliPaintRecurrencia(rows) {
+    const wrap = document.getElementById('cli-recurr-wrap');
+    // Orden estable de buckets
+    const ORDER = ['1', '2', '3-4', '5+'];
+    const sorted = [...rows].sort((a, b) => ORDER.indexOf(a.num_citas_bucket) - ORDER.indexOf(b.num_citas_bucket));
+    const fbTbody = clearTbody('cli-tbl-recurr-fb');
+    if (!sorted.length) emptyRow(fbTbody, 2, 'Sin datos');
+    sorted.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.appendChild(td(r.num_citas_bucket ?? ''));
+      tr.appendChild(td(fmtInt(r.pacientes), 'num'));
+      fbTbody.appendChild(tr);
+    });
+    if (window.__chartjsFailed || typeof Chart === 'undefined') { wrap.classList.add('fallback-mode'); return; }
+    wrap.classList.remove('fallback-mode');
+    const ctx = document.getElementById('cli-chart-recurrencia').getContext('2d');
+    if (__cliRecurrChart) __cliRecurrChart.destroy();
+    __cliRecurrChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: sorted.map(r => r.num_citas_bucket),
+        datasets: [{
+          label: 'Pacientes', data: sorted.map(r => Number(r.pacientes) || 0),
+          backgroundColor: 'rgba(37, 99, 235, 0.6)', borderColor: 'rgba(37, 99, 235, 1)', borderWidth: 1,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } },
+      },
+    });
+  }
+
+  function cliPaintProductividad(rows) {
+    const tbody = clearTbody('cli-tbl-productividad');
+    if (!rows.length) { emptyRow(tbody, 2, 'Sin citas confirmadas en 30d'); return; }
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.appendChild(td(r.optometrista ?? '—'));
+      tr.appendChild(td(fmtInt(r.citas_confirmadas_30d), 'num'));
+      tbody.appendChild(tr);
+    });
+  }
+
+  // PII: paciente_hash ya es SHA256[:16] anonimizado. La UI trunca a 8 chars
+  // para mostrar (alineado con la regla "truncar a 8 chars en logs/UI").
+  function truncHash(h) {
+    if (!h) return '—';
+    return String(h).slice(0, 8);
+  }
+
+  function cliPaintAlertas(rows) {
+    const tbody = clearTbody('cli-tbl-alertas');
+    if (!rows.length) { emptyRow(tbody, 3, 'Sin alertas de seguimiento'); return; }
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.appendChild(td(truncHash(r.paciente_hash), 'mono'));
+      tr.appendChild(td(fmtDate(r.ultima_cita_fecha)));
+      const diasTd = document.createElement('td');
+      diasTd.className = 'num';
+      const pill = document.createElement('span');
+      pill.className = 'badge-alert';
+      pill.textContent = `${fmtInt(r.dias_sin_cita)} d`;
+      diasTd.appendChild(pill);
+      tr.appendChild(diasTd);
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function loadClinica() {
+    const periodo = cliPeriodo();
+    const meta = document.getElementById('cli-meta');
+    meta.textContent = 'Cargando…';
+    try {
+      const [kpis, funnel, recurr, prod, alertas] = await Promise.all([
+        fetchMetric(CLI_BASE, 'kpis', periodo),
+        fetchMetric(CLI_BASE, 'conversion_funnel', periodo),
+        fetchMetric(CLI_BASE, 'recurrencia', periodo, { limit: '10' }),
+        fetchMetric(CLI_BASE, 'productividad', periodo, { limit: '20' }),
+        fetchMetric(CLI_BASE, 'alertas', periodo, { limit: '50' }),
+      ]);
+      cliPaintKpis(kpis.data || {});
+      cliApplyPendingBadges(kpis._warnings || []);
+      cliPaintFunnel(funnel.data || {});
+      cliPaintRecurrencia(recurr.data || []);
+      cliPaintProductividad(prod.data || []);
+      cliPaintAlertas(alertas.data || []);
+      const badge = document.getElementById('badge-clinica');
+      if (badge) badge.textContent = fmtInt((kpis.data || {}).alertas_seguimiento_count ?? 0);
+      meta.textContent = `Actualizado: ${new Date().toLocaleTimeString('es-MX')}`;
+      clearGlobalError();
+    } catch (e) {
+      meta.textContent = 'Error';
+      showGlobalError(`Clínica: ${e.message}`);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Tabs + deeplink (?tab=inventario|clinica) + lazy-load
+  // ═══════════════════════════════════════════════════════════════════════
+  const TABS = ['inventario', 'clinica'];
+  const loaded = { inventario: false, clinica: false };
+
+  function loadTab(tab) {
+    if (tab === 'inventario' && !loaded.inventario) { loaded.inventario = true; loadInventario(); }
+    if (tab === 'clinica' && !loaded.clinica) { loaded.clinica = true; loadClinica(); }
+  }
+
+  function activateTab(tab, pushUrl = true) {
+    if (!TABS.includes(tab)) tab = 'inventario';
+    TABS.forEach(t => {
+      const btn = document.getElementById(`tab-${t}`);
+      const panel = document.getElementById(`panel-${t}`);
+      const on = t === tab;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      btn.tabIndex = on ? 0 : -1;
+      panel.classList.toggle('active', on);
+      if (on) panel.removeAttribute('hidden'); else panel.setAttribute('hidden', '');
+    });
+    loadTab(tab);
+    if (pushUrl) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      window.history.replaceState({}, '', url);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('meta').textContent = new Date().toLocaleString('es-MX');
+
+    TABS.forEach(t => {
+      document.getElementById(`tab-${t}`).addEventListener('click', () => activateTab(t));
+    });
+
+    document.getElementById('inv-refresh').addEventListener('click', () => { loaded.inventario = true; loadInventario(); });
+    document.getElementById('inv-export').addEventListener('click', exportInventarioCSV);
+    document.getElementById('cli-refresh').addEventListener('click', () => { loaded.clinica = true; loadClinica(); });
+
+    document.querySelectorAll('input[name="inv-periodo"]').forEach(r => {
+      r.addEventListener('change', () => { if (document.getElementById('panel-inventario').classList.contains('active')) loadInventario(); });
+    });
+    document.querySelectorAll('input[name="cli-periodo"]').forEach(r => {
+      r.addEventListener('change', () => { if (document.getElementById('panel-clinica').classList.contains('active')) loadClinica(); });
+    });
+
+    const initial = new URLSearchParams(window.location.search).get('tab');
+    activateTab(TABS.includes(initial) ? initial : 'inventario', false);
+  });
+</script>
+</body>
+</html>
