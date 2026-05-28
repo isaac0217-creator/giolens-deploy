@@ -303,6 +303,7 @@ describe('api/citas.ts — handler', () => {
       body: {
         fecha: '2026-06-01', hora: '10:00',
         paciente_hash: 'XYZ123',
+        optometrista: 'dr_x',  // G-9: requerido para llegar a la validación de hash
       },
     }), res);
     expect(res.statusCode).toBe(400);
@@ -321,6 +322,7 @@ describe('api/citas.ts — handler', () => {
         fecha: '2026-06-01', hora: '10:00',
         paciente_hash: 'a1b2c3d4e5f6a7b8',
         tipo_consulta: 'revision_visual',
+        optometrista: 'dr_test',  // G-9: requerido
       },
     }), res);
     expect(res.statusCode).toBe(201);
@@ -340,6 +342,7 @@ describe('api/citas.ts — handler', () => {
         fecha: '2026-06-01', hora: '10:00',
         paciente_hash: 'a1b2c3d4e5f6a7b8',
         tipo_consulta: 'revision_visual',
+        optometrista: 'dr_test',  // G-9: requerido
       },
     }), res);
     expect(res.statusCode).toBe(409);
@@ -362,6 +365,7 @@ describe('api/citas.ts — handler', () => {
         paciente_hash: 'a1b2c3d4e5f6a7b8',
         tipo_consulta: 'revision_visual',
         estado: 'confirmada',
+        optometrista: 'dr_test',  // G-9
       },
     }), res);
 
@@ -386,6 +390,7 @@ describe('api/citas.ts — handler', () => {
         paciente_hash: 'a1b2c3d4e5f6a7b8',
         tipo_consulta: 'revision_visual',
         estado: 'confirmada',
+        optometrista: 'dr_test',  // G-9
       },
     }), res);
 
@@ -435,6 +440,7 @@ describe('api/citas.ts — handler', () => {
         id: 7, estado: 'agendada', confirmacion_enviada_at: null,
         fecha: '2026-06-01', hora: '10:00',
         paciente_hash: 'a1b2c3d4e5f6a7b8',
+        optometrista: 'dr_test',  // G-9
         tipo_consulta: 'revision_visual', gcal_event_id: null,
       },
     });
@@ -459,6 +465,7 @@ describe('api/citas.ts — handler', () => {
         id: 7, estado: 'confirmada', confirmacion_enviada_at: null,
         fecha: '2026-06-01', hora: '10:00',
         paciente_hash: 'a1b2c3d4e5f6a7b8',
+        optometrista: 'dr_test',  // G-9
       },
     });
 
@@ -480,6 +487,7 @@ describe('api/citas.ts — handler', () => {
         confirmacion_enviada_at: '2026-05-26T22:00:00Z',
         fecha: '2026-06-01', hora: '10:00',
         paciente_hash: 'a1b2c3d4e5f6a7b8',
+        optometrista: 'dr_test',  // G-9
       },
     });
 
@@ -496,7 +504,10 @@ describe('api/citas.ts — handler', () => {
     mocks.setCitasCfg({ existingRow: null, updateError: true });
     const res = makeRes();
     await handler(makeReq({
-      method: 'PUT', query: { id: '9999' }, body: { estado: 'confirmada' },
+      method: 'PUT', query: { id: '9999' },
+      // G-9: pasamos optometrista explícito para que el test reach el path
+      // del UPDATE error (no el guard G-9 antes).
+      body: { estado: 'confirmada', optometrista: 'dr_test' },
     }), res);
     expect(res.statusCode).toBe(500);
   });
@@ -510,6 +521,7 @@ describe('api/citas.ts — handler', () => {
         id: 7, estado: 'agendada', confirmacion_enviada_at: null,
         fecha: '2026-06-01', hora: '10:00',
         paciente_hash: 'a1b2c3d4e5f6a7b8',
+        optometrista: 'dr_test',  // G-9
         tipo_consulta: 'revision_visual',
       },
     });
@@ -524,6 +536,7 @@ describe('api/citas.ts — handler', () => {
         confirmacion_enviada_at: '2026-05-26T22:00:00Z',
         fecha: '2026-06-01', hora: '10:00',
         paciente_hash: 'a1b2c3d4e5f6a7b8',
+        optometrista: 'dr_test',  // G-9
       },
     });
     await handler(makeReq({
@@ -587,6 +600,58 @@ describe('api/citas.ts — handler', () => {
     const res3 = makeRes();
     await handler(makeReq({ method: 'GET', headers: { authorization: undefined } }), res3);
     expect(res3.headers['Cache-Control']).toBe('no-store, max-age=0');
+  });
+
+  it('T32 · G-9 · POST sin optometrista (estado=agendada default) → 400 optometrista_requerido_para_slot_unique', async () => {
+    // Camino C: validación código rechaza optometrista null/vacío cuando
+    // estado nuevo ≠ cancelada. PostgreSQL trata NULL como distinto en UNIQUE,
+    // sin este guard 2 POSTs con optometrista=null en mismo slot pasarían.
+    const res = makeRes();
+    await handler(makeReq({
+      method: 'POST',
+      body: {
+        fecha: '2026-06-01', hora: '10:00',
+        paciente_email: 'foo@bar.test', paciente_telefono: '+526631180788',
+        tipo_consulta: 'revision_visual',
+        // optometrista omitido a propósito
+      },
+    }), res);
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe('optometrista_requerido_para_slot_unique');
+  });
+
+  it('T33 · G-9 · PUT estado=agendada sobre cita sin optometrista → 400', async () => {
+    // existingRow.optometrista=null + nuevo_estado=agendada (no cancela) → 400
+    mocks.setCitasCfg({
+      existingRow: {
+        id: 42, estado: 'agendada', optometrista: null,
+        fecha: '2026-06-01', hora: '10:00',
+        paciente_hash: 'a1b2c3d4e5f6a7b8',
+      },
+    });
+    const res = makeRes();
+    await handler(makeReq({
+      method: 'PUT', query: { id: '42' }, body: { estado: 'agendada' },
+    }), res);
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe('optometrista_requerido_para_slot_unique');
+  });
+
+  it('T34 · G-9 · PUT estado=cancelada sobre cita sin optometrista → 200 (cancelar siempre OK)', async () => {
+    // Cancelar NO requiere optometrista (slot unique excluye estado=cancelada).
+    mocks.setCitasCfg({
+      existingRow: {
+        id: 43, estado: 'agendada', optometrista: null,
+        fecha: '2026-06-01', hora: '10:00',
+        paciente_hash: 'a1b2c3d4e5f6a7b8',
+      },
+    });
+    const res = makeRes();
+    await handler(makeReq({
+      method: 'PUT', query: { id: '43' }, body: { estado: 'cancelada' },
+    }), res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.ok).toBe(true);
   });
 
   it('T28 · Vary: Origin presente', async () => {

@@ -397,6 +397,19 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     return res.status(400).json({ ok: false, error: 'estado inválido', valid: ESTADOS_VALIDOS });
   }
 
+  // G-9: optometrista requerido cuando el estado nuevo es distinto de 'cancelada'.
+  // PostgreSQL trata NULLs como distintos en UNIQUE constraints; sin este guard,
+  // dos POSTs con optometrista=NULL en mismo slot pasarían idx_citas_slot_unique
+  // sin colisión (camino C — validación código pre-aprobada Cowork, vs Opción A
+  // ALTER NOT NULL o Opción B COALESCE en index).
+  if (estado_inicial !== 'cancelada' && !optometrista) {
+    return res.status(400).json({
+      ok: false,
+      error: 'optometrista_requerido_para_slot_unique',
+      detail: "optometrista debe ser no-null para estados distintos de 'cancelada'",
+    });
+  }
+
   const supabase = buildSupabaseClient();
   if (!supabase) return res.status(500).json({ ok: false, error: 'service unavailable' });
 
@@ -558,11 +571,32 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
 
   // Leer registro actual para obtener gcal_event_id y datos para Wapify
   // A-4 R-4: incluir estado + confirmacion_enviada_at para idempotency guard
+  // G-9: incluir optometrista para validar slot unique consistency
   const { data: existing } = await supabase
     .from('citas')
-    .select('gcal_event_id, estado, fecha, hora, tipo_consulta, paciente_hash, confirmacion_enviada_at')
+    .select('gcal_event_id, estado, fecha, hora, tipo_consulta, paciente_hash, confirmacion_enviada_at, optometrista')
     .eq('id', id)
     .single();
+
+  // G-9: si el PUT mueve la cita a un estado distinto de 'cancelada', el slot
+  // debe tener optometrista no-null (para que idx_citas_slot_unique funcione).
+  // El optometrista efectivo post-update = updates.optometrista (si se está
+  // cambiando) || existing.optometrista. Si ambos null/vacío + nuevo_estado
+  // != cancelada → 400.
+  if (nuevo_estado && nuevo_estado !== 'cancelada') {
+    const existingOpt = (existing as { optometrista?: string | null } | null)?.optometrista ?? null;
+    const effectiveOpt =
+      updates.optometrista !== undefined
+        ? (updates.optometrista as string | null)
+        : existingOpt;
+    if (!effectiveOpt) {
+      return res.status(400).json({
+        ok: false,
+        error: 'optometrista_requerido_para_slot_unique',
+        detail: "optometrista debe ser no-null para estados distintos de 'cancelada'",
+      });
+    }
+  }
 
   const { data, error } = await supabase
     .from('citas')
