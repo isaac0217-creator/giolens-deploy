@@ -28,13 +28,17 @@ const mocks = vi.hoisted(() => {
   };
 
   function makeQueryBuilder() {
-    const state = { filters: { eq: {}, gte: null, lte: null }, order: null };
+    const state = { filters: { eq: {}, gte: null, lte: null, in: null }, order: null };
     const builder = {
       select(_cols) {
         return builder;
       },
       eq(col, val) {
         state.filters.eq[col] = val;
+        return builder;
+      },
+      in(col, vals) {
+        state.filters.in = { col, vals };
         return builder;
       },
       gte(col, val) {
@@ -140,12 +144,21 @@ describe('api/provider-usage.ts — handler', () => {
   /* ── (a) Parsing de query params ────────────────────────────────────── */
 
   describe('(a) parsing de query params', () => {
-    it('falla 400 si no hay provider', async () => {
+    it('sin provider devuelve agregado 200 de KNOWN_PROVIDERS', async () => {
+      // Contrato actual del handler (api/provider-usage.ts:159):
+      // "Si no se pasa ?provider devolver agregado de todos los providers conocidos"
+      // No es 400 — el modo agregado es válido para dashboards multi-provider.
+      mocks.setRows([]);
       const req = makeReq({});
       const res = makeRes();
       await handler(req, res);
-      expect(res.statusCode).toBe(400);
-      expect(res.body).toHaveProperty('error');
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toHaveProperty('kpis');
+      expect(res.body).toHaveProperty('by_day');
+      // Verifica que .in() fue llamado con KNOWN_PROVIDERS
+      const lastCall = mocks.calls.selects[mocks.calls.selects.length - 1];
+      expect(lastCall?.filters?.in?.col).toBe('provider');
+      expect(Array.isArray(lastCall?.filters?.in?.vals)).toBe(true);
     });
 
     it('usa days=30 por default', async () => {
