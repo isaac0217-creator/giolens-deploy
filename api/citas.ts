@@ -147,6 +147,35 @@ type TipoCita   = typeof TIPOS_VALIDOS[number];
 type EstadoCita = typeof ESTADOS_VALIDOS[number];
 
 // ---------------------------------------------------------------------------
+// G-8 · Clasificación de errores 23505 (unique_violation) por nombre de
+// constraint. Sin esto, cualquier UNIQUE futura respondería 'slot_ocupado'
+// (mensaje engañoso, debugging difícil).
+//
+// Coincide tanto con el nombre del INDEX real (`idx_citas_slot_unique` —
+// migration 011) como con el alias histórico `uq_citas_slot` que aparece en
+// tests/docs antiguas. Cualquier otra UNIQUE → `duplicate_entry` + constraint
+// name en el body para diagnosis.
+// ---------------------------------------------------------------------------
+type PgUniqueError = { code?: string; message?: string; details?: string };
+
+function classifySlotConflict(err: PgUniqueError): {
+  isSlot: boolean;
+  constraintName: string | null;
+} {
+  const msg = err?.message ?? '';
+  const details = err?.details ?? '';
+  const isSlot =
+    msg.includes('idx_citas_slot_unique') ||
+    msg.includes('uq_citas_slot') ||
+    details.includes('idx_citas_slot_unique') ||
+    details.includes('uq_citas_slot');
+  // Postgres reporta el constraint name entre comillas dobles en el message:
+  //   `duplicate key value violates unique constraint "idx_citas_slot_unique"`
+  const constraintName = msg.match(/"([^"]+)"/)?.[1] ?? null;
+  return { isSlot, constraintName };
+}
+
+// ---------------------------------------------------------------------------
 // GCal — JWT firmado con crypto nativo Node 22 (sin googleapis npm)
 // ---------------------------------------------------------------------------
 
@@ -605,7 +634,30 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
     .select(SELECT_COLS)
     .single();
 
+  // G-7: race PUT cancelar→reactivar mismo slot. La UNIQUE parcial
+  // (idx_citas_slot_unique WHERE estado != 'cancelada') puede disparar 23505
+  // cuando un PUT reactivado entra en colisión con otra cita activa en el
+  // mismo slot. Antes este caso devolvía 500 (handler no atrapaba); ahora
+  // 409 'slot_ocupado' (mismo contrato que POST). G-8: solo si el constraint
+  // es el slot único, no enmascarar UNIQUEs futuras.
   if (error) {
+    if (error.code === '23505') {
+      const { isSlot, constraintName } = classifySlotConflict(error);
+      if (isSlot) {
+        console.warn('[api/citas PUT] Slot occupied (23505) on update:', error.message);
+        return res.status(409).json({ ok: false, error: 'slot_ocupado' });
+      }
+      console.error('[api/citas PUT] Unexpected 23505 constraint:', {
+        constraint: constraintName,
+        table: 'citas',
+        message: error.message,
+      });
+      return res.status(409).json({
+        ok: false,
+        error: 'duplicate_entry',
+        constraint: constraintName,
+      });
+    }
     console.error('[api/citas PUT]', error.message);
     return res.status(500).json({ ok: false, error: error.message });
   }
