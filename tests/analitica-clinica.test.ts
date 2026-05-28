@@ -10,6 +10,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const mocks = vi.hoisted(() => {
   const calls = {
@@ -327,5 +329,39 @@ describe('GET /api/analitica/clinica', () => {
     await handler(makeReq({ query: { metric: 'alertas' } }), res);
     expect(res.statusCode).toBe(503);
     expect(res.body.error).toBe('view_pending_migration_019');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Regression guard · migration 022 (hot-fix REFRESH CONCURRENTLY)
+//
+// Bug sesión 7B/8: el índice singleton de 019 estaba sobre la expresión
+// constante ((1)), que Postgres rechaza para REFRESH ... CONCURRENTLY. Estos
+// tests bloquean que alguien "simplifique" 022 de vuelta a ((1)) y reintroduzca
+// el bug. No tocan DB — validan el contenido SQL de la migration.
+// ─────────────────────────────────────────────────────────────────────────
+describe('migration 022 · matview clínica unique index (regression guard)', () => {
+  const sql = readFileSync(
+    resolve(process.cwd(), 'migrations/022_mv_clinica_unique_index_fix.sql'),
+    'utf8',
+  );
+  // SQL ejecutable: descartar líneas de comentario (-- ...)
+  const exec = sql
+    .split('\n')
+    .filter((l) => !l.trim().startsWith('--'))
+    .join('\n');
+
+  it('crea uq_mv_clinica_singleton sobre la columna real refreshed_at', () => {
+    expect(exec).toMatch(
+      /CREATE\s+UNIQUE\s+INDEX\s+uq_mv_clinica_singleton\s+ON\s+mv_analitica_clinica\s*\(\s*refreshed_at\s*\)/i,
+    );
+  });
+
+  it('NO usa índice de expresión constante ((1))', () => {
+    expect(exec).not.toMatch(/\(\(\s*1\s*\)\)/);
+  });
+
+  it('es idempotente: DROP INDEX IF EXISTS antes del CREATE', () => {
+    expect(exec).toMatch(/DROP\s+INDEX\s+IF\s+EXISTS\s+uq_mv_clinica_singleton/i);
   });
 });
