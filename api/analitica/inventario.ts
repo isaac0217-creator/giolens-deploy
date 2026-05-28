@@ -81,6 +81,58 @@ const CACHE_PER_METRIC: Record<Metric, { sMaxage: number; swr: number }> = {
 const HARD_LIMIT_MAX = 100;
 const DEFAULT_LIMIT = 10;
 
+/**
+ * X2 · Data gap detection (sesión 6, 2026-05-28)
+ *
+ * precio_costo + precio_publico están 100% NULL en `productos` (3860/3860):
+ *   - xls eOptis legacy NO trae columnas $ (sólo identidad + stock)
+ *   - Wapify es CRM (NO expone productos)
+ *   - Carga orgánica vía registrar_movimiento() (mig 009:135) sólo en entradas nuevas
+ *
+ * Mientras no se ejecute X1.5 (Isaac dicta top 100 LC/soluciones) los KPIs $
+ * retornan 0 o NULL. Este helper detecta el gap y surfaces `_warnings` +
+ * `issue_url` en la response para que la UI muestre badge "datos pendientes"
+ * sin requerir un nuevo endpoint ni cambios de schema.
+ *
+ * Tracked en Issue #8.
+ */
+const PRICE_DATA_GAP_ISSUE_URL =
+  'https://github.com/isaac0217-creator/giolens-deploy/issues/8';
+
+function computePriceWarnings(metric: Metric, data: unknown): string[] {
+  const warnings: string[] = [];
+
+  if (metric === 'kpis') {
+    const d = (data ?? {}) as Record<string, unknown>;
+    if (d.valor_total_stock == null || Number(d.valor_total_stock) === 0) {
+      warnings.push('precio_costo_pendiente');
+    }
+    const ing30Missing =
+      d.ingresos_30d_total == null || Number(d.ingresos_30d_total) === 0;
+    const ing90Missing =
+      d.ingresos_90d_total == null || Number(d.ingresos_90d_total) === 0;
+    if (ing30Missing && ing90Missing) {
+      warnings.push('precio_publico_pendiente');
+    }
+  } else if (metric === 'top_rotacion' || metric === 'bottom_rotacion') {
+    // Sólo flag precio_publico_pendiente cuando la columna `ingresos_30d`
+    // está presente y es 0/NULL universal en todas las filas.
+    const arr = Array.isArray(data)
+      ? (data as Array<Record<string, unknown>>)
+      : [];
+    const rowsWithCol = arr.filter((row) => 'ingresos_30d' in row);
+    if (rowsWithCol.length > 0) {
+      const allMissing = rowsWithCol.every((row) => {
+        const v = row.ingresos_30d;
+        return v == null || Number(v) === 0;
+      });
+      if (allMissing) warnings.push('precio_publico_pendiente');
+    }
+  }
+
+  return warnings;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -318,6 +370,7 @@ export default async function handler(
 
   try {
     const { data, count } = await runMetricQuery(supa, metric, limit, categoria);
+    const _warnings = computePriceWarnings(metric, data);
     res.status(200).json({
       ok: true,
       metric,
@@ -327,6 +380,10 @@ export default async function handler(
       generated_at: new Date().toISOString(),
       data,
       count: count ?? (Array.isArray(data) ? data.length : data ? 1 : 0),
+      _warnings,
+      ...(_warnings.length > 0
+        ? { issue_url: PRICE_DATA_GAP_ISSUE_URL }
+        : {}),
     });
   } catch (e: unknown) {
     const err = e as { code?: string; message?: string };

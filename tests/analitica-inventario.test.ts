@@ -295,6 +295,88 @@ describe('GET /api/analitica/inventario', () => {
     expect(res.body.error).toBe('view_pending_migration_015');
   });
 
+  // ─── X2 · Data gap warnings (4) ───────────────────────────────────────
+  // Detección a nivel API response del gap precio_costo/precio_publico
+  // (3860/3860 NULL en productos prod, ver Issue #8). Permite UI badge
+  // "datos pendientes" sin nuevo endpoint.
+  it('kpis con precio_costo NULL → _warnings incluye precio_costo_pendiente', async () => {
+    mocks.setCfg({
+      singleData: {
+        valor_total_stock: null, // ← gap precio_costo
+        pct_bajo_minimo: 8.4,
+        productos_sin_movimiento_30d_count: 312,
+        ingresos_30d_total: 187420, // precio_publico OK
+        ingresos_90d_total: 524300,
+        rotacion_promedio: 1.85,
+      },
+    });
+    const res = makeRes();
+    await handler(makeReq({ query: { metric: 'kpis' } }), res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body._warnings).toContain('precio_costo_pendiente');
+    expect(res.body._warnings).not.toContain('precio_publico_pendiente');
+    expect(res.body.issue_url).toMatch(/\/issues\/8$/);
+  });
+
+  it('kpis con precio_publico NULL (ambos ingresos NULL) → precio_publico_pendiente', async () => {
+    mocks.setCfg({
+      singleData: {
+        valor_total_stock: 1234567.89, // precio_costo OK
+        pct_bajo_minimo: 8.4,
+        productos_sin_movimiento_30d_count: 312,
+        ingresos_30d_total: null, // ← gap precio_publico
+        ingresos_90d_total: null,
+        rotacion_promedio: 1.85,
+      },
+    });
+    const res = makeRes();
+    await handler(makeReq({ query: { metric: 'kpis' } }), res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body._warnings).toContain('precio_publico_pendiente');
+    expect(res.body._warnings).not.toContain('precio_costo_pendiente');
+    expect(res.body.issue_url).toMatch(/\/issues\/8$/);
+  });
+
+  it('kpis con ambos NULL → ambos warnings + issue_url presente', async () => {
+    mocks.setCfg({
+      singleData: {
+        valor_total_stock: null,
+        pct_bajo_minimo: 8.4,
+        productos_sin_movimiento_30d_count: 312,
+        ingresos_30d_total: 0,
+        ingresos_90d_total: null,
+        rotacion_promedio: 1.85,
+      },
+    });
+    const res = makeRes();
+    await handler(makeReq({ query: { metric: 'kpis' } }), res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body._warnings).toEqual(
+      expect.arrayContaining(['precio_costo_pendiente', 'precio_publico_pendiente']),
+    );
+    expect(res.body.issue_url).toBe(
+      'https://github.com/isaac0217-creator/giolens-deploy/issues/8',
+    );
+  });
+
+  it('kpis con datos completos → _warnings: [] sin issue_url', async () => {
+    mocks.setCfg({
+      singleData: {
+        valor_total_stock: 1234567.89,
+        pct_bajo_minimo: 8.4,
+        productos_sin_movimiento_30d_count: 312,
+        ingresos_30d_total: 187420,
+        ingresos_90d_total: 524300,
+        rotacion_promedio: 1.85,
+      },
+    });
+    const res = makeRes();
+    await handler(makeReq({ query: { metric: 'kpis' } }), res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body._warnings).toEqual([]);
+    expect(res.body.issue_url).toBeUndefined();
+  });
+
   // ─── PII no negociable (1) ────────────────────────────────────────────
   it('respuesta NO contiene paciente_hash/email/telefono/nombre_paciente', async () => {
     mocks.setCfg({

@@ -376,6 +376,18 @@
   .kpi-card .kpi-value { font-size: 1.6rem; font-weight: 700; color: var(--fg, #f1f5f9); }
   .kpi-card .kpi-hint  { font-size: 0.78rem; color: var(--muted, #94a3b8); }
 
+  /* X2 · Badge "datos pendientes" sobre KPIs $ afectados por gap precio_costo/precio_publico.
+     Tracked en Issue #8. Aplicado vía JS toggling .kpi-pending tras leer response._warnings. */
+  .kpi-card.kpi-pending { opacity: 0.55; cursor: help; }
+  .kpi-card.kpi-pending::after {
+    content: "⚠ datos pendientes";
+    font-size: 0.7em;
+    color: var(--warning);
+    display: block;
+    margin-top: 0.25rem;
+    line-height: 1.1;
+  }
+
   .analitica-chart-wrap {
     background: var(--card-bg, #1e293b);
     border: 1px solid var(--border, #334155);
@@ -1216,6 +1228,40 @@
     document.getElementById('kpi-rotacion').textContent    = fmtNum(k.rotacion_promedio, 2);
   }
 
+  /**
+   * X2 · Aplica badge "datos pendientes" sobre KPIs $ afectados por gap
+   * precio_costo/precio_publico. Lee `_warnings` y `issue_url` de la response
+   * del endpoint analitica. Tracked en Issue #8.
+   *
+   * Idempotente: limpia estado anterior antes de aplicar, soporta refrescos
+   * full → partial → full sin staleness.
+   */
+  function applyKpiPendingBadges(warnings, issueUrl) {
+    const cardOf = (id) => document.getElementById(id)?.closest('.kpi-card');
+    const TARGETS = ['kpi-valor-stock', 'kpi-ing-30', 'kpi-ing-90'];
+    // Clear stale state primero
+    TARGETS.forEach(id => {
+      const card = cardOf(id);
+      if (card) {
+        card.classList.remove('kpi-pending');
+        card.removeAttribute('title');
+      }
+    });
+    if (!Array.isArray(warnings) || warnings.length === 0) return;
+    if (warnings.includes('precio_costo_pendiente')) {
+      cardOf('kpi-valor-stock')?.classList.add('kpi-pending');
+    }
+    if (warnings.includes('precio_publico_pendiente')) {
+      cardOf('kpi-ing-30')?.classList.add('kpi-pending');
+      cardOf('kpi-ing-90')?.classList.add('kpi-pending');
+    }
+    if (issueUrl) {
+      document.querySelectorAll('.kpi-card.kpi-pending').forEach(el => {
+        el.title = `Datos pendientes — ver issue: ${issueUrl}`;
+      });
+    }
+  }
+
   function paintTopRotacion(rows) {
     const wrap = document.getElementById('anal-chart-wrap');
     const fbTbody = document.querySelector('#tbl-top-rotacion-fb tbody');
@@ -1292,6 +1338,7 @@
         fetchMetric('stockout', periodo, { ...extra, limit: '10' }),
       ]);
       paintKpis(kpis.data || {});
+      applyKpiPendingBadges(kpis._warnings || [], kpis.issue_url);
       paintTopRotacion(top.data || []);
       paintStockout(sto.data || []);
       const badge = document.getElementById('badge-analitica');
@@ -1300,6 +1347,8 @@
     } catch (e) {
       console.warn('[analitica] endpoint no disponible, usando mock data:', e.message);
       paintKpis(MOCK_ANAL.kpis);
+      // Clear any stale "datos pendientes" badges en modo mock
+      applyKpiPendingBadges([], undefined);
       paintTopRotacion(MOCK_ANAL.top_rotacion);
       paintStockout(MOCK_ANAL.stockout);
       meta.textContent = `Mock data (endpoint pending): ${e.message}`;
