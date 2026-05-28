@@ -119,12 +119,16 @@ describe('Frente E · api/inventario/rotacion', () => {
     expect(chainState._calls.range.to - chainState._calls.range.from + 1).toBe(500);
   });
 
-  it('emite Cache-Control public 5 min stale-while-revalidate', async () => {
+  it('emite Cache-Control 60s + stale-while-revalidate 120s', async () => {
+    // Handler real (api/inventario/rotacion.ts:168) sirve 60/120 desde commit
+    // 1876eff `feat(frente-inv) ... cache 60s`. JSDoc línea 30 quedó stale
+    // (sigue diciendo 300/60) pero el test debe reflejar el código que corre.
+    // FIXME(deuda-técnica): sincronizar JSDoc del handler con el valor real.
     const handler = await loadHandler();
     const res = makeRes();
     await handler(makeReq({}), res);
-    expect(res.headers['Cache-Control']).toContain('s-maxage=300');
-    expect(res.headers['Cache-Control']).toContain('stale-while-revalidate=60');
+    expect(res.headers['Cache-Control']).toContain('s-maxage=60');
+    expect(res.headers['Cache-Control']).toContain('stale-while-revalidate=120');
   });
 
   it('500 cuando supabase devuelve error', async () => {

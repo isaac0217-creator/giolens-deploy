@@ -150,10 +150,22 @@ describe('api/expediente.ts — handler', () => {
     expect(res.headers['Access-Control-Allow-Origin']).toBe('https://giolens-dashboard.vercel.app');
   });
 
-  it('(b) GET / PUT → 405', async () => {
+  it('(b) PUT (método no soportado) → 405 incluso con Bearer válido', async () => {
+    // Contrato actual (post-frente G):
+    //   - GET → handleList (Bearer auth, devuelve 200/401)
+    //   - POST → handleCreate (sin auth Bearer)
+    //   - resto (PUT/DELETE/PATCH) → 405 method_not_allowed
+    // El test original esperaba que GET también fuera 405, pero el handler
+    // ahora soporta GET (line 338). PUT sigue siendo el caso de "método no soportado".
+    // Pasamos Bearer para demostrar que el 405 sucede aún cuando auth pasaría.
+    process.env.CRON_SECRET = 'test-secret-405';
     const res = makeRes();
-    await handler({ method: 'GET', headers: {} }, res);
+    await handler(
+      { method: 'PUT', headers: { authorization: 'Bearer test-secret-405' } },
+      res,
+    );
     expect(res.statusCode).toBe(405);
+    expect(res.body?.error).toBe('method_not_allowed');
   });
 
   it('(c) POST sin paciente_nombre → 400', async () => {
