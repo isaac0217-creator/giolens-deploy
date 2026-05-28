@@ -85,6 +85,18 @@ const mocks = vi.hoisted(() => {
               error: { code: '23505', message: 'duplicate key uq_citas_slot' },
             });
           }
+          // G-8: 23505 con constraint distinto del slot único.
+          // Verifica que el refine NO enmascara otras UNIQUEs futuras.
+          if (citasCfg.simulateInsertOtherUnique) {
+            return Promise.resolve({
+              data: null,
+              error: {
+                code: '23505',
+                message: `duplicate key value violates unique constraint "${citasCfg.simulateInsertOtherUnique}"`,
+                details: 'Key (paciente_hash, fecha)=(a1b2c3d4e5f6a7b8, 2026-06-01) already exists.',
+              },
+            });
+          }
           return Promise.resolve({
             data: { id: citasCfg.insertedId ?? 42, ...this._row },
             error: null,
@@ -622,6 +634,52 @@ describe('api/citas.ts — handler', () => {
     const res3 = makeRes();
     await handler(makeReq({ method: 'GET', headers: { authorization: undefined } }), res3);
     expect(res3.headers['Cache-Control']).toBe('no-store, max-age=0');
+  });
+
+  it('T30 · G-8 · POST con 23505 de OTRA UNIQUE (no slot) → 409 duplicate_entry + constraint name', async () => {
+    // Verifica que el refinamiento G-8 no enmascara futuras UNIQUEs.
+    // Mock: simulateSlotConflict cambiado a constraint name distinto.
+    // Antes G-8: cualquier 23505 → slot_ocupado (incorrecto).
+    // Tras G-8: solo idx_citas_slot_unique → slot_ocupado; otros → duplicate_entry.
+    mocks.setCitasCfg({
+      simulateInsertConflict: false,
+      simulateInsertOtherUnique: 'uq_citas_paciente_fecha_hipotetica',
+    });
+    const res = makeRes();
+    await handler(makeReq({
+      method: 'POST',
+      body: {
+        fecha: '2026-06-01', hora: '10:00',
+        paciente_email: 'foo@bar.test', paciente_telefono: '+526631180788',
+        tipo_consulta: 'revision_visual',
+        optometrista: 'dr-foo', // requerido por guard G-9 (#7) — el escenario real G-8 ocurre al INSERT
+      },
+    }), res);
+    expect(res.statusCode).toBe(409);
+    expect(res.body.error).toBe('duplicate_entry');
+    expect(res.body.constraint).toBe('uq_citas_paciente_fecha_hipotetica');
+    // Crítico: NO debe ser slot_ocupado.
+    expect(res.body.error).not.toBe('slot_ocupado');
+  });
+
+  it('T31 · G-8 · PUT con 23505 de OTRA UNIQUE → 409 duplicate_entry (no slot)', async () => {
+    // Mismo refinamiento aplicado al PUT (G-7 + G-8 comparten classifySlotConflict).
+    mocks.setCitasCfg({
+      existingRow: {
+        id: 42, estado: 'agendada', optometrista: 'dr-foo', // G-9 guard satisfied
+        fecha: '2026-06-01', hora: '10:00',
+        paciente_hash: 'a1b2c3d4e5f6a7b8',
+      },
+      simulateUpdateOtherUnique: 'uq_citas_otra_constraint_futura',
+    });
+    const res = makeRes();
+    await handler(makeReq({
+      method: 'PUT', query: { id: '42' }, body: { estado: 'confirmada' },
+    }), res);
+    expect(res.statusCode).toBe(409);
+    expect(res.body.error).toBe('duplicate_entry');
+    expect(res.body.constraint).toBe('uq_citas_otra_constraint_futura');
+    expect(res.body.error).not.toBe('slot_ocupado');
   });
 
   it('T29 · G-7 · PUT reactivar slot ya tomado por otra cita activa → 409 slot_ocupado', async () => {
