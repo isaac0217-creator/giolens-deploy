@@ -94,6 +94,28 @@ const mocks = vi.hoisted(() => {
           if (citasCfg.updateError) {
             return Promise.resolve({ data: null, error: { message: 'update failed' } });
           }
+          // G-7: race condition cancelar→reactivar mismo slot
+          if (citasCfg.simulateUpdateSlotConflict) {
+            return Promise.resolve({
+              data: null,
+              error: {
+                code: '23505',
+                message: 'duplicate key value violates unique constraint "idx_citas_slot_unique"',
+                details: 'Key (fecha, hora, optometrista)=(2026-06-01, 10:00:00, drX) already exists.',
+              },
+            });
+          }
+          // G-8: 23505 con otra constraint (no debe ser slot_ocupado)
+          if (citasCfg.simulateUpdateOtherUnique) {
+            return Promise.resolve({
+              data: null,
+              error: {
+                code: '23505',
+                message: `duplicate key value violates unique constraint "${citasCfg.simulateUpdateOtherUnique}"`,
+                details: 'Key (paciente_hash, fecha)=(a1b2c3d4e5f6a7b8, 2026-06-01) already exists.',
+              },
+            });
+          }
           return Promise.resolve({
             data: { id: this._filters.id ?? citasCfg.insertedId ?? 42, ...this._set },
             error: null,
@@ -600,6 +622,28 @@ describe('api/citas.ts — handler', () => {
     const res3 = makeRes();
     await handler(makeReq({ method: 'GET', headers: { authorization: undefined } }), res3);
     expect(res3.headers['Cache-Control']).toBe('no-store, max-age=0');
+  });
+
+  it('T29 · G-7 · PUT reactivar slot ya tomado por otra cita activa → 409 slot_ocupado', async () => {
+    // Escenario: cita id=42 estaba 'cancelada' en slot X. PUT estado=agendada
+    // colisiona con otra cita activa en mismo slot → UNIQUE parcial dispara
+    // 23505 con constraint name 'idx_citas_slot_unique'. Handler debe responder
+    // 409 'slot_ocupado' (no 500 como antes del fix G-7).
+    mocks.setCitasCfg({
+      existingRow: {
+        id: 42, estado: 'cancelada', optometrista: 'dr-foo',
+        confirmacion_enviada_at: null,
+        fecha: '2026-06-01', hora: '10:00',
+        paciente_hash: 'a1b2c3d4e5f6a7b8', tipo_consulta: 'revision_visual',
+      },
+      simulateUpdateSlotConflict: true,
+    });
+    const res = makeRes();
+    await handler(makeReq({
+      method: 'PUT', query: { id: '42' }, body: { estado: 'agendada' },
+    }), res);
+    expect(res.statusCode).toBe(409);
+    expect(res.body.error).toBe('slot_ocupado');
   });
 
   it('T32 · G-9 · POST sin optometrista (estado=agendada default) → 400 optometrista_requerido_para_slot_unique', async () => {
