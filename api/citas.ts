@@ -429,7 +429,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
       });
     }
     console.error('[api/citas POST] INSERT error:', error.message);
-    return res.status(500).json({ ok: false, error: error.message });
+    return res.status(500).json({ ok: false, error: 'internal_error' });
   }
 
   const cita_id = (data as { id: number }).id;
@@ -514,7 +514,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
 
   if (error) {
     console.error('[api/citas GET]', error.message);
-    return res.status(500).json({ ok: false, error: error.message });
+    return res.status(500).json({ ok: false, error: 'internal_error' });
   }
 
   return res.status(200).json({
@@ -613,7 +613,7 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
       });
     }
     console.error('[api/citas PUT]', error.message);
-    return res.status(500).json({ ok: false, error: error.message });
+    return res.status(500).json({ ok: false, error: 'internal_error' });
   }
 
   type ExistingRow = {
