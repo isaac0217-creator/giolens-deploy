@@ -9,6 +9,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { timingSafeBearer } from '../../agents/_shared/auth/bearer.js';
 
 interface VercelLikeReq {
   method?: string;
@@ -38,7 +39,7 @@ function checkBearer(req: VercelLikeReq): boolean {
       : Array.isArray(auth)
         ? auth[0] ?? ''
         : '';
-  return authStr === `Bearer ${secret}`;
+  return timingSafeBearer(authStr, secret);
 }
 
 function buildSupabaseClient(): SupabaseClient | null {

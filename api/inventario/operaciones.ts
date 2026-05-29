@@ -31,6 +31,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { timingSafeBearer } from '../../agents/_shared/auth/bearer.js';
 
 /* ── Tipos handler ──────────────────────────────────────────────────────── */
 
@@ -101,10 +102,10 @@ export default async function handler(
     return;
   }
 
-  // 1 · Auth
+  // 1 · Auth — comparación constant-time (cierra P2-2 en write endpoint inventario)
   const auth = req.headers.authorization;
-  const expected = `Bearer ${process.env.CRON_SECRET}`;
-  if (!process.env.CRON_SECRET || auth !== expected) {
+  const authStr = typeof auth === 'string' ? auth : '';
+  if (!timingSafeBearer(authStr, process.env.CRON_SECRET ?? '')) {
     res.status(401).end();
     return;
   }

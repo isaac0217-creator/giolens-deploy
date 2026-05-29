@@ -31,6 +31,7 @@
  */
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { timingSafeBearer } from '../../agents/_shared/auth/bearer.js';
 
 /* ── Tipos ──────────────────────────────────────────────────────────────── */
 
@@ -117,11 +118,10 @@ export default async function handler(
 
   // Auth dual: Bearer válido → admin (todas las columnas); resto → público (sanitizado)
   const auth = req.headers.authorization;
-  const cronSecret = process.env.CRON_SECRET;
-  const isAdmin =
-    typeof auth === 'string' &&
-    !!cronSecret &&
-    auth === `Bearer ${cronSecret}`;
+  const isAdmin = timingSafeBearer(
+    typeof auth === 'string' ? auth : '',
+    process.env.CRON_SECRET ?? '',
+  );
 
   const categoria = readQuery(req, 'categoria');
   const ordenRaw = readQuery(req, 'orden') ?? 'ventas_30d.desc';
