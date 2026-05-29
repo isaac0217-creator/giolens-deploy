@@ -54,6 +54,9 @@
     "api/cron/refresh-analitica.ts": {
       "maxDuration": 60
     },
+    "api/cron/pull-gcal.ts": {
+      "maxDuration": 60
+    },
     "api/analitica/inventario.ts": {
       "maxDuration": 15
     },
@@ -133,6 +136,10 @@
     {
       "path": "/api/cron/refresh-clinica",
       "schedule": "30 * * * *"
+    },
+    {
+      "path": "/api/cron/pull-gcal",
+      "schedule": "15,45 * * * *"
     }
   ],
   "rewrites": [
