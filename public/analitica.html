@@ -238,6 +238,48 @@
 
   h2.section-title { font-size: 1rem; margin: 22px 0 10px; color: var(--text); }
   .pii-note { font-size: 0.76rem; color: var(--muted); margin-bottom: 8px; }
+
+  /* ── Resumen (CENTRAL v3 · federación client-side de I.1–I.4 + Meta + citas) ── */
+  .resumen-alertas { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:18px; }
+  .resumen-alertas:empty { display:none; }
+  .alert-tile {
+    display:flex; flex-direction:column; gap:2px;
+    background: var(--bg-1); border:1px solid var(--line); border-left:3px solid var(--warning);
+    border-radius:8px; padding:10px 14px; box-shadow:var(--glass-shadow);
+    text-decoration:none; color:inherit; min-width:160px;
+  }
+  .alert-tile.is-ok { border-left-color: var(--positive); }
+  .alert-tile.is-down { border-left-color: var(--muted); opacity:0.7; }
+  .alert-tile .alert-num { font-size:1.3rem; font-weight:700; font-variant-numeric:tabular-nums; }
+  .alert-tile .alert-label { font-size:0.76rem; color:var(--muted); }
+  a.alert-tile:hover { border-color: var(--accent); }
+
+  .resumen-grid { display:grid; grid-template-columns:1fr; gap:14px; }
+  @media (min-width:680px)  { .resumen-grid { grid-template-columns:repeat(2,1fr); } }
+  @media (min-width:1080px) { .resumen-grid { grid-template-columns:repeat(3,1fr); } }
+  .resumen-block {
+    background: var(--bg-1); border:1px solid var(--line); border-radius:10px;
+    box-shadow:var(--glass-shadow); padding:16px 18px;
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .resumen-block-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .resumen-block-head h3 { font-size:0.95rem; color:var(--text); }
+  .resumen-mini { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .resumen-mini .mini { display:flex; flex-direction:column; gap:2px; }
+  .resumen-mini .mini-val { font-size:1.15rem; font-weight:700; font-variant-numeric:tabular-nums; }
+  .resumen-mini .mini-lbl { font-size:0.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em; }
+  .mini.is-pending .mini-val { color:var(--warning); }
+  .mini.is-pending .mini-lbl::after { content:" ⚠"; }
+  .resumen-status { font-size:0.78rem; color:var(--muted); min-height:1em; }
+  .resumen-status.is-error { color:var(--negative); }
+  .drill-link { font-size:0.8rem; color:var(--accent); text-decoration:none; font-weight:600; white-space:nowrap; }
+  .drill-link:hover { text-decoration:underline; }
+  .resumen-citas-list { list-style:none; margin:0; padding:0; }
+  .resumen-citas-list li { display:flex; flex-direction:column; gap:1px; font-size:0.82rem; padding:5px 0; border-bottom:1px solid var(--line); }
+  .resumen-citas-list li:last-child { border-bottom:none; }
+  .resumen-citas-list li.empty { font-style:italic; color:var(--muted); padding:10px 0; }
+  .resumen-citas-list .c-when { font-family:ui-monospace,monospace; color:var(--text-soft); }
+  .resumen-citas-list .c-who { color:var(--muted); font-size:0.78rem; }
 </style>
 <!-- Chart.js v4.4.7 con SRI (mismo pin que inventario.html · Frente I.1 D-2) -->
 <script
@@ -260,7 +302,11 @@
   <div id="global-error" class="error hidden" role="alert"></div>
 
   <div class="tabs" role="tablist" aria-label="Secciones de analítica">
-    <button class="tab active" role="tab" id="tab-inventario" aria-selected="true"
+    <button class="tab active" role="tab" id="tab-resumen" aria-selected="true"
+            aria-controls="panel-resumen" data-tab="resumen">
+      Resumen <span class="badge" id="badge-resumen">—</span>
+    </button>
+    <button class="tab" role="tab" id="tab-inventario" aria-selected="false"
             aria-controls="panel-inventario" data-tab="inventario">
       Inventario <span class="badge" id="badge-inventario">—</span>
     </button>
@@ -278,8 +324,104 @@
     </button>
   </div>
 
+  <!-- ════════════════════════ RESUMEN (CENTRAL v3) ════════════════════════ -->
+  <section id="panel-resumen" class="panel active" role="tabpanel" aria-labelledby="tab-resumen">
+    <div class="analitica-controls">
+      <div class="periodo-radios" role="radiogroup" aria-label="Periodo de análisis resumen">
+        <label><input type="radio" name="resumen-periodo" value="30" checked><span>30 días</span></label>
+        <label><input type="radio" name="resumen-periodo" value="90"><span>90 días</span></label>
+      </div>
+      <button class="primary" id="resumen-refresh">Refrescar</button>
+      <span class="anal-meta" id="resumen-meta"></span>
+    </div>
+
+    <div class="resumen-alertas" id="resumen-alertas" role="region" aria-label="Alertas operativas"></div>
+
+    <div class="resumen-grid">
+      <!-- CAJA (I.4 · solo-volumen) -->
+      <div class="resumen-block" id="block-caja">
+        <div class="resumen-block-head">
+          <h3>Caja</h3>
+          <a class="drill-link" href="?tab=caja">Ver detalle →</a>
+        </div>
+        <div class="resumen-mini">
+          <div class="mini"><span class="mini-val" id="rs-caja-ops">—</span><span class="mini-lbl">Operaciones</span></div>
+          <div class="mini"><span class="mini-val" id="rs-caja-uni">—</span><span class="mini-lbl">Unidades</span></div>
+          <div class="mini is-pending"><span class="mini-val" id="rs-caja-ing">—</span><span class="mini-lbl">Ingreso</span></div>
+        </div>
+        <span class="resumen-status" id="rs-caja-status" role="status" aria-live="polite"></span>
+      </div>
+
+      <!-- INVENTARIO (I.1) -->
+      <div class="resumen-block" id="block-inventario">
+        <div class="resumen-block-head">
+          <h3>Inventario</h3>
+          <a class="drill-link" href="?tab=inventario">Ver detalle →</a>
+        </div>
+        <div class="resumen-mini">
+          <div class="mini" id="mini-inv-stock"><span class="mini-val" id="rs-inv-stock">—</span><span class="mini-lbl">Valor stock</span></div>
+          <div class="mini"><span class="mini-val" id="rs-inv-bajo">—</span><span class="mini-lbl">% bajo mín.</span></div>
+          <div class="mini"><span class="mini-val" id="rs-inv-sinmov">—</span><span class="mini-lbl">Sin mov. 30d</span></div>
+        </div>
+        <span class="resumen-status" id="rs-inv-status" role="status" aria-live="polite"></span>
+      </div>
+
+      <!-- CLÍNICA (I.2) -->
+      <div class="resumen-block" id="block-clinica">
+        <div class="resumen-block-head">
+          <h3>Clínica</h3>
+          <a class="drill-link" href="?tab=clinica">Ver detalle →</a>
+        </div>
+        <div class="resumen-mini">
+          <div class="mini"><span class="mini-val" id="rs-cli-show">—</span><span class="mini-lbl">Show rate</span></div>
+          <div class="mini"><span class="mini-val" id="rs-cli-venta">—</span><span class="mini-lbl">Exp→venta</span></div>
+          <div class="mini"><span class="mini-val" id="rs-cli-conf">—</span><span class="mini-lbl">Citas conf. 30d</span></div>
+        </div>
+        <span class="resumen-status" id="rs-cli-status" role="status" aria-live="polite"></span>
+      </div>
+
+      <!-- MARKETING (I.3) -->
+      <div class="resumen-block" id="block-marketing">
+        <div class="resumen-block-head">
+          <h3>Marketing</h3>
+          <a class="drill-link" href="?tab=marketing">Ver detalle →</a>
+        </div>
+        <div class="resumen-mini">
+          <div class="mini"><span class="mini-val" id="rs-mkt-leads">—</span><span class="mini-lbl">Leads</span></div>
+          <div class="mini"><span class="mini-val" id="rs-mkt-ventas">—</span><span class="mini-lbl">Ventas proxy</span></div>
+          <div class="mini"><span class="mini-val" id="rs-mkt-tasa">—</span><span class="mini-lbl">Tasa venta</span></div>
+        </div>
+        <span class="resumen-status" id="rs-mkt-status" role="status" aria-live="polite"></span>
+      </div>
+
+      <!-- META (inversión publicitaria · único $ real) -->
+      <div class="resumen-block" id="block-meta">
+        <div class="resumen-block-head">
+          <h3>Inversión Meta</h3>
+        </div>
+        <div class="resumen-mini">
+          <div class="mini"><span class="mini-val" id="rs-meta-spend">—</span><span class="mini-lbl">Spend 7d</span></div>
+        </div>
+        <span class="resumen-status" id="rs-meta-status" role="status" aria-live="polite"></span>
+      </div>
+
+      <!-- CITAS (frente G · v1 = próximas) -->
+      <div class="resumen-block" id="block-citas">
+        <div class="resumen-block-head">
+          <h3>Próximas citas</h3>
+        </div>
+        <div class="resumen-mini" style="grid-template-columns:repeat(2,1fr);">
+          <div class="mini"><span class="mini-val" id="rs-citas-prox">—</span><span class="mini-lbl">Agendadas</span></div>
+          <div class="mini"><span class="mini-val" id="rs-citas-sinconf">—</span><span class="mini-lbl">Sin confirmar</span></div>
+        </div>
+        <ul class="resumen-citas-list" id="rs-citas-list" aria-label="Próximas citas"></ul>
+        <span class="resumen-status" id="rs-citas-status" role="status" aria-live="polite"></span>
+      </div>
+    </div>
+  </section>
+
   <!-- ════════════════════════ INVENTARIO (I.1) ════════════════════════ -->
-  <section id="panel-inventario" class="panel active" role="tabpanel" aria-labelledby="tab-inventario">
+  <section id="panel-inventario" class="panel" role="tabpanel" aria-labelledby="tab-inventario" hidden>
     <div class="analitica-controls">
       <div class="periodo-radios" role="radiogroup" aria-label="Periodo de análisis inventario">
         <label><input type="radio" name="inv-periodo" value="30" checked><span>30 días</span></label>
@@ -1430,12 +1572,207 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // Tabs + deeplink (?tab=inventario|clinica|marketing|caja) + lazy-load
+  // RESUMEN (CENTRAL v3 · federación client-side de I.1–I.4 + Meta + citas)
+  // Cada bloque carga y degrada de forma AISLADA: un endpoint caído muestra su
+  // propio "frente no disponible" sin romper el resto. CERO mocks: todo $ con
+  // _warnings (o Meta en fallback) → "datos pendientes" / "no disponible".
   // ═══════════════════════════════════════════════════════════════════════
-  const TABS = ['inventario', 'clinica', 'marketing', 'caja'];
-  const loaded = { inventario: false, clinica: false, marketing: false, caja: false };
+  const META_BASE = '/api/meta';
+  const CITAS_BASE = '/api/citas';
+
+  // Estado de alertas agregadas (cada loader actualiza su slice; 'down' = caído).
+  const __resumenAlerts = { stockout: undefined, seguimiento: undefined, citas: undefined };
+
+  function resumenPeriodo() {
+    const r = document.querySelector('input[name="resumen-periodo"]:checked');
+    return r ? Number(r.value) : 30;
+  }
+
+  function rsStatus(id, msg, isError) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = msg || '';
+    el.classList.toggle('is-error', !!isError);
+  }
+
+  function renderResumenAlertas() {
+    const box = document.getElementById('resumen-alertas');
+    box.replaceChildren();
+    const A = __resumenAlerts;
+    const tiles = [];
+    if (A.stockout === 'down') tiles.push({ num: '—', label: 'Stockout · no disponible', cls: 'is-down' });
+    else if (typeof A.stockout === 'number') tiles.push({ num: A.stockout, label: 'SKUs en riesgo de stockout', cls: A.stockout > 0 ? '' : 'is-ok', href: '?tab=inventario' });
+    if (A.seguimiento === 'down') tiles.push({ num: '—', label: 'Seguimiento · no disponible', cls: 'is-down' });
+    else if (typeof A.seguimiento === 'number') tiles.push({ num: A.seguimiento, label: 'Pacientes sin seguimiento', cls: A.seguimiento > 0 ? '' : 'is-ok', href: '?tab=clinica' });
+    if (A.citas === 'down') tiles.push({ num: '—', label: 'Citas · no disponible', cls: 'is-down' });
+    else if (typeof A.citas === 'number') tiles.push({ num: A.citas, label: 'Citas próximas sin confirmar', cls: A.citas > 0 ? '' : 'is-ok' });
+
+    tiles.forEach(t => {
+      const el = document.createElement(t.href ? 'a' : 'div');
+      el.className = `alert-tile ${t.cls}`.trim();
+      if (t.href) el.href = t.href;
+      const num = document.createElement('span'); num.className = 'alert-num'; num.textContent = String(t.num);
+      const lbl = document.createElement('span'); lbl.className = 'alert-label'; lbl.textContent = t.label;
+      el.appendChild(num); el.appendChild(lbl);
+      box.appendChild(el);
+    });
+    const badge = document.getElementById('badge-resumen');
+    if (badge) badge.textContent = String(tiles.filter(t => typeof t.num === 'number' && t.num > 0).length);
+  }
+
+  async function resumenLoadCaja(periodo) {
+    rsStatus('rs-caja-status', 'Cargando…');
+    try {
+      const kpis = await fetchMetric(CAJA_BASE, 'kpis', periodo);
+      const k = kpis.data || {};
+      document.getElementById('rs-caja-ops').textContent = fmtInt(k[`operaciones_${periodo}d`]);
+      document.getElementById('rs-caja-uni').textContent = fmtInt(k[`unidades_${periodo}d`]);
+      document.getElementById('rs-caja-ing').textContent = '—'; // solo-volumen · Issue #8
+      rsStatus('rs-caja-status', '');
+    } catch (e) {
+      rsStatus('rs-caja-status', 'Frente no disponible', true);
+    }
+  }
+
+  async function resumenLoadInventario(periodo) {
+    rsStatus('rs-inv-status', 'Cargando…');
+    try {
+      const [kpis, sto] = await Promise.all([
+        fetchMetric(INV_BASE, 'kpis', periodo),
+        fetchMetric(INV_BASE, 'stockout', periodo, { limit: '3' }),
+      ]);
+      const k = kpis.data || {};
+      document.getElementById('rs-inv-stock').textContent  = fmtMoney(k.valor_total_stock);
+      document.getElementById('rs-inv-bajo').textContent   = fmtPct(k.pct_bajo_minimo);
+      document.getElementById('rs-inv-sinmov').textContent = fmtInt(k.productos_sin_movimiento_30d_count);
+      const w = kpis._warnings || [];
+      document.getElementById('mini-inv-stock').classList.toggle('is-pending',
+        w.includes('precio_costo_pendiente') || w.includes('precio_pendiente'));
+      __resumenAlerts.stockout = (sto.data || []).length;
+      renderResumenAlertas();
+      rsStatus('rs-inv-status', '');
+    } catch (e) {
+      __resumenAlerts.stockout = 'down'; renderResumenAlertas();
+      rsStatus('rs-inv-status', 'Frente no disponible', true);
+    }
+  }
+
+  async function resumenLoadClinica(periodo) {
+    rsStatus('rs-cli-status', 'Cargando…');
+    try {
+      const kpis = await fetchMetric(CLI_BASE, 'kpis', periodo);
+      const k = kpis.data || {};
+      document.getElementById('rs-cli-show').textContent  = fmtPct(k.cita_show_rate);
+      document.getElementById('rs-cli-venta').textContent = fmtPct(k.expediente_to_venta_rate);
+      document.getElementById('rs-cli-conf').textContent  = fmtInt(k.citas_confirmadas_30d);
+      __resumenAlerts.seguimiento = Number(k.alertas_seguimiento_count) || 0;
+      renderResumenAlertas();
+      rsStatus('rs-cli-status', '');
+    } catch (e) {
+      __resumenAlerts.seguimiento = 'down'; renderResumenAlertas();
+      rsStatus('rs-cli-status', 'Frente no disponible', true);
+    }
+  }
+
+  async function resumenLoadMarketing(periodo) {
+    rsStatus('rs-mkt-status', 'Cargando…');
+    try {
+      const kpis = await fetchMetric(MKT_BASE, 'kpis', periodo, { pipeline: '0' });
+      const k = kpis.data || {};
+      document.getElementById('rs-mkt-leads').textContent  = fmtInt(k.total_leads);
+      document.getElementById('rs-mkt-ventas').textContent = fmtInt(k.ventas_proxy);
+      document.getElementById('rs-mkt-tasa').textContent   = fmtPct(k.tasa_venta_proxy_pct);
+      rsStatus('rs-mkt-status', (kpis._warnings || []).length ? 'Proxy v1 · datos parciales' : '');
+    } catch (e) {
+      rsStatus('rs-mkt-status', 'Frente no disponible', true);
+    }
+  }
+
+  async function resumenLoadMeta() {
+    rsStatus('rs-meta-status', 'Cargando…');
+    try {
+      // /api/meta es público (token Meta server-side) y NUNCA lanza al cliente:
+      // degrada a source:'fallback' con spend:0. Honestidad: si NO es 'live',
+      // mostramos "no disponible", NUNCA $0 fabricado.
+      const r = await fetch(`${META_BASE}?account=nuevo`, { cache: 'no-cache' });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const j = await r.json();
+      if (j.source === 'live' && j.curr && j.curr.spend != null) {
+        document.getElementById('rs-meta-spend').textContent = fmtMoney(j.curr.spend);
+        rsStatus('rs-meta-status', '');
+      } else {
+        document.getElementById('rs-meta-spend').textContent = '—';
+        rsStatus('rs-meta-status', 'Meta Ads no disponible');
+      }
+    } catch (e) {
+      document.getElementById('rs-meta-spend').textContent = '—';
+      rsStatus('rs-meta-status', 'Meta Ads no disponible', true);
+    }
+  }
+
+  async function resumenLoadCitas() {
+    rsStatus('rs-citas-status', 'Cargando…');
+    const hoy = new Date().toISOString().slice(0, 10);
+    try {
+      const token = getBearerToken();
+      if (!token) throw new Error('Bearer ausente');
+      const params = new URLSearchParams({ fecha_desde: hoy, page_size: '100' });
+      const r = await fetch(`${CITAS_BASE}?${params}`, {
+        headers: { 'Authorization': `Bearer ${token}` }, cache: 'no-cache',
+      });
+      if (r.status === 401 || r.status === 403) { localStorage.removeItem('giolens_bearer'); throw new Error('auth'); }
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const j = await r.json();
+      const citas = Array.isArray(j.citas) ? j.citas : [];
+      const sinConf = citas.filter(c => c.estado === 'agendada').length;
+      document.getElementById('rs-citas-prox').textContent    = fmtInt(j.total ?? citas.length);
+      document.getElementById('rs-citas-sinconf').textContent = fmtInt(sinConf);
+      // Mini-lista próximas 5 — PII-strict: NUNCA paciente_hash en el markup.
+      const ul = document.getElementById('rs-citas-list');
+      ul.replaceChildren();
+      if (!citas.length) {
+        const li = document.createElement('li'); li.className = 'empty'; li.textContent = 'Sin citas próximas'; ul.appendChild(li);
+      } else {
+        citas.slice(0, 5).forEach(c => {
+          const li = document.createElement('li');
+          const when = document.createElement('span'); when.className = 'c-when';
+          when.textContent = `${fmtDate(c.fecha)} ${String(c.hora || '').slice(0, 5)}`;
+          const who = document.createElement('span'); who.className = 'c-who';
+          who.textContent = [c.optometrista || '—', c.tipo_consulta, c.estado].filter(Boolean).join(' · ');
+          li.appendChild(when); li.appendChild(who);
+          ul.appendChild(li);
+        });
+      }
+      __resumenAlerts.citas = sinConf;
+      renderResumenAlertas();
+      rsStatus('rs-citas-status', '');
+    } catch (e) {
+      __resumenAlerts.citas = 'down'; renderResumenAlertas();
+      rsStatus('rs-citas-status', 'Frente no disponible', true);
+    }
+  }
+
+  function loadResumen() {
+    const periodo = resumenPeriodo();
+    const meta = document.getElementById('resumen-meta');
+    meta.textContent = `Actualizado: ${new Date().toLocaleTimeString('es-MX')}`;
+    // Disparo paralelo; cada bloque degrada de forma aislada.
+    resumenLoadCaja(periodo);
+    resumenLoadInventario(periodo);
+    resumenLoadClinica(periodo);
+    resumenLoadMarketing(periodo);
+    resumenLoadMeta();
+    resumenLoadCitas();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Tabs + deeplink (?tab=resumen|inventario|clinica|marketing|caja) + lazy-load
+  // ═══════════════════════════════════════════════════════════════════════
+  const TABS = ['resumen', 'inventario', 'clinica', 'marketing', 'caja'];
+  const loaded = { resumen: false, inventario: false, clinica: false, marketing: false, caja: false };
 
   function loadTab(tab) {
+    if (tab === 'resumen' && !loaded.resumen) { loaded.resumen = true; loadResumen(); }
     if (tab === 'inventario' && !loaded.inventario) { loaded.inventario = true; loadInventario(); }
     if (tab === 'clinica' && !loaded.clinica) { loaded.clinica = true; loadClinica(); }
     if (tab === 'marketing' && !loaded.marketing) { loaded.marketing = true; loadMarketing(); }
@@ -1443,7 +1780,7 @@
   }
 
   function activateTab(tab, pushUrl = true) {
-    if (!TABS.includes(tab)) tab = 'inventario';
+    if (!TABS.includes(tab)) tab = 'resumen';
     TABS.forEach(t => {
       const btn = document.getElementById(`tab-${t}`);
       const panel = document.getElementById(`panel-${t}`);
@@ -1469,12 +1806,16 @@
       document.getElementById(`tab-${t}`).addEventListener('click', () => activateTab(t));
     });
 
+    document.getElementById('resumen-refresh').addEventListener('click', () => { loaded.resumen = true; loadResumen(); });
     document.getElementById('inv-refresh').addEventListener('click', () => { loaded.inventario = true; loadInventario(); });
     document.getElementById('inv-export').addEventListener('click', exportInventarioCSV);
     document.getElementById('cli-refresh').addEventListener('click', () => { loaded.clinica = true; loadClinica(); });
     document.getElementById('mkt-refresh').addEventListener('click', () => { loaded.marketing = true; loadMarketing(); });
     document.getElementById('caja-refresh').addEventListener('click', () => { loaded.caja = true; loadCaja(); });
 
+    document.querySelectorAll('input[name="resumen-periodo"]').forEach(r => {
+      r.addEventListener('change', () => { if (document.getElementById('panel-resumen').classList.contains('active')) loadResumen(); });
+    });
     document.querySelectorAll('input[name="inv-periodo"]').forEach(r => {
       r.addEventListener('change', () => { if (document.getElementById('panel-inventario').classList.contains('active')) loadInventario(); });
     });
@@ -1493,7 +1834,7 @@
     });
 
     const initial = new URLSearchParams(window.location.search).get('tab');
-    activateTab(TABS.includes(initial) ? initial : 'inventario', false);
+    activateTab(TABS.includes(initial) ? initial : 'resumen', false);
   });
 </script>
 </body>
