@@ -272,8 +272,10 @@
             aria-controls="panel-marketing" data-tab="marketing">
       Marketing <span class="badge" id="badge-marketing">—</span>
     </button>
-    <button class="tab tab-soon" role="tab" aria-disabled="true" tabindex="-1" disabled
-            title="Próximo sprint">Caja</button>
+    <button class="tab" role="tab" id="tab-caja" aria-selected="false"
+            aria-controls="panel-caja" data-tab="caja">
+      Caja <span class="badge" id="badge-caja">—</span>
+    </button>
   </div>
 
   <!-- ════════════════════════ INVENTARIO (I.1) ════════════════════════ -->
@@ -557,6 +559,120 @@
         <thead><tr>
           <th scope="col">Ruta</th>
           <th scope="col" class="num">Leads</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ════════════════════════ CAJA (I.4 · v1 SOLO-VOLUMEN) ════════════════════════ -->
+  <section id="panel-caja" class="panel" role="tabpanel" aria-labelledby="tab-caja" hidden>
+    <div class="analitica-controls">
+      <div class="periodo-radios" role="radiogroup" aria-label="Periodo de análisis caja">
+        <label><input type="radio" name="caja-periodo" value="30" checked><span>30 días</span></label>
+        <label><input type="radio" name="caja-periodo" value="60"><span>60 días</span></label>
+        <label><input type="radio" name="caja-periodo" value="90"><span>90 días</span></label>
+      </div>
+      <button class="primary" id="caja-refresh">Refrescar</button>
+      <span class="anal-meta" id="caja-meta"></span>
+    </div>
+
+    <p class="pii-note">Caja operativa (aproximada, no contable). Una operación = una línea de salida de inventario. Los montos y medios de pago no viven en el core todavía (Issue #8) — los KPIs de dinero quedan diferidos.</p>
+
+    <div id="caja-warnings" role="status" aria-live="polite"
+         style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;"></div>
+
+    <div class="analitica-grid" role="region" aria-label="Indicadores clave caja">
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Operaciones</span>
+        <span class="kpi-value" id="caja-kpi-operaciones">—</span>
+        <span class="kpi-hint" id="caja-kpi-operaciones-hint">Salidas de inventario</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Unidades</span>
+        <span class="kpi-value" id="caja-kpi-unidades">—</span>
+        <span class="kpi-hint" id="caja-kpi-unidades-hint">Piezas en salidas</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Variación vs periodo previo</span>
+        <span class="kpi-value" id="caja-kpi-variacion">—</span>
+        <span class="kpi-hint">Operaciones vs ventana anterior</span>
+      </div>
+      <div class="kpi-card kpi-pending" title="Requiere fuente de monto (Issue #8) — pendiente">
+        <span class="kpi-label">Ingreso</span>
+        <span class="kpi-value" id="caja-kpi-ingreso">—</span>
+        <span class="kpi-hint">Sin fuente de monto en el core aún</span>
+      </div>
+      <div class="kpi-card kpi-pending" title="Requiere fuente de monto (Issue #8) — pendiente">
+        <span class="kpi-label">Ticket promedio</span>
+        <span class="kpi-value" id="caja-kpi-ticket">—</span>
+        <span class="kpi-hint">Sin fuente de monto en el core aún</span>
+      </div>
+      <div class="kpi-card kpi-pending" title="Requiere medio de pago (Issue #8) — pendiente">
+        <span class="kpi-label">Ingreso por medio</span>
+        <span class="kpi-value">—</span>
+        <span class="kpi-hint">Sin columna de medio de pago aún</span>
+      </div>
+    </div>
+
+    <div class="chart-row">
+      <div id="caja-flujo-wrap" class="analitica-chart-wrap" aria-label="Operaciones por día">
+        <h3>Operaciones por día (90d)</h3>
+        <div class="chart-canvas-box"><canvas id="caja-chart-flujo"></canvas></div>
+        <div class="analitica-chart-fallback" id="caja-flujo-fallback">
+          <div class="table-wrap" style="margin-top:12px;">
+            <table id="caja-tbl-flujo-fb">
+              <thead><tr><th scope="col">Día</th><th scope="col" class="num">Operaciones</th><th scope="col" class="num">Unidades</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="caja-horarios-wrap" class="analitica-chart-wrap" aria-label="Distribución horaria">
+        <h3>Distribución horaria (hora local)</h3>
+        <div class="chart-canvas-box"><canvas id="caja-chart-horarios"></canvas></div>
+        <div class="analitica-chart-fallback" id="caja-horarios-fallback">
+          <div class="table-wrap" style="margin-top:12px;">
+            <table id="caja-tbl-horarios-fb">
+              <thead><tr><th scope="col">Franja</th><th scope="col" class="num">Operaciones</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-row">
+      <div id="caja-dia-wrap" class="analitica-chart-wrap" aria-label="Operaciones por día de semana">
+        <h3>Día de la semana</h3>
+        <div class="chart-canvas-box"><canvas id="caja-chart-dia"></canvas></div>
+        <div class="analitica-chart-fallback" id="caja-dia-fallback">
+          <div class="table-wrap" style="margin-top:12px;">
+            <table id="caja-tbl-dia-fb">
+              <thead><tr><th scope="col">Día</th><th scope="col" class="num">Operaciones</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="caja-medios-wrap" class="analitica-chart-wrap" aria-label="Medios de pago (diferido)">
+        <h3>Medios de pago</h3>
+        <div class="chart-canvas-box fallback-mode" style="display:flex;align-items:center;justify-content:center;">
+          <span class="kpi-hint" style="text-align:center;padding:0 16px;">Diferido — no hay columna de medio de pago en el core (Issue #8). Se habilitará cuando eOptis exporte el ledger de ventas.</span>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="section-title">Mix por categoría</h2>
+    <p class="pii-note">Operaciones agregadas por categoría de producto. Sin importe (solo volumen).</p>
+    <div class="table-wrap">
+      <table id="caja-tbl-mix">
+        <thead><tr>
+          <th scope="col">Categoría</th>
+          <th scope="col" class="num">Operaciones</th>
+          <th scope="col" class="num">Unidades</th>
         </tr></thead>
         <tbody></tbody>
       </table>
@@ -1112,15 +1228,218 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // Tabs + deeplink (?tab=inventario|clinica|marketing) + lazy-load
+  // CAJA (I.4 · v1 SOLO-VOLUMEN · KPIs $ diferidos · Issue #8)
   // ═══════════════════════════════════════════════════════════════════════
-  const TABS = ['inventario', 'clinica', 'marketing'];
-  const loaded = { inventario: false, clinica: false, marketing: false };
+  const CAJA_BASE = '/api/analitica/caja';
+  let __cajaFlujoChart = null;
+  let __cajaHorChart = null;
+  let __cajaDiaChart = null;
+  let __cajaData = null; // última respuesta cacheada (para re-render por periodo sin refetch)
+
+  // Etiquetas legibles para los _warnings del BFF (solo-volumen v1).
+  const CAJA_WARN_LABELS = {
+    caja_monto_pendiente: 'Montos pendientes (sin fuente de monto · Issue #8)',
+    medio_pago_pendiente: 'Medio de pago pendiente (sin columna)',
+    sin_datos: 'Sin datos para esta selección',
+  };
+
+  function cajaPeriodo() {
+    const r = document.querySelector('input[name="caja-periodo"]:checked');
+    return r ? Number(r.value) : 30;
+  }
+
+  function cajaRenderWarnings(warnings) {
+    const box = document.getElementById('caja-warnings');
+    box.replaceChildren();
+    const uniq = [...new Set(Array.isArray(warnings) ? warnings : [])];
+    uniq.forEach(w => {
+      const pill = document.createElement('span');
+      pill.className = 'badge-warn-pill';
+      pill.textContent = CAJA_WARN_LABELS[w] || w;
+      box.appendChild(pill);
+    });
+  }
+
+  // KPIs de volumen: se muestran los del periodo seleccionado (campos ya
+  // pre-calculados en la vista, NO se calculan client-side). Montos = diferidos.
+  function cajaPaintKpis(k, comp, periodo) {
+    const ops = k ? k[`operaciones_${periodo}d`] : null;
+    const uni = k ? k[`unidades_${periodo}d`] : null;
+    document.getElementById('caja-kpi-operaciones').textContent = fmtInt(ops);
+    document.getElementById('caja-kpi-unidades').textContent    = fmtInt(uni);
+    document.getElementById('caja-kpi-operaciones-hint').textContent = `Salidas de inventario · ${periodo}d`;
+    document.getElementById('caja-kpi-unidades-hint').textContent    = `Piezas en salidas · ${periodo}d`;
+    const variacion = comp ? comp[`variacion_${periodo}d_pct`] : null;
+    document.getElementById('caja-kpi-variacion').textContent = fmtPct(variacion);
+    // Montos: SIEMPRE diferidos en v1 solo-volumen — nunca se inventan.
+    document.getElementById('caja-kpi-ingreso').textContent = '—';
+    document.getElementById('caja-kpi-ticket').textContent  = '—';
+  }
+
+  function cajaPaintFlujo(rows) {
+    const wrap = document.getElementById('caja-flujo-wrap');
+    const fbTbody = clearTbody('caja-tbl-flujo-fb');
+    if (!rows.length) emptyRow(fbTbody, 3, 'Sin operaciones en el periodo');
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.appendChild(td(fmtDate(r.dia)));
+      tr.appendChild(td(fmtInt(r.operaciones), 'num'));
+      tr.appendChild(td(fmtInt(r.unidades), 'num'));
+      fbTbody.appendChild(tr);
+    });
+    if (window.__chartjsFailed || typeof Chart === 'undefined') { wrap.classList.add('fallback-mode'); return; }
+    wrap.classList.remove('fallback-mode');
+    const ctx = document.getElementById('caja-chart-flujo').getContext('2d');
+    if (__cajaFlujoChart) __cajaFlujoChart.destroy();
+    __cajaFlujoChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: rows.map(r => fmtDate(r.dia)),
+        datasets: [{
+          label: 'Operaciones', data: rows.map(r => Number(r.operaciones) || 0),
+          backgroundColor: 'rgba(16, 185, 129, 0.25)', borderColor: 'rgba(16, 185, 129, 1)',
+          borderWidth: 2, fill: true, tension: 0.25, pointRadius: 2,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } },
+      },
+    });
+  }
+
+  function cajaPaintHorarios(rows) {
+    const wrap = document.getElementById('caja-horarios-wrap');
+    const fbTbody = clearTbody('caja-tbl-horarios-fb');
+    if (!rows.length) emptyRow(fbTbody, 2, 'Sin datos');
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.appendChild(td(r.franja_hora ?? '—'));
+      tr.appendChild(td(fmtInt(r.operaciones), 'num'));
+      fbTbody.appendChild(tr);
+    });
+    if (window.__chartjsFailed || typeof Chart === 'undefined') { wrap.classList.add('fallback-mode'); return; }
+    wrap.classList.remove('fallback-mode');
+    const ctx = document.getElementById('caja-chart-horarios').getContext('2d');
+    if (__cajaHorChart) __cajaHorChart.destroy();
+    __cajaHorChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: rows.map(r => r.franja_hora),
+        datasets: [{
+          label: 'Operaciones', data: rows.map(r => Number(r.operaciones) || 0),
+          backgroundColor: 'rgba(37, 99, 235, 0.55)', borderColor: 'rgba(37, 99, 235, 1)', borderWidth: 1,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } },
+      },
+    });
+  }
+
+  function cajaPaintDiaSemana(rows) {
+    const wrap = document.getElementById('caja-dia-wrap');
+    const fbTbody = clearTbody('caja-tbl-dia-fb');
+    if (!rows.length) emptyRow(fbTbody, 2, 'Sin datos');
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.appendChild(td(r.dia_semana_nombre ?? '—'));
+      tr.appendChild(td(fmtInt(r.operaciones), 'num'));
+      fbTbody.appendChild(tr);
+    });
+    if (window.__chartjsFailed || typeof Chart === 'undefined') { wrap.classList.add('fallback-mode'); return; }
+    wrap.classList.remove('fallback-mode');
+    const ctx = document.getElementById('caja-chart-dia').getContext('2d');
+    if (__cajaDiaChart) __cajaDiaChart.destroy();
+    __cajaDiaChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: rows.map(r => r.dia_semana_nombre),
+        datasets: [{
+          label: 'Operaciones', data: rows.map(r => Number(r.operaciones) || 0),
+          backgroundColor: 'rgba(168, 85, 247, 0.55)', borderColor: 'rgba(168, 85, 247, 1)', borderWidth: 1,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } },
+      },
+    });
+  }
+
+  function cajaPaintMix(rows) {
+    const tbody = clearTbody('caja-tbl-mix');
+    const sorted = [...rows].sort((a, b) => (Number(b.operaciones) || 0) - (Number(a.operaciones) || 0));
+    if (!sorted.length) { emptyRow(tbody, 3, 'Sin datos'); return; }
+    sorted.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.appendChild(td(r.categoria ?? '—'));
+      tr.appendChild(td(fmtInt(r.operaciones), 'num'));
+      tr.appendChild(td(fmtInt(r.unidades), 'num'));
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Re-render de KPIs/comparativo al cambiar periodo, sin refetch.
+  function cajaRerenderKpis() {
+    if (!__cajaData) return;
+    const periodo = cajaPeriodo();
+    cajaPaintKpis(__cajaData.kpis, __cajaData.comparativo, periodo);
+    const badge = document.getElementById('badge-caja');
+    if (badge) badge.textContent = fmtInt(__cajaData.kpis ? __cajaData.kpis[`operaciones_${periodo}d`] : 0);
+  }
+
+  async function loadCaja() {
+    const periodo = cajaPeriodo();
+    const meta = document.getElementById('caja-meta');
+    meta.textContent = 'Cargando…';
+    try {
+      const [kpis, flujo, horarios, diaSemana, mix, comparativo] = await Promise.all([
+        fetchMetric(CAJA_BASE, 'kpis', periodo),
+        fetchMetric(CAJA_BASE, 'flujo', periodo, { limit: '120' }),
+        fetchMetric(CAJA_BASE, 'horarios', periodo),
+        fetchMetric(CAJA_BASE, 'dia_semana', periodo),
+        fetchMetric(CAJA_BASE, 'mix_categoria', periodo, { limit: '50' }),
+        fetchMetric(CAJA_BASE, 'comparativo', periodo),
+      ]);
+      __cajaData = { kpis: kpis.data || {}, comparativo: comparativo.data || {} };
+      cajaPaintKpis(__cajaData.kpis, __cajaData.comparativo, periodo);
+      cajaPaintFlujo(flujo.data || []);
+      cajaPaintHorarios(horarios.data || []);
+      cajaPaintDiaSemana(diaSemana.data || []);
+      cajaPaintMix(mix.data || []);
+      // Banner: unión de warnings de todas las métricas (dedup) + medio diferido.
+      cajaRenderWarnings([
+        ...(kpis._warnings || []),
+        ...(flujo._warnings || []),
+        ...(horarios._warnings || []),
+        ...(diaSemana._warnings || []),
+        ...(mix._warnings || []),
+        ...(comparativo._warnings || []),
+        'medio_pago_pendiente',
+      ]);
+      const badge = document.getElementById('badge-caja');
+      if (badge) badge.textContent = fmtInt((kpis.data || {})[`operaciones_${periodo}d`] ?? 0);
+      meta.textContent = `Actualizado: ${new Date().toLocaleTimeString('es-MX')}`;
+      clearGlobalError();
+    } catch (e) {
+      meta.textContent = 'Error';
+      showGlobalError(`Caja: ${e.message}`);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Tabs + deeplink (?tab=inventario|clinica|marketing|caja) + lazy-load
+  // ═══════════════════════════════════════════════════════════════════════
+  const TABS = ['inventario', 'clinica', 'marketing', 'caja'];
+  const loaded = { inventario: false, clinica: false, marketing: false, caja: false };
 
   function loadTab(tab) {
     if (tab === 'inventario' && !loaded.inventario) { loaded.inventario = true; loadInventario(); }
     if (tab === 'clinica' && !loaded.clinica) { loaded.clinica = true; loadClinica(); }
     if (tab === 'marketing' && !loaded.marketing) { loaded.marketing = true; loadMarketing(); }
+    if (tab === 'caja' && !loaded.caja) { loaded.caja = true; loadCaja(); }
   }
 
   function activateTab(tab, pushUrl = true) {
@@ -1154,6 +1473,7 @@
     document.getElementById('inv-export').addEventListener('click', exportInventarioCSV);
     document.getElementById('cli-refresh').addEventListener('click', () => { loaded.clinica = true; loadClinica(); });
     document.getElementById('mkt-refresh').addEventListener('click', () => { loaded.marketing = true; loadMarketing(); });
+    document.getElementById('caja-refresh').addEventListener('click', () => { loaded.caja = true; loadCaja(); });
 
     document.querySelectorAll('input[name="inv-periodo"]').forEach(r => {
       r.addEventListener('change', () => { if (document.getElementById('panel-inventario').classList.contains('active')) loadInventario(); });
@@ -1163,6 +1483,13 @@
     });
     document.getElementById('mkt-pipeline').addEventListener('change', () => {
       if (document.getElementById('panel-marketing').classList.contains('active')) loadMarketing();
+    });
+    // Periodo caja: solo re-render de KPIs/comparativo (campos pre-calculados),
+    // sin refetch — el resto de series no depende del periodo.
+    document.querySelectorAll('input[name="caja-periodo"]').forEach(r => {
+      r.addEventListener('change', () => {
+        if (document.getElementById('panel-caja').classList.contains('active')) cajaRerenderKpis();
+      });
     });
 
     const initial = new URLSearchParams(window.location.search).get('tab');

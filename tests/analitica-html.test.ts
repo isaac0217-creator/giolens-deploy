@@ -28,15 +28,16 @@ describe('analitica.html · estructura de tabs', () => {
     expect(html).toMatch(/data-tab="clinica"/);
   });
 
-  it('expone los placeholders modulares Marketing y Caja (I.3/I.4) deshabilitados', () => {
-    expect(html).toMatch(/Marketing/);
-    expect(html).toMatch(/Caja/);
-    expect(html).toMatch(/tab-soon/);
+  it('expone las tabs Marketing (I.3) y Caja (I.4) ya activas', () => {
+    expect(html).toMatch(/data-tab="marketing"/);
+    expect(html).toMatch(/data-tab="caja"/);
   });
 
-  it('cablea ambos endpoints de analítica', () => {
+  it('cablea los cuatro endpoints de analítica', () => {
     expect(html).toMatch(/\/api\/analitica\/inventario/);
     expect(html).toMatch(/\/api\/analitica\/clinica/);
+    expect(html).toMatch(/\/api\/analitica\/marketing/);
+    expect(html).toMatch(/\/api\/analitica\/caja/);
   });
 
   it('soporta deeplink ?tab=', () => {
