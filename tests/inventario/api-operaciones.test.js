@@ -80,6 +80,32 @@ describe('Frente E · api/inventario/operaciones', () => {
     expect(res.statusCode).toBe(401);
   });
 
+  it('401 con Bearer token incorrecto (P2-2 · constant-time)', async () => {
+    const handler = await loadHandler();
+    const req = makeReq({
+      headers: { authorization: 'Bearer token_equivocado' },
+      body: { sku: 'a001', tipo: 'entrada', cantidad: 1 },
+    });
+    const res = makeRes();
+    await handler(req, res);
+    expect(res.statusCode).toBe(401);
+    // El RPC nunca debe invocarse si el token no valida
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it('401 con token de igual longitud pero distinto (constant-time mismatch)', async () => {
+    const handler = await loadHandler();
+    // 'test_cron' tiene 9 chars → mismo largo, contenido distinto
+    const req = makeReq({
+      headers: { authorization: 'Bearer XXXXXXXXX' },
+      body: { sku: 'a001', tipo: 'entrada', cantidad: 1 },
+    });
+    const res = makeRes();
+    await handler(req, res);
+    expect(res.statusCode).toBe(401);
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
   it('400 missing_fields cuando falta sku', async () => {
     const handler = await loadHandler();
     const req = makeReq({ body: { tipo: 'entrada', cantidad: 5 } });

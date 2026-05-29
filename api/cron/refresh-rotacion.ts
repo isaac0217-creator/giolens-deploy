@@ -30,6 +30,7 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { sendWhatsApp } from '../../agents/_shared/providers/wapify-notify';
+import { timingSafeBearer } from '../../agents/_shared/auth/bearer.js';
 
 /* ── Tipos handler ──────────────────────────────────────────────────────── */
 
@@ -80,10 +81,10 @@ export default async function handler(
 ): Promise<void> {
   if (res.setHeader) res.setHeader('Cache-Control', 'no-store, max-age=0');
 
-  // Auth — Vercel cron incluye Authorization: Bearer <CRON_SECRET>
+  // Auth — Vercel cron incluye Authorization: Bearer <CRON_SECRET> (constant-time, P2-2)
   const auth = req.headers.authorization;
-  const expected = `Bearer ${process.env.CRON_SECRET}`;
-  if (!process.env.CRON_SECRET || auth !== expected) {
+  const authStr = typeof auth === 'string' ? auth : '';
+  if (!timingSafeBearer(authStr, process.env.CRON_SECRET ?? '')) {
     res.status(401).end();
     return;
   }
