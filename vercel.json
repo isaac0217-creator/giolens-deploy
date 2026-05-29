@@ -63,7 +63,13 @@
     "api/analitica/marketing.ts": {
       "maxDuration": 15
     },
+    "api/analitica/caja.ts": {
+      "maxDuration": 15
+    },
     "api/cron/refresh-marketing.ts": {
+      "maxDuration": 60
+    },
+    "api/cron/refresh-caja.ts": {
       "maxDuration": 60
     },
     "api/cron/alertas-stock-bajo.ts": {
@@ -146,6 +152,10 @@
     {
       "path": "/api/cron/refresh-marketing",
       "schedule": "45 * * * *"
+    },
+    {
+      "path": "/api/cron/refresh-caja",
+      "schedule": "15 * * * *"
     },
     {
       "path": "/api/cron/pull-gcal",
