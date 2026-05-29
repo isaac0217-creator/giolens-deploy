@@ -24,9 +24,10 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { createHash, createSign } from 'crypto';
+import { createHash } from 'crypto';
 import { sendWhatsApp } from '../agents/_shared/providers/wapify-notify.js';
 import { getOpticaTimezone } from '../agents/_shared/config/timezone.js';
+import { getGCalToken } from '../agents/_shared/providers/gcal.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -177,77 +178,10 @@ function classifySlotConflict(err: PgUniqueError): {
 }
 
 // ---------------------------------------------------------------------------
-// GCal — JWT firmado con crypto nativo Node 22 (sin googleapis npm)
+// GCal — cliente Service Account compartido en agents/_shared/providers/gcal.ts
+// (getGCalToken importado arriba). createGCalEvent/updateGCalEvent quedan acá
+// por ser específicos del endpoint de citas.
 // ---------------------------------------------------------------------------
-
-interface ServiceAccountKey {
-  client_email: string;
-  private_key: string;
-}
-
-function b64url(buf: Buffer | string): string {
-  const b = typeof buf === 'string' ? Buffer.from(buf) : buf;
-  return b.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
-
-/** Obtiene access_token de Google OAuth2 usando Service Account JWT. */
-async function getGCalToken(): Promise<string | null> {
-  const saJson = process.env.GCAL_SERVICE_ACCOUNT_JSON;
-  if (!saJson) {
-    console.warn('[citas/gcal] GCAL_SERVICE_ACCOUNT_JSON no configurado — GCal sync desactivado');
-    return null;
-  }
-  let sa: ServiceAccountKey;
-  try {
-    sa = JSON.parse(saJson) as ServiceAccountKey;
-  } catch {
-    console.error('[citas/gcal] GCAL_SERVICE_ACCOUNT_JSON no es JSON válido');
-    return null;
-  }
-  const now = Math.floor(Date.now() / 1000);
-  const header = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const claim  = b64url(JSON.stringify({
-    iss: sa.client_email,
-    scope: 'https://www.googleapis.com/auth/calendar',
-    aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600,
-    iat: now,
-  }));
-  const signing = `${header}.${claim}`;
-  let sig: string;
-  try {
-    const signer = createSign('RSA-SHA256');
-    signer.update(signing);
-    sig = b64url(signer.sign(sa.private_key));
-  } catch (err) {
-    console.error('[citas/gcal] Error firmando JWT:', err instanceof Error ? err.message : String(err));
-    return null;
-  }
-  const jwt = `${signing}.${sig}`;
-  try {
-    const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), 8000);
-    const res = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-        assertion: jwt,
-      }).toString(),
-      signal: ctl.signal,
-    });
-    clearTimeout(timer);
-    const data = await res.json() as { access_token?: string; error?: string };
-    if (!data.access_token) {
-      console.error('[citas/gcal] Token error:', data.error ?? JSON.stringify(data));
-      return null;
-    }
-    return data.access_token;
-  } catch (err) {
-    console.error('[citas/gcal] getGCalToken fetch error:', err instanceof Error ? err.message : String(err));
-    return null;
-  }
-}
 
 /** Crea evento en Google Calendar. Devuelve gcal_event_id o null (graceful fallback). */
 async function createGCalEvent(payload: {
