@@ -268,8 +268,10 @@
             aria-controls="panel-clinica" data-tab="clinica">
       Clínica <span class="badge" id="badge-clinica">—</span>
     </button>
-    <button class="tab tab-soon" role="tab" aria-disabled="true" tabindex="-1" disabled
-            title="Próximo sprint">Marketing</button>
+    <button class="tab" role="tab" id="tab-marketing" aria-selected="false"
+            aria-controls="panel-marketing" data-tab="marketing">
+      Marketing <span class="badge" id="badge-marketing">—</span>
+    </button>
     <button class="tab tab-soon" role="tab" aria-disabled="true" tabindex="-1" disabled
             title="Próximo sprint">Caja</button>
   </div>
@@ -458,6 +460,109 @@
     </div>
   </section>
 
+  <!-- ════════════════════════ MARKETING (I.3 · v1 PROXY) ════════════════════════ -->
+  <section id="panel-marketing" class="panel" role="tabpanel" aria-labelledby="tab-marketing" hidden>
+    <div class="analitica-controls">
+      <label for="mkt-pipeline" class="anal-meta">Pipeline:</label>
+      <select id="mkt-pipeline" aria-label="Pipeline de marketing">
+        <option value="0" selected>Todos (agregado)</option>
+        <option value="216977">Justin / Holbrook</option>
+        <option value="755062">GioSports</option>
+        <option value="94103">Dama Luxury</option>
+        <option value="252999">SPY Z87 (sin 3-int)</option>
+        <option value="273944">GioVision (sin 3-int)</option>
+      </select>
+      <button class="primary" id="mkt-refresh">Refrescar</button>
+      <span class="anal-meta" id="mkt-meta"></span>
+    </div>
+
+    <div id="mkt-warnings" role="status" aria-live="polite"
+         style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;"></div>
+
+    <div class="analitica-grid" role="region" aria-label="Indicadores clave marketing">
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Total leads</span>
+        <span class="kpi-value" id="mkt-kpi-total">—</span>
+        <span class="kpi-hint">Contactos en el pipeline</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Leads perdidos</span>
+        <span class="kpi-value" id="mkt-kpi-perdidos">—</span>
+        <span class="kpi-hint">Por etapa (fuera de catálogo, descarte…)</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Ventas (proxy)</span>
+        <span class="kpi-value" id="mkt-kpi-ventas">—</span>
+        <span class="kpi-hint">Por etapa terminal positiva</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Tasa pérdida</span>
+        <span class="kpi-value" id="mkt-kpi-tasa-perdida">—</span>
+        <span class="kpi-hint">Perdidos / total</span>
+      </div>
+      <div class="kpi-card" role="status" aria-live="polite">
+        <span class="kpi-label">Tasa venta proxy</span>
+        <span class="kpi-value" id="mkt-kpi-tasa-venta">—</span>
+        <span class="kpi-hint">Ventas proxy / total</span>
+      </div>
+      <div class="kpi-card kpi-pending" title="Requiere ingest de spend Meta (pendiente)">
+        <span class="kpi-label">Coste / lead</span>
+        <span class="kpi-value">—</span>
+        <span class="kpi-hint">Spend Meta no disponible aún</span>
+      </div>
+      <div class="kpi-card kpi-pending" title="Requiere ingest de spend Meta (pendiente)">
+        <span class="kpi-label">Coste / mensaje</span>
+        <span class="kpi-value">—</span>
+        <span class="kpi-hint">Spend Meta no disponible aún</span>
+      </div>
+      <div class="kpi-card kpi-pending" title="Requiere histórico de transiciones (pendiente)">
+        <span class="kpi-label">Conversión por etapa</span>
+        <span class="kpi-value">—</span>
+        <span class="kpi-hint">Histórico de etapas no disponible aún</span>
+      </div>
+    </div>
+
+    <div class="chart-row">
+      <div id="mkt-funnel-wrap" class="analitica-chart-wrap" aria-label="Embudo por etapa">
+        <h3>Embudo por etapa</h3>
+        <div class="chart-canvas-box"><canvas id="mkt-chart-funnel"></canvas></div>
+        <div class="analitica-chart-fallback" id="mkt-funnel-fallback">
+          <div class="table-wrap" style="margin-top:12px;">
+            <table id="mkt-tbl-funnel-fb">
+              <thead><tr><th scope="col">Etapa</th><th scope="col" class="num">Leads</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="mkt-int-wrap" class="analitica-chart-wrap" aria-label="Interacción 3-int">
+        <h3>Interacción (3-int)</h3>
+        <div class="chart-canvas-box"><canvas id="mkt-chart-interaccion"></canvas></div>
+        <div class="analitica-chart-fallback" id="mkt-int-fallback">
+          <div class="table-wrap" style="margin-top:12px;">
+            <table id="mkt-tbl-int-fb">
+              <thead><tr><th scope="col">Fase</th><th scope="col" class="num">Leads</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="section-title">Ruta dominante</h2>
+    <p class="pii-note">Clasificación débil derivada de stage_name (sólo «RUTA MÉDICA» es rotulable como médica; el resto es indeterminada).</p>
+    <div class="table-wrap">
+      <table id="mkt-tbl-ruta">
+        <thead><tr>
+          <th scope="col">Ruta</th>
+          <th scope="col" class="num">Leads</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
   <div class="footer-status" style="margin-top:18px;color:var(--muted);font-size:0.78rem;font-family:ui-monospace,monospace;">
     <span id="footer-left">GIOCORE · Analítica hub</span>
   </div>
@@ -542,7 +647,8 @@
   async function fetchMetric(base, metric, periodo, extra = {}) {
     const token = getBearerToken();
     if (!token) throw new Error('Bearer ausente · ingresa CRON_SECRET');
-    const params = new URLSearchParams({ metric, periodo: String(periodo), ...extra });
+    const params = new URLSearchParams({ metric, ...extra });
+    if (periodo != null) params.set('periodo', String(periodo));
     const r = await fetch(`${base}?${params}`, {
       headers: { 'Authorization': `Bearer ${token}` },
       cache: 'no-cache',
@@ -857,14 +963,164 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // Tabs + deeplink (?tab=inventario|clinica) + lazy-load
+  // MARKETING (I.3 · v1 PROXY)
   // ═══════════════════════════════════════════════════════════════════════
-  const TABS = ['inventario', 'clinica'];
-  const loaded = { inventario: false, clinica: false };
+  const MKT_BASE = '/api/analitica/marketing';
+  let __mktFunnelChart = null;
+  let __mktIntChart = null;
+
+  // Etiquetas legibles para los _warnings del BFF (proxy v1).
+  const MKT_WARN_LABELS = {
+    cobertura_5_dias: 'Cobertura ~5 días · no sobre-interpretar',
+    spend_pendiente: 'Coste pendiente (sin spend Meta)',
+    historico_pendiente: 'Velocidad pendiente (sin histórico de etapas)',
+    pipeline_sin_interaccion: 'Pipeline sin metodología 3-int',
+    sin_datos: 'Sin datos para esta selección',
+  };
+
+  function mktPipeline() {
+    const sel = document.getElementById('mkt-pipeline');
+    return sel ? Number(sel.value) : 0;
+  }
+
+  function mktRenderWarnings(warnings) {
+    const box = document.getElementById('mkt-warnings');
+    box.replaceChildren();
+    const uniq = [...new Set(Array.isArray(warnings) ? warnings : [])];
+    uniq.forEach(w => {
+      const pill = document.createElement('span');
+      pill.className = 'badge-warn-pill';
+      pill.textContent = MKT_WARN_LABELS[w] || w;
+      box.appendChild(pill);
+    });
+  }
+
+  function mktPaintKpis(k) {
+    document.getElementById('mkt-kpi-total').textContent        = fmtInt(k.total_leads);
+    document.getElementById('mkt-kpi-perdidos').textContent     = fmtInt(k.leads_perdidos);
+    document.getElementById('mkt-kpi-ventas').textContent       = fmtInt(k.ventas_proxy);
+    document.getElementById('mkt-kpi-tasa-perdida').textContent = fmtPct(k.tasa_perdida_pct);
+    document.getElementById('mkt-kpi-tasa-venta').textContent   = fmtPct(k.tasa_venta_proxy_pct);
+  }
+
+  function mktPaintFunnel(rows) {
+    const wrap = document.getElementById('mkt-funnel-wrap');
+    const sorted = [...rows].sort((a, b) => (Number(b.leads) || 0) - (Number(a.leads) || 0));
+    const fbTbody = clearTbody('mkt-tbl-funnel-fb');
+    if (!sorted.length) emptyRow(fbTbody, 2, 'Sin datos');
+    sorted.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.appendChild(td(r.stage_name ?? '—'));
+      tr.appendChild(td(fmtInt(r.leads), 'num'));
+      fbTbody.appendChild(tr);
+    });
+    if (window.__chartjsFailed || typeof Chart === 'undefined') { wrap.classList.add('fallback-mode'); return; }
+    wrap.classList.remove('fallback-mode');
+    const ctx = document.getElementById('mkt-chart-funnel').getContext('2d');
+    if (__mktFunnelChart) __mktFunnelChart.destroy();
+    __mktFunnelChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: sorted.map(r => r.stage_name),
+        datasets: [{
+          label: 'Leads', data: sorted.map(r => Number(r.leads) || 0),
+          backgroundColor: 'rgba(168, 85, 247, 0.55)', borderColor: 'rgba(168, 85, 247, 1)', borderWidth: 1,
+        }],
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true } },
+      },
+    });
+  }
+
+  function mktPaintInteraccion(rows) {
+    const wrap = document.getElementById('mkt-int-wrap');
+    const ORDER = ['int1', 'int2', 'int3'];
+    const LABELS = { int1: '1ª interacción', int2: '2ª interacción', int3: '3ª interacción' };
+    const sorted = [...rows].sort((a, b) => ORDER.indexOf(a.stage_phase) - ORDER.indexOf(b.stage_phase));
+    const fbTbody = clearTbody('mkt-tbl-int-fb');
+    if (!sorted.length) emptyRow(fbTbody, 2, 'Sin datos (o pipeline sin metodología 3-int)');
+    sorted.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.appendChild(td(LABELS[r.stage_phase] || r.stage_phase || '—'));
+      tr.appendChild(td(fmtInt(r.leads), 'num'));
+      fbTbody.appendChild(tr);
+    });
+    if (window.__chartjsFailed || typeof Chart === 'undefined') { wrap.classList.add('fallback-mode'); return; }
+    wrap.classList.remove('fallback-mode');
+    const ctx = document.getElementById('mkt-chart-interaccion').getContext('2d');
+    if (__mktIntChart) __mktIntChart.destroy();
+    __mktIntChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: sorted.map(r => LABELS[r.stage_phase] || r.stage_phase),
+        datasets: [{
+          label: 'Leads', data: sorted.map(r => Number(r.leads) || 0),
+          backgroundColor: 'rgba(245, 158, 11, 0.55)', borderColor: 'rgba(245, 158, 11, 1)', borderWidth: 1,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } },
+      },
+    });
+  }
+
+  function mktPaintRuta(rows) {
+    const tbody = clearTbody('mkt-tbl-ruta');
+    const sorted = [...rows].sort((a, b) => (Number(b.leads) || 0) - (Number(a.leads) || 0));
+    if (!sorted.length) { emptyRow(tbody, 2, 'Sin datos'); return; }
+    sorted.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.appendChild(td(r.ruta ?? '—'));
+      tr.appendChild(td(fmtInt(r.leads), 'num'));
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function loadMarketing() {
+    const pipeline = String(mktPipeline());
+    const meta = document.getElementById('mkt-meta');
+    meta.textContent = 'Cargando…';
+    try {
+      const [kpis, funnel, interaccion, ruta] = await Promise.all([
+        fetchMetric(MKT_BASE, 'kpis', null, { pipeline }),
+        fetchMetric(MKT_BASE, 'funnel', null, { pipeline, limit: '25' }),
+        fetchMetric(MKT_BASE, 'interaccion', null, { pipeline }),
+        fetchMetric(MKT_BASE, 'ruta_split', null, { pipeline }),
+      ]);
+      mktPaintKpis(kpis.data || {});
+      mktPaintFunnel(funnel.data || []);
+      mktPaintInteraccion(interaccion.data || []);
+      mktPaintRuta(ruta.data || []);
+      // Banner: unión de warnings de todas las métricas (dedup).
+      mktRenderWarnings([
+        ...(kpis._warnings || []),
+        ...(funnel._warnings || []),
+        ...(interaccion._warnings || []),
+        ...(ruta._warnings || []),
+      ]);
+      const badge = document.getElementById('badge-marketing');
+      if (badge) badge.textContent = fmtInt((kpis.data || {}).total_leads ?? 0);
+      meta.textContent = `Actualizado: ${new Date().toLocaleTimeString('es-MX')}`;
+      clearGlobalError();
+    } catch (e) {
+      meta.textContent = 'Error';
+      showGlobalError(`Marketing: ${e.message}`);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Tabs + deeplink (?tab=inventario|clinica|marketing) + lazy-load
+  // ═══════════════════════════════════════════════════════════════════════
+  const TABS = ['inventario', 'clinica', 'marketing'];
+  const loaded = { inventario: false, clinica: false, marketing: false };
 
   function loadTab(tab) {
     if (tab === 'inventario' && !loaded.inventario) { loaded.inventario = true; loadInventario(); }
     if (tab === 'clinica' && !loaded.clinica) { loaded.clinica = true; loadClinica(); }
+    if (tab === 'marketing' && !loaded.marketing) { loaded.marketing = true; loadMarketing(); }
   }
 
   function activateTab(tab, pushUrl = true) {
@@ -897,12 +1153,16 @@
     document.getElementById('inv-refresh').addEventListener('click', () => { loaded.inventario = true; loadInventario(); });
     document.getElementById('inv-export').addEventListener('click', exportInventarioCSV);
     document.getElementById('cli-refresh').addEventListener('click', () => { loaded.clinica = true; loadClinica(); });
+    document.getElementById('mkt-refresh').addEventListener('click', () => { loaded.marketing = true; loadMarketing(); });
 
     document.querySelectorAll('input[name="inv-periodo"]').forEach(r => {
       r.addEventListener('change', () => { if (document.getElementById('panel-inventario').classList.contains('active')) loadInventario(); });
     });
     document.querySelectorAll('input[name="cli-periodo"]').forEach(r => {
       r.addEventListener('change', () => { if (document.getElementById('panel-clinica').classList.contains('active')) loadClinica(); });
+    });
+    document.getElementById('mkt-pipeline').addEventListener('change', () => {
+      if (document.getElementById('panel-marketing').classList.contains('active')) loadMarketing();
     });
 
     const initial = new URLSearchParams(window.location.search).get('tab');

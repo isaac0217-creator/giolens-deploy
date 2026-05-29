@@ -60,6 +60,12 @@
     "api/analitica/inventario.ts": {
       "maxDuration": 15
     },
+    "api/analitica/marketing.ts": {
+      "maxDuration": 15
+    },
+    "api/cron/refresh-marketing.ts": {
+      "maxDuration": 60
+    },
     "api/cron/alertas-stock-bajo.ts": {
       "maxDuration": 30
     },
@@ -136,6 +142,10 @@
     {
       "path": "/api/cron/refresh-clinica",
       "schedule": "30 * * * *"
+    },
+    {
+      "path": "/api/cron/refresh-marketing",
+      "schedule": "45 * * * *"
     },
     {
       "path": "/api/cron/pull-gcal",
