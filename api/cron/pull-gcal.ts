@@ -192,6 +192,36 @@ export default async function handler(
     }
   }
 
+  // Carrera endpoint↔cron (B-1): el endpoint /api/citas/from-whapify hace INSERT
+  // (gcal_event_id NULL) ANTES de crear el evento en GCal. Si el cron corre en esa
+  // ventana, ve el evento pero su fila aún no tiene gcal_event_id → no entra en
+  // `existing`. Y el índice único 028 NO la atrapa: el paciente_hash del endpoint
+  // (sha256(contact_id)) ≠ el del cron (sha256(gcal_event_id)). Sin esta guarda se
+  // insertaría una fila duplicada para el mismo slot. Guarda: set de slots
+  // (fecha,hora) ya ocupados por filas whapify activas → el cron omite ese evento.
+  const occupiedSlots = new Set<string>();
+  {
+    const fechaMin = mapToLocal(timeMin, tz)?.fecha;
+    const fechaMax = mapToLocal(timeMax, tz)?.fecha;
+    let q = supa
+      .from('citas')
+      .select('fecha, hora')
+      .eq('origen', 'whapify')
+      .neq('estado', 'cancelada');
+    if (fechaMin) q = q.gte('fecha', fechaMin);
+    if (fechaMax) q = q.lte('fecha', fechaMax);
+    const { data, error } = await q;
+    if (error) {
+      console.error('[cron/pull-gcal] slot lookup error:', error.message);
+      warnings.push('slot_lookup_failed');
+    } else {
+      for (const row of (data ?? []) as Array<{ fecha: string; hora: string }>) {
+        // hora puede volver como 'HH:MM:SS' (TIME); normalizamos a 'HH:MM'.
+        occupiedSlots.add(`${row.fecha}|${String(row.hora).slice(0, 5)}`);
+      }
+    }
+  }
+
   for (const ev of timed) {
     if (existing.has(ev.id)) {
       report.skipped++;
@@ -200,6 +230,14 @@ export default async function handler(
     const slot = mapToLocal(ev.start!.dateTime as string, tz);
     if (!slot) {
       report.skipped++;
+      continue;
+    }
+    // B-1: el slot ya lo posee una fila whapify del endpoint (su INSERT precede a
+    // la creación del evento GCal). Omitimos para no duplicar; el warning lo hace
+    // auditable sin contar como error.
+    if (occupiedSlots.has(`${slot.fecha}|${slot.hora}`)) {
+      report.skipped++;
+      if (!warnings.includes('slot_owned_by_endpoint')) warnings.push('slot_owned_by_endpoint');
       continue;
     }
     const { error } = await supa.from('citas').insert({

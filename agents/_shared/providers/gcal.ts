@@ -20,6 +20,7 @@
  */
 
 import { createSign } from 'crypto';
+import { getOpticaTimezone } from '../config/timezone.js';
 
 interface ServiceAccountKey {
   client_email: string;
@@ -176,4 +177,67 @@ export async function listGCalEvents(opts: {
   }
 
   return events;
+}
+
+/**
+ * Crea un evento en Google Calendar. Hogar canónico del create (antes privado en
+ * api/citas.ts); reusado por POST /api/citas/from-whapify (W2 rama B).
+ *
+ * - Pasa `start.dateTime` (wall-clock SIN offset) + `timeZone`: Google aplica el
+ *   offset DST del día. Mismo patrón que api/citas.ts (evita errores de DST manual).
+ * - Degradación graceful: devuelve null (no lanza) si falta calendarId/token o la
+ *   API falla, para que el caller responda 200 + _warnings y nunca 500.
+ */
+export async function createGCalEvent(payload: {
+  titulo: string;
+  fecha: string;        // YYYY-MM-DD (wall-clock de la óptica)
+  hora: string;         // HH:MM 24h
+  duracion_min: number;
+  notas?: string | null;
+  calendarId?: string;
+}): Promise<string | null> {
+  const calendarId = payload.calendarId ?? process.env.GCAL_CALENDAR_ID;
+  if (!calendarId) {
+    console.warn('[gcal] GCAL_CALENDAR_ID no configurado — skip createGCalEvent');
+    return null;
+  }
+  const token = await getGCalToken();
+  if (!token) return null;
+
+  const startDt = `${payload.fecha}T${payload.hora}:00`;
+  // endDt se deriva sumando duracion_min al wall-clock. Parseamos con 'Z' para
+  // anclar el cálculo en UTC (aritmética estable en cualquier runtime, incluida
+  // una máquina dev no-UTC); el offset DST real lo aplica Google vía `timeZone`.
+  const endMs = new Date(`${startDt}Z`).getTime() + payload.duracion_min * 60 * 1000;
+  const endDt = new Date(endMs).toISOString().slice(0, 19);
+  const tz = getOpticaTimezone();
+
+  try {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), FETCH_TIMEOUT_MS);
+    const res = await fetch(
+      `${CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          summary: payload.titulo,
+          description: payload.notas ?? undefined,
+          start: { dateTime: startDt, timeZone: tz },
+          end: { dateTime: endDt, timeZone: tz },
+        }),
+        signal: ctl.signal,
+      },
+    );
+    clearTimeout(timer);
+    const ev = await res.json() as { id?: string; error?: unknown };
+    if (!res.ok || ev.error) {
+      console.error('[gcal] createGCalEvent API error:', res.status, JSON.stringify(ev.error ?? {}));
+      return null;
+    }
+    return ev.id ?? null;
+  } catch (err) {
+    console.error('[gcal] createGCalEvent fetch error:', err instanceof Error ? err.message : String(err));
+    return null;
+  }
 }
