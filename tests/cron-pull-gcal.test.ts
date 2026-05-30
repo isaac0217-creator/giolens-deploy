@@ -24,8 +24,13 @@ const mocks = vi.hoisted(() => {
     existingIds: string[];
     lookupError: { code?: string; message?: string } | null;
     insertError: (row: Record<string, unknown>) => { code?: string; message?: string } | null;
+    occupiedSlots: Array<{ fecha: string; hora: string }>; // filas whapify activas (guarda B-1)
+    slotLookupError: { code?: string; message?: string } | null;
   }
-  const fresh = (): Cfg => ({ existingIds: [], lookupError: null, insertError: () => null });
+  const fresh = (): Cfg => ({
+    existingIds: [], lookupError: null, insertError: () => null,
+    occupiedSlots: [], slotLookupError: null,
+  });
   let cfg: Cfg = fresh();
   const calls = {
     inserted: [] as Array<Record<string, unknown>>,
@@ -33,8 +38,17 @@ const mocks = vi.hoisted(() => {
     fromTables: [] as string[],
   };
 
+  // builder fake. Dos lecturas SELECT distintas:
+  //   1) lookup gcal_event_id → termina en `.in()` (devuelve Promise).
+  //   2) lookup de slots ocupados (guarda B-1) → encadena .eq/.neq/.gte/.lte y se
+  //      AWAIT directamente sobre el builder → resuelto vía `.then`.
+  // El insert termina en `.insert()` (Promise). No hay ambigüedad entre paths.
   const builder: Record<string, unknown> = {
     select() { return builder; },
+    eq() { return builder; },
+    neq() { return builder; },
+    gte() { return builder; },
+    lte() { return builder; },
     in(col: string, vals: unknown) {
       calls.inArgs.push({ col, vals });
       if (cfg.lookupError) return Promise.resolve({ data: null, error: cfg.lookupError });
@@ -46,6 +60,12 @@ const mocks = vi.hoisted(() => {
     insert(row: Record<string, unknown>) {
       calls.inserted.push(row);
       return Promise.resolve({ error: cfg.insertError(row) });
+    },
+    then(onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) {
+      const result = cfg.slotLookupError
+        ? { data: null, error: cfg.slotLookupError }
+        : { data: cfg.occupiedSlots, error: null };
+      return Promise.resolve(result).then(onF, onR);
     },
   };
 
@@ -218,6 +238,36 @@ describe('cron pull-gcal — doble-escritura opción (a)', () => {
     expect(res.body.inserted).toBe(0);
     expect(mocks.calls.inserted).toHaveLength(0);
     expect(res.body.skipped).toBeGreaterThanOrEqual(2);
+  });
+
+  // ── Carrera endpoint↔cron (B-1) ────────────────────────────────────────────
+  it('B-1: omite el evento cuyo slot ya posee una fila whapify del endpoint (gcal_event_id aún NULL)', async () => {
+    // El endpoint /api/citas/from-whapify INSERTa la fila (slot 2026-05-29 10:00
+    // local Tijuana) ANTES de crear el evento en GCal → su gcal_event_id es NULL,
+    // por eso ev1 NO está en existingIds. Pero el slot SÍ está ocupado. Sin la
+    // guarda el cron insertaría un duplicado (paciente_hash distinto ⇒ el índice
+    // único 028 no lo atrapa). La hora viene como TIME 'HH:MM:SS' desde Postgres.
+    currentEvents = [evt('ev1', '2026-05-29T17:00:00Z')]; // 17:00Z = 10:00 Tijuana
+    mocks.setCfg({ occupiedSlots: [{ fecha: '2026-05-29', hora: '10:00:00' }] });
+    const res = makeRes();
+    await handler(makeReq(), res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.inserted).toBe(0);
+    expect(mocks.calls.inserted).toHaveLength(0);
+    expect(res.body.skipped).toBeGreaterThanOrEqual(1);
+    expect(res.body._warnings).toContain('slot_owned_by_endpoint');
+  });
+
+  it('B-1: la guarda es por slot — un evento en otro horario del mismo día NO se bloquea', async () => {
+    currentEvents = [evt('ev2', '2026-05-29T18:00:00Z')]; // 11:00 Tijuana
+    mocks.setCfg({ occupiedSlots: [{ fecha: '2026-05-29', hora: '10:00:00' }] }); // 10:00 ocupado, no 11:00
+    const res = makeRes();
+    await handler(makeReq(), res);
+
+    expect(res.body.inserted).toBe(1);
+    expect(mocks.calls.inserted[0].gcal_event_id).toBe('ev2');
+    expect(res.body._warnings ?? []).not.toContain('slot_owned_by_endpoint');
   });
 
   // ── Conflicto de slot ─────────────────────────────────────────────────────
