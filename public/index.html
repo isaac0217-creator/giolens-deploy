@@ -1798,7 +1798,7 @@ document.addEventListener('keydown',e=>{
       page_size: '100',
     });
     try{
-      const r=await fetch(`/api/citas?${params}`);
+      const r=await fetch(`/api/citas-ui?${params}`);
       if(!r.ok)throw new Error(`HTTP ${r.status}`);
       const d=await r.json();
       if(!d||d.ok===false)throw new Error(d?.error||'Error del servidor');
@@ -1871,10 +1871,9 @@ document.addEventListener('keydown',e=>{
     body.innerHTML='<div class="agenda-empty"><span class="agenda-spinner"></span>Cargando…</div>';
     bd.classList.add('open');
     try{
-      const r=await fetch(`/api/citas?fecha_desde=2020-01-01&fecha_hasta=2099-12-31&page_size=1&page=1`);
-      // Cargamos el día actual y buscamos el id — en producción habría /api/citas/:id
-      // Fallback: releer lista del día y encontrar por id
-      const lista=await fetch(`/api/citas?fecha_desde=${AGENDA_FECHA}&fecha_hasta=${AGENDA_FECHA}&page_size=100`);
+      // Releer la lista del día (BFF de lectura) y encontrar la cita por id.
+      // (en producción habría /api/citas-ui/:id; por ahora se filtra client-side)
+      const lista=await fetch(`/api/citas-ui?fecha_desde=${AGENDA_FECHA}&fecha_hasta=${AGENDA_FECHA}&page_size=100`);
       if(!lista.ok)throw new Error(`HTTP ${lista.status}`);
       const d=await lista.json();
       const cita=(d.citas||[]).find(c=>c.id===id);
