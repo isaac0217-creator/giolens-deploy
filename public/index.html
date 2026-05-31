@@ -462,6 +462,85 @@
   .crm-global-kpi strong{display:block;font-size:22px;font-weight:300;color:var(--txt)}
   .crm-global-kpi span{font-size:11px;color:var(--faint)}
   .crm-m-note{font-size:11px;color:var(--faint);margin-bottom:10px;line-height:1.5;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.02)}
+
+  /* ╔══════════════════════════════════════════════════════════════════════╗
+     ║ REBANADA 2 · RESKIN FASE 1 — Tema "GioLens liquid glass" (claro)       ║
+     ║ SOLO color + tipografía. 100% ADITIVO y REVERTIBLE.                    ║
+     ║ NO toca: markup, JS, selectores, data-*, @media print, gradiente #g1,  ║
+     ║          ni el fondo animado (#bg / .aurora → Fase 2).                  ║
+     ║ Para revertir: borrar este bloque completo (hasta el cierre del style).║
+     ║ Mecanismo: override de variables + remapeo de colores hardcodeados      ║
+     ║ dark-theme a sus equivalentes claros, sobre las clases YA existentes.  ║
+     ╚══════════════════════════════════════════════════════════════════════╝ */
+  /* EXCLUSIONES (fuera del alcance CSS-only de Fase 1, requieren slice JS aparte):
+     - Gráfico Chart.js de consumo: línea/ejes/grid/ticks van hardcodeados en el
+       <script> inline (≈ config del `new Chart(...)`) → quedan en tono oscuro
+       sobre el panel claro (ticks/grid casi invisibles). Tematizar por
+       getComputedStyle en un slice JS posterior.
+     - Track del anillo de avance del proyecto: <circle stroke="rgba(255,255,255,.08)">
+       construido en JS → invisible sobre claro. Mismo slice JS. */
+  :root{
+    --bg:#eef1f7;                 /* fondo base (el animado llega en Fase 2)   */
+    --panel:#ffffff;              /* panel plano claro (Fase 2 lo vuelve vidrio)*/
+    --line:rgba(20,28,46,.10);    /* borde (variante .06 reservada a Fase 2)   */
+    --txt:#15181f;                /* texto principal                           */
+    --dim:#525a68;                /* texto secundario                          */
+    --faint:#8a93a1;              /* texto tenue                               */
+    --a1:#3a6fc2;                 /* acento                                    */
+    --a2:#5a86cf;                 /* acento, tinte claro del mismo tono (grad.)*/
+    --up:#3f9a6e;                 /* semáforo verde (desaturado)               */
+    --amber:#b58a2c;              /* semáforo ámbar (desaturado)               */
+    --down:#c75d63;               /* semáforo rojo (desaturado)                */
+    /* A11Y opcional (decisión Isaac en el smoke): los tokens de arriba son los
+       especificados. Sobre fondo claro, --faint (3.10) y --up/--amber rozan/
+       incumplen WCAG AA en texto pequeño. Para subir a AA sin cambiar el tono,
+       descomentar estos overrides más oscuros del mismo matiz:
+         --faint:#6b7280;  --up:#2f7d57;  --amber:#946d1f;  --down:#bd545a; */
+  }
+
+  /* Tipografía del sistema + números tabulares + tracking amplio en marca/etiquetas */
+  body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",system-ui,sans-serif}
+  .hero .big,.card .kv,.pipe .pt,.consumo-kpi-value,.crm-kpi strong,.crm-global-kpi strong,
+  .ring .pc b,.agenda-hora,.mh .mt b,.pm b,.frate u{font-variant-numeric:tabular-nums}
+  .brand{letter-spacing:.18em}
+  .sec-t,.hero .lbl,.card .kl,.v2{letter-spacing:.2em}
+
+  /* Texto sobre acento azul: blanco (contraste; antes #06121a casi-negro) */
+  .toggle button.on,.mbtn,.anum,.consumo-tab.on,.agenda-nueva-btn,.exp-search-btn,.agenda-btn-primary{color:#fff}
+
+  /* Estado seleccionado de rangos (antes rgba(255,255,255,.1) → invisible en claro) */
+  .ranges button.on{background:rgba(58,111,194,.12);color:var(--a1)}
+
+  /* Bordes de hover (antes blanco translúcido → invisible en claro) */
+  .card:hover,.camp:hover,.capa:hover,.agenda-cita:hover,.crm-m-card:hover{border-color:rgba(20,28,46,.20)}
+
+  /* Superficies de input / control / ghost / fila (antes blanco translúcido sobre oscuro) */
+  .msel,.ctx textarea,.exp-filters input[type=date],.exp-filters input[type=text],
+  .agenda-form-field input,.agenda-form-field select,.agenda-form-field textarea,
+  .mbtn.ghost,.agenda-btn-ghost,.exp-action-btn,.agenda-cita,.crm-kpi{background:rgba(20,28,46,.04)}
+  .alert,.crm-m-note,.agenda-chip.cancelada{background:rgba(20,28,46,.025)}
+
+  /* Tracks / barras de fondo (antes blanco translúcido) */
+  .funnel,.capa .cbar,.mod .mb{background:rgba(20,28,46,.08)}
+
+  /* Spinners (borde base) */
+  .consumo-spinner,.exp-spinner,.agenda-spinner{border-color:rgba(20,28,46,.12)}
+
+  /* Hover de botones de cierre de modal */
+  .exp-modal-close:hover,.agenda-modal-close:hover{background:rgba(20,28,46,.06)}
+
+  /* Tintes de acento (antes cian rgba(34,211,238,…) ligado al viejo --a1) */
+  .scriptbox{background:rgba(58,111,194,.06);border-color:rgba(58,111,194,.20)}
+  .exp-action-btn:hover{background:rgba(58,111,194,.08)}
+  .agenda-form-field input:focus,.agenda-form-field select:focus,.agenda-form-field textarea:focus{box-shadow:0 0 0 3px rgba(58,111,194,.14)}
+  .crm-stag-val.time{background:rgba(58,111,194,.10)}
+  .agenda-chip.realizada{border-color:rgba(58,111,194,.35);background:rgba(58,111,194,.08)}
+
+  /* Modales: superficie clara (antes #13141a) + scrim suave (conserva el blur base) */
+  .exp-modal,.agenda-modal{background:#fff;border-color:rgba(20,28,46,.12)}
+  .agenda-form-field select option{background:#fff;color:var(--txt)}
+  .exp-modal-backdrop,.agenda-modal-backdrop{background:rgba(28,38,56,.32)}
+  /* ── fin Reskin Fase 1 ─────────────────────────────────────────────────── */
 </style>
 </head>
 <body>
