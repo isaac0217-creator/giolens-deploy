@@ -18,7 +18,11 @@
  *     Bearer-gated; este BFF es de lectura, como expediente-list-ui).
  *   - Origin/Referer check: giolens-dashboard*.vercel.app + localhost.
  *   - Cache-Control: no-store.
- *   - La tabla `citas` es no-PII por diseño (paciente_hash, nunca nombre/tel/email).
+ *   - PII de acceso interno: desde la rebanada "tarjeta de agenda enriquecida"
+ *     (migration 029), este BFF SÍ devuelve nombre_paciente/telefono_paciente
+ *     (PII) y producto_motivo (no PII) para la recepcionista. Esa PII se expone
+ *     ÚNICAMENTE por este path Origin-gated + no-store — NUNCA por /api/citas
+ *     (Bearer/programático, sigue no-PII) ni en logs. Email NUNCA se expone.
  *
  * Query params: fecha_desde, fecha_hasta, estado, optometrista,
  *               page (default 1), page_size (default 50, max 100).
@@ -75,8 +79,12 @@ function setBaseHeaders(res: VercelLikeRes, origin: string): void {
   res.setHeader('Vary', 'Origin');
 }
 
-// Columnas no-PII (misma lista curada que api/citas.ts). La tabla `citas` no
-// almacena nombre/teléfono/email: identifica al paciente sólo por paciente_hash.
+// Columnas devueltas al dashboard. Incluye paciente_hash (identificador técnico) +
+// los 3 campos de enriquecimiento de la tarjeta de agenda (migration 029):
+//   - nombre_paciente, telefono_paciente: PII de acceso interno (solo este BFF).
+//   - producto_motivo: NO PII.
+// Email NUNCA se incluye (no se necesita en la tarjeta y se evita ampliar el blast
+// radius de PII). Esta es la ÚNICA ruta que expone estos 3 campos.
 const SELECT_COLS = [
   'id',
   'fecha',
@@ -92,6 +100,9 @@ const SELECT_COLS = [
   'confirmacion_enviada_at',
   'created_at',
   'updated_at',
+  'nombre_paciente',
+  'telefono_paciente',
+  'producto_motivo',
 ].join(', ');
 
 const ESTADOS_VALIDOS = ['agendada', 'confirmada', 'cancelada', 'realizada'];

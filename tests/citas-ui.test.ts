@@ -199,16 +199,30 @@ describe('GET /api/citas-ui — BFF de agenda (Origin-gated, sin Bearer)', () =>
     expect(f?.val).toBe('%a\\%\\_\\\\b%');
   });
 
-  // ── No-PII ───────────────────────────────────────────────────────────────
-  it('las columnas pedidas NUNCA incluyen PII cruda (nombre/teléfono/email)', async () => {
+  // ── Exposición acotada de PII (rebanada tarjeta enriquecida, migration 029) ──
+  it('expone los 3 campos de enriquecimiento (nombre/teléfono/producto) pero NUNCA email/firma', async () => {
     const res = makeRes();
     await handler(makeReq({ headers: { origin: DASH } }), res);
     // Tokens exactos (evita falsos positivos tipo "confirmacion" ⊃ "firma").
     const colTokens = mocks.calls.selectCols.join(',').split(/[\s,]+/).filter(Boolean);
-    expect(colTokens).toContain('paciente_hash');
-    for (const pii of ['nombre', 'paciente_nombre', 'telefono', 'paciente_telefono', 'teléfono', 'email', 'paciente_email', 'firma', 'firma_data_url']) {
-      expect(colTokens).not.toContain(pii);
+    // Identificador técnico + enriquecimiento de la tarjeta.
+    for (const col of ['paciente_hash', 'nombre_paciente', 'telefono_paciente', 'producto_motivo']) {
+      expect(colTokens).toContain(col);
     }
+    // Email/firma JAMÁS se exponen (blast radius de PII acotado al mínimo de la tarjeta).
+    for (const forbidden of ['email', 'paciente_email', 'firma', 'firma_data_url']) {
+      expect(colTokens).not.toContain(forbidden);
+    }
+  });
+
+  it('devuelve nombre_paciente/telefono_paciente/producto_motivo de las filas', async () => {
+    mocks.setCfg({ rows: [{ id: 9, fecha: '2026-06-01', hora: '12:00:00', estado: 'confirmada', paciente_hash: 'h', nombre_paciente: 'Ana', telefono_paciente: '6641112233', producto_motivo: 'lentes de sol' }], count: 1 });
+    const res = makeRes();
+    await handler(makeReq({ headers: { origin: DASH }, query: { fecha_desde: '2026-06-01' } }), res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.citas[0].nombre_paciente).toBe('Ana');
+    expect(res.body.citas[0].telefono_paciente).toBe('6641112233');
+    expect(res.body.citas[0].producto_motivo).toBe('lentes de sol');
   });
 
   // ── Degradación ──────────────────────────────────────────────────────────

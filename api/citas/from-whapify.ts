@@ -30,14 +30,22 @@
  *   3. la fila lleva gcal_event_id, así el cron pull-gcal la reconoce y la omite
  *      (dedup por gcal_event_id), evitando doble-escritura GCal→citas.
  *
- * PII: NUNCA loggea ni devuelve el body crudo, el message, el REF ni el contact_id.
- *   paciente_hash = sha256(contact_id)[:16] (16 hex). El tag no trae PII.
+ * PII: NUNCA loggea ni devuelve el body crudo, el message, el REF, el contact_id,
+ *   el nombre ni el teléfono. paciente_hash = sha256(contact_id)[:16] (16 hex).
+ *   El tag NO trae PII (PROD es producto/motivo, no identifica al paciente).
+ *
+ * Enriquecimiento de la tarjeta de agenda (rebanada aditiva):
+ *   - nombre/teléfono: lookup BEST-EFFORT del CRM Whapify por contact_id
+ *     (fetchContactPII). Falla → se persiste con NULL (nunca rompe la cita).
+ *     Se guardan en `citas` (acceso restringido) PERO NUNCA se devuelven ni loguean.
+ *   - producto_motivo: campo opcional `PROD:` del tag (NO PII). Ausente → NULL.
  */
 
 import { createClient } from '@supabase/supabase-js';
 import { createHash, timingSafeEqual } from 'crypto';
 import { resolverYRevalidarCita } from '../../agents/_shared/citas/revalidar-cita.js';
 import { createGCalEvent } from '../../agents/_shared/providers/gcal.js';
+import { fetchContactPII } from '../../agents/_shared/providers/wapify-contact.js';
 
 interface VercelLikeReq {
   method?: string;
@@ -113,7 +121,29 @@ function parseBody(raw: unknown): ParsedBody | null {
   return { message, contactId };
 }
 
-const KNOWN_KEYS = new Set(['ESTADO', 'FECHA', 'HORA', 'REF', 'INT']);
+const KNOWN_KEYS = new Set(['ESTADO', 'FECHA', 'HORA', 'REF', 'INT', 'PROD']);
+
+/** Tope de longitud para producto_motivo (defensa contra tags abusivos). */
+const PRODUCTO_MOTIVO_MAX = 200;
+
+/**
+ * Sanea el valor `PROD:` del tag → texto plano breve o null.
+ *   - quita caracteres de control,
+ *   - colapsa espacios,
+ *   - recorta a PRODUCTO_MOTIVO_MAX,
+ *   - vacío tras limpiar → null (campo opcional: nunca se inventa).
+ * NO es PII, pero se trata con cuidado por si el bot colara texto raro.
+ */
+function sanitizeProductoMotivo(raw: string | null | undefined): string | null {
+  if (typeof raw !== 'string') return null;
+  // Quita controles C0/C1 + DEL (incluye \n, \r, \t) y colapsa espacios.
+  const cleaned = raw
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) return null;
+  return cleaned.slice(0, PRODUCTO_MOTIVO_MAX).trim();
+}
 
 /** Aísla el cuerpo del tag `##...##` que contiene ESTADO (ignora otros `##` del
  *  mensaje). Tolerante a posición: ESTADO no tiene que ser el primer campo. */
@@ -214,6 +244,8 @@ export default async function handler(
   const fechaTag = fields.FECHA ?? null;
   const horaTag = fields.HORA ?? null;
   const refCrudo = fields.REF ?? null;
+  // Producto/motivo (NO PII): campo opcional del tag. Ausente/vacío → null.
+  const productoMotivo = sanitizeProductoMotivo(fields.PROD ?? null);
 
   // ── Revalidación: el backend es la autoridad de la fecha ──
   const r = resolverYRevalidarCita(fechaTag, horaTag, refCrudo, new Date());
@@ -257,7 +289,21 @@ export default async function handler(
     return;
   }
 
+  // 1️⃣bis Enriquecimiento PII best-effort: nombre/teléfono del CRM Whapify por
+  // contact_id. NUNCA bloquea ni rompe la cita — falla → null + warning. Se hace
+  // sólo en la rama de creación (los hits idempotentes ya devolvieron arriba).
+  let nombrePaciente: string | null = null;
+  let telefonoPaciente: string | null = null;
+  const pii = await fetchContactPII(parsed.contactId);
+  if (pii) {
+    nombrePaciente = pii.nombre;
+    telefonoPaciente = pii.telefono;
+  } else {
+    warnings.push('crm_lookup_skipped');
+  }
+
   // 2️⃣ INSERT primero (gcal null) — captura la carrera vía índice único (mig 028).
+  // Columnas PII (nombre/telefono) y producto_motivo añadidas por migration 029.
   const { data: inserted, error: insErr } = await supabase
     .from('citas')
     .insert({
@@ -271,6 +317,9 @@ export default async function handler(
       notas: null,
       gcal_event_id: null,
       origen: 'whapify',
+      nombre_paciente: nombrePaciente,
+      telefono_paciente: telefonoPaciente,
+      producto_motivo: productoMotivo,
     })
     .select('id, gcal_event_id')
     .single();

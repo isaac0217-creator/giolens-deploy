@@ -368,6 +368,9 @@
   .agenda-info{flex:1;min-width:0}
   .agenda-tipo{font-size:13px;font-weight:500;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .agenda-hash{font-size:11px;font-family:monospace;color:var(--faint);letter-spacing:.04em}
+  .agenda-nombre{font-size:14px;font-weight:600;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .agenda-producto{font-size:12px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .agenda-tel{font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
   .agenda-opto{font-size:12px;color:var(--dim)}
   .agenda-chip{font-size:10px;font-weight:700;padding:3px 10px;border-radius:99px;border:1px solid;
     white-space:nowrap;letter-spacing:.04em}
@@ -605,7 +608,7 @@
   <!-- ══ Agenda · Citas ══ -->
   <div class="sec-t">Agenda · Citas del día</div>
   <div class="chart" id="agenda-panel">
-    <h4>Citas <span style="font-size:10.5px;color:var(--faint)">· sin PII · acceso interno</span></h4>
+    <h4>Citas <span style="font-size:10.5px;color:var(--faint)">· datos sensibles · acceso interno</span></h4>
     <div class="agenda-toolbar">
       <div class="agenda-date-nav">
         <button class="agenda-nav-btn" id="agenda-prev-day" title="Día anterior">‹</button>
@@ -1776,11 +1779,24 @@ document.addEventListener('keydown',e=>{
       const opto=esc(c.optometrista||'—');
       const chip=ESTADO_CHIP[c.estado]||'agenda-chip agendada';
       const estado=esc(c.estado||'agendada');
+      // Enriquecimiento (migration 029): nombre/teléfono (PII de acceso interno) +
+      // producto/motivo. Campo null/vacío → NO se renderiza la línea (sin undefined).
+      // Citas viejas sin nombre → fallback al hash, así siguen visibles (back-compat).
+      const nombre=String(c.nombre_paciente||'').trim();
+      const tel=String(c.telefono_paciente||'').trim();
+      const prod=String(c.producto_motivo||'').trim();
+      const idLine=nombre
+        ?`<div class="agenda-nombre">${esc(nombre)}</div>`
+        :`<div class="agenda-hash">${esc(hash)}…</div>`;
+      const prodLine=prod?`<div class="agenda-producto">${esc(prod)}</div>`:'';
+      const telLine=tel?`<div class="agenda-tel">${esc(tel)}</div>`:'';
       return`<div class="agenda-cita" onclick="window.__agendaAbrirDetalle(${c.id})">
         <div class="agenda-hora">${esc(hora)}</div>
         <div class="agenda-info">
+          ${idLine}
           <div class="agenda-tipo">${esc(tipo)}</div>
-          <div class="agenda-hash">${esc(hash)}…</div>
+          ${prodLine}
+          ${telLine}
           <div class="agenda-opto">${opto}</div>
         </div>
         <span class="${chip}">${estado}</span>
@@ -1841,13 +1857,20 @@ document.addEventListener('keydown',e=>{
     const gcalLink=c.gcal_event_id
       ?`<a href="https://calendar.google.com/calendar/event?eid=${encodeURIComponent(c.gcal_event_id)}" target="_blank" rel="noopener" style="color:var(--a1)">${esc(c.gcal_event_id.slice(0,20))}…</a>`
       :'—';
+    // Enriquecimiento (migration 029): solo se muestran si hay dato (no se inventan).
+    const nombre=String(c.nombre_paciente||'').trim();
+    const tel=String(c.telefono_paciente||'').trim();
+    const prod=String(c.producto_motivo||'').trim();
     return`
       <div style="margin-bottom:16px">
         <span class="${chip}" style="font-size:11px">${esc(c.estado||'agendada')}</span>
       </div>
+      ${nombre?fila('Nombre',esc(nombre)):''}
+      ${tel?fila('Teléfono',esc(tel)):''}
       ${fila('Fecha',esc(c.fecha||'—'))}
       ${fila('Hora',esc(String(c.hora||'—').slice(0,5)))}
       ${fila('Tipo',esc(tipo))}
+      ${prod?fila('Producto / motivo',esc(prod)):''}
       ${fila('Optometrista',esc(c.optometrista||'—'))}
       ${fila('Hash paciente','<span style="font-family:monospace;font-size:11px;color:var(--faint)">'+esc(c.paciente_hash||'—')+'</span>')}
       ${fila('Duración',c.duracion_min?(c.duracion_min+' min'):'—')}
