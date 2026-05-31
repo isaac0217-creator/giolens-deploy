@@ -95,6 +95,9 @@ function jsonResponse(body: unknown, { ok = true, status = 200 } = {}) {
   return { ok, status, statusText: 'OK', json: async () => body, text: async () => JSON.stringify(body) };
 }
 let fetchCalls: string[] = [];
+// Respuesta configurable del lookup CRM Whapify (GET /api/contacts/{id}).
+// Default: quirk 200+{error} → fetchContactPII degrada a null (sin nombre/teléfono).
+let contactResponse: unknown = { error: { code: 404 } };
 function installFetch() {
   fetchCalls = [];
   global.fetch = vi.fn(async (url: unknown) => {
@@ -102,10 +105,12 @@ function installFetch() {
     fetchCalls.push(u);
     if (u.includes('oauth2.googleapis.com/token')) return jsonResponse({ access_token: 'fake-access-token' }) as any;
     if (u.includes('/calendar/v3/calendars/')) return jsonResponse({ id: 'gcal-evt-123' }) as any;
+    if (u.includes('/api/contacts/')) return jsonResponse(contactResponse) as any;
     throw new Error(`unexpected fetch: ${u}`);
   }) as unknown as typeof fetch;
 }
 const gcalPosts = () => fetchCalls.filter((u) => u.includes('/calendar/v3/calendars/'));
+const crmLookups = () => fetchCalls.filter((u) => u.includes('/api/contacts/'));
 
 // ─── req/res helpers ─────────────────────────────────────────────────────────
 const SECRET = 'test_wapify_secret_w2';
@@ -134,13 +139,14 @@ function makeReq({
   return { method, query, headers: hdrs, body };
 }
 
-function tag(fields: { estado?: string; fecha?: string; hora?: string; ref?: string; int?: string }) {
+function tag(fields: { estado?: string; fecha?: string; hora?: string; ref?: string; int?: string; prod?: string }) {
   const f = { estado: 'CITA_AGENDADA', fecha: '2026-05-28', hora: '14:00', int: 'I3', ...fields };
   const parts = [
     `ESTADO:${f.estado}`,
     `FECHA:${f.fecha}`,
     `HORA:${f.hora}`,
     ...(f.ref !== undefined ? [`REF:${f.ref}`] : []),
+    ...(f.prod !== undefined ? [`PROD:${f.prod}`] : []),
     `INT:${f.int}`,
   ];
   return `Listo, te confirmo tu cita. ##${parts.join('|')}##`;
@@ -161,6 +167,7 @@ describe('POST /api/citas/from-whapify — W2 rama B', () => {
     mocks.calls.updated.length = 0;
     mocks.calls.selects.length = 0;
     mocks.resetCfg();
+    contactResponse = { error: { code: 404 } }; // default: CRM lookup degrada a null
     installFetch();
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(AHORA);
@@ -174,6 +181,7 @@ describe('POST /api/citas/from-whapify — W2 rama B', () => {
     delete (global as { fetch?: unknown }).fetch;
     delete process.env.WAPIFY_WEBHOOK_SECRET;
     delete process.env.OPTICA_TIMEZONE;
+    delete process.env.WAPIFY_TOKEN;
   });
 
   // ── Auth ────────────────────────────────────────────────────────────────--
@@ -462,5 +470,95 @@ describe('POST /api/citas/from-whapify — W2 rama B', () => {
     // la fila guarda el hash, no el contact_id crudo
     expect(mocks.calls.inserted[0].paciente_hash).not.toContain('contact-secreto');
     expect(String(mocks.calls.inserted[0].paciente_hash)).toMatch(/^[a-f0-9]{16}$/);
+  });
+
+  // ── PROD (producto/motivo) — tag extendido tolerante ───────────────────────--
+  it('PROD presente → producto_motivo saneado en la fila', async () => {
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 20, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    await handler(makeReq({ query: { secret: SECRET }, body: { message: tag({ prod: 'Lentes Ray-Ban polarizados' }), contact_id: 'c1' } }), res);
+    expect(res.body.action).toBe('created');
+    expect(mocks.calls.inserted[0].producto_motivo).toBe('Lentes Ray-Ban polarizados');
+  });
+
+  it('PROD ausente → producto_motivo null (opcional, nunca se inventa)', async () => {
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 21, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    await handler(makeReq({ query: { secret: SECRET }, body: { message: tag({}), contact_id: 'c1' } }), res);
+    expect(res.body.action).toBe('created');
+    expect(mocks.calls.inserted[0].producto_motivo).toBeNull();
+  });
+
+  it('PROD con `|` literal → continuación greedy, no rompe el parseo', async () => {
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 22, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    const message = '##ESTADO:CITA_AGENDADA|FECHA:2026-05-28|HORA:14:00|PROD:lentes | bifocales antirreflejante##';
+    await handler(makeReq({ query: { secret: SECRET }, body: { message, contact_id: 'c1' } }), res);
+    expect(res.body.action).toBe('created');
+    expect(mocks.calls.inserted[0].producto_motivo).toBe('lentes | bifocales antirreflejante');
+  });
+
+  it('PROD con controles (\\t,\\n) + espacios → saneado, sin control chars', async () => {
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 23, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    const message = '##ESTADO:CITA_AGENDADA|FECHA:2026-05-28|HORA:14:00|PROD:miopia\t  progresiva\n|INT:I3##';
+    await handler(makeReq({ query: { secret: SECRET }, body: { message, contact_id: 'c1' } }), res);
+    expect(res.body.action).toBe('created');
+    expect(mocks.calls.inserted[0].producto_motivo).toBe('miopia progresiva');
+  });
+
+  it('PROD larguísimo → recortado a 200 chars', async () => {
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 24, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    await handler(makeReq({ query: { secret: SECRET }, body: { message: tag({ prod: 'a'.repeat(500) }), contact_id: 'c1' } }), res);
+    expect(res.body.action).toBe('created');
+    expect(String(mocks.calls.inserted[0].producto_motivo).length).toBe(200);
+  });
+
+  it('ejemplo CANÓNICO del sub-prompt (acento + coma, antes de INT) → se parsea íntegro', async () => {
+    // Pin del contrato con el bot: ...|REF:eco123|PROD:lentes progresivos, vé borroso de lejos|INT:I1##
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 27, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    const message = tag({ ref: 'eco123', prod: 'lentes progresivos, vé borroso de lejos', int: 'I1' });
+    await handler(makeReq({ query: { secret: SECRET }, body: { message, contact_id: 'c1' } }), res);
+    expect(res.body.action).toBe('created');
+    expect(mocks.calls.inserted[0].producto_motivo).toBe('lentes progresivos, vé borroso de lejos');
+  });
+
+  // ── Lookup CRM (nombre/teléfono PII) ───────────────────────────────────────--
+  it('lookup CRM OK → nombre/teléfono en la fila, PERO NUNCA en la respuesta', async () => {
+    process.env.WAPIFY_TOKEN = 'tok';
+    contactResponse = { full_name: 'María Gómez', phone: '+526649998877', email: 'm@x.com' };
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 25, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    await handler(makeReq({ query: { secret: SECRET }, body: { message: tag({}), contact_id: 'contact-xyz' } }), res);
+    expect(res.body.action).toBe('created');
+    expect(crmLookups()).toHaveLength(1);
+    expect(mocks.calls.inserted[0].nombre_paciente).toBe('María Gómez');
+    expect(mocks.calls.inserted[0].telefono_paciente).toBe('+526649998877');
+    // PII jamás en la respuesta del endpoint de captura.
+    expect(JSON.stringify(res.body)).not.toMatch(/María|Gómez|6649998877|contact-xyz/i);
+  });
+
+  it('lookup CRM falla (404) → nombre/teléfono null + warning, cita igual se crea', async () => {
+    process.env.WAPIFY_TOKEN = 'tok';
+    contactResponse = { error: { code: 404 } };
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 26, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    await handler(makeReq({ query: { secret: SECRET }, body: { message: tag({}), contact_id: 'c1' } }), res);
+    expect(res.body.action).toBe('created');
+    expect(mocks.calls.inserted[0].nombre_paciente).toBeNull();
+    expect(mocks.calls.inserted[0].telefono_paciente).toBeNull();
+    expect(res.body._warnings).toContain('crm_lookup_skipped');
+  });
+
+  it('hit idempotente NO hace lookup CRM (no gasta quota Whapify)', async () => {
+    process.env.WAPIFY_TOKEN = 'tok';
+    contactResponse = { full_name: 'No debe leerse' };
+    mocks.setCfg({ existing: { id: 42, gcal_event_id: 'gcal-old' } });
+    const res = makeRes();
+    await handler(makeReq({ query: { secret: SECRET }, body: { message: tag({}), contact_id: 'c1' } }), res);
+    expect(res.body.action).toBe('idempotent');
+    expect(crmLookups()).toHaveLength(0);
   });
 });
