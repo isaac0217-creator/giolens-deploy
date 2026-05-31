@@ -1910,7 +1910,7 @@ document.addEventListener('keydown',e=>{
   window.__agendaConfirmar = async function(id){
     if(!confirm('¿Confirmar esta cita?'))return;
     try{
-      const r=await fetch(`/api/citas?id=${id}`,{method:'PUT',
+      const r=await fetch(`/api/citas-write-ui?id=${id}`,{method:'PUT',
         headers:{'Content-Type':'application/json'},body:JSON.stringify({estado:'confirmada'})});
       const d=await r.json();
       if(!d.ok)throw new Error(d.error||'Error');
@@ -1923,7 +1923,7 @@ document.addEventListener('keydown',e=>{
   window.__agendaCancelar = async function(id){
     if(!confirm('¿Cancelar esta cita? Esta acción también cancela el evento en Google Calendar.'))return;
     try{
-      const r=await fetch(`/api/citas?id=${id}`,{method:'PUT',
+      const r=await fetch(`/api/citas-write-ui?id=${id}`,{method:'PUT',
         headers:{'Content-Type':'application/json'},body:JSON.stringify({estado:'cancelada'})});
       const d=await r.json();
       if(!d.ok)throw new Error(d.error||'Error');
@@ -1988,7 +1988,7 @@ document.addEventListener('keydown',e=>{
     else{if(email)body.paciente_email=email;if(tel)body.paciente_telefono=tel;}
 
     try{
-      const r=await fetch('/api/citas',{method:'POST',
+      const r=await fetch('/api/citas-write-ui',{method:'POST',
         headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       const d=await r.json();
       if(!d.ok)throw new Error(d.error||'Error del servidor');
