@@ -541,10 +541,73 @@
   .agenda-form-field select option{background:#fff;color:var(--txt)}
   .exp-modal-backdrop,.agenda-modal-backdrop{background:rgba(28,38,56,.32)}
   /* ── fin Reskin Fase 1 ─────────────────────────────────────────────────── */
+
+  /* ╔══════════════════════════════════════════════════════════════════════╗
+     ║ REBANADA 3 · RESKIN FASE 2 — vidrio (.glass) + fondo "liquid" claro     ║
+     ║ ADITIVO y REVERTIBLE: borrar este bloque CSS + el canvas #bg2 + su      ║
+     ║ script restaura Fase 1. NO renombra clases, NO mueve el script          ║
+     ║ existente, NO rompe print (reset print explícito al final del bloque).  ║
+     ╚══════════════════════════════════════════════════════════════════════╝ */
+  /* Superficie translúcida base: el backdrop-blur necesita algo que refractar */
+  :root{ --panel:rgba(255,255,255,.55); --r:22px; }
+
+  /* Superficie .glass sobre los contenedores existentes (sin renombrar) */
+  .glass,
+  .card,.chart,.pipe,.port,.motor,.proj,.consumo-kpi,.crm-m-card{
+    background:rgba(255,255,255,.55);
+    backdrop-filter:blur(22px) saturate(180%);
+    -webkit-backdrop-filter:blur(22px) saturate(180%);
+    border:1px solid rgba(255,255,255,.70);
+    border-radius:22px;
+    box-shadow:0 1px 0 rgba(255,255,255,.65) inset,
+               0 10px 30px -14px rgba(20,28,46,.22),
+               0 3px 10px -6px rgba(20,28,46,.13);
+  }
+  /* Modales: vidrio más opaco para legibilidad sobre el scrim */
+  .exp-modal,.agenda-modal{
+    background:rgba(255,255,255,.86);
+    backdrop-filter:blur(26px) saturate(180%);
+    -webkit-backdrop-filter:blur(26px) saturate(180%);
+    border:1px solid rgba(255,255,255,.70);border-radius:22px;
+    box-shadow:0 24px 60px -24px rgba(20,28,46,.40);
+  }
+
+  /* Fondo: ocultar el animado oscuro previo (Fase 2 lo reemplaza) */
+  #bg,.aurora{display:none}
+  /* Lienzo de fondo claro, detrás de todo, sin capturar el puntero */
+  #bg2{position:fixed;inset:0;z-index:-2;display:block;pointer-events:none}
+
+  /* Controles que usan --panel pero NO tienen blur propio: darles el frosting
+     del vidrio para que no queden 55% translúcidos planos sobre el fondo. */
+  .consumo-tab,.exp-pg-btn,.agenda-nav-btn,.agenda-hoy-btn,.crm-global-kpi,#btn-crm-refresh{
+    backdrop-filter:blur(8px) saturate(150%);
+    -webkit-backdrop-filter:blur(8px) saturate(150%);
+  }
+
+  /* Fallback: si el navegador NO soporta backdrop-filter, los paneles quedan
+     casi opacos para no perder legibilidad (texto tenue sobre 55% translúcido). */
+  @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+    :root{ --panel:rgba(255,255,255,.92); }
+    .glass,.card,.chart,.pipe,.port,.motor,.proj,.consumo-kpi,.crm-m-card{background:rgba(255,255,255,.92)}
+    .exp-modal,.agenda-modal{background:#fff}
+  }
+
+  /* PRINT: el vidrio NO debe filtrarse al PDF. Estas reglas van DESPUÉS del
+     @media print original; el reset !important mantiene el export claro y plano. */
+  @media print{
+    .glass,.card,.chart,.pipe,.port,.motor,.proj,.consumo-kpi,.crm-m-card,
+    .exp-modal,.agenda-modal{
+      background:#fff!important;backdrop-filter:none!important;
+      -webkit-backdrop-filter:none!important;border:1px solid #ddd!important;
+      box-shadow:none!important;border-radius:12px!important}
+    #bg2{display:none!important}
+  }
+  /* ── fin Reskin Fase 2 ─────────────────────────────────────────────────── */
 </style>
 </head>
 <body>
 <canvas id="bg"></canvas>
+<canvas id="bg2" aria-hidden="true"></canvas><!-- Reskin Fase 2: fondo liquid glass (aditivo) -->
 <div class="aurora a"></div><div class="aurora b"></div>
 
 <div class="wrap">
@@ -2126,6 +2189,40 @@ document.addEventListener('keydown',e=>{
 
 })();
 
+</script>
+<script>
+/* ════ Reskin Fase 2 · fondo "liquid glass" claro — canvas aislado #bg2 ════
+   Aditivo y autocontenido: solo toca #bg2. z-index detrás de todo,
+   pointer-events:none (vía CSS). Degradado base #f6f8fc→#e8ecf5 + blobs lentos.
+   Respeta prefers-reduced-motion (pinta un frame estático). */
+(function(){
+  var c=document.getElementById('bg2'); if(!c||!c.getContext) return;
+  var x=c.getContext('2d'), w=0, h=0, t=0;
+  var blobs=[
+    {rgb:'120,150,225', r:.42, ox:.18, oy:.14, sx:.6, sy:.5},
+    {rgb:'150,130,210', r:.40, ox:.82, oy:.80, sx:.5, sy:.7},
+    {rgb:'120,190,205', r:.34, ox:.60, oy:.28, sx:.7, sy:.4}
+  ];
+  function paint(animated){
+    var g=x.createLinearGradient(0,0,0,h);
+    g.addColorStop(0,'#f6f8fc'); g.addColorStop(1,'#e8ecf5');
+    x.fillStyle=g; x.fillRect(0,0,w,h);
+    for(var i=0;i<blobs.length;i++){
+      var b=blobs[i];
+      var cx=(b.ox + (animated?Math.sin(t*b.sx+i)*.06:0))*w;
+      var cy=(b.oy + (animated?Math.cos(t*b.sy+i*1.7)*.06:0))*h;
+      var rad=b.r*Math.max(w,h);
+      var rg=x.createRadialGradient(cx,cy,0,cx,cy,rad);
+      rg.addColorStop(0,'rgba('+b.rgb+',.14)'); rg.addColorStop(1,'rgba('+b.rgb+',0)');
+      x.fillStyle=rg; x.beginPath(); x.arc(cx,cy,rad,0,6.2832); x.fill();
+    }
+  }
+  function resize(){ w=c.width=innerWidth; h=c.height=innerHeight; }
+  addEventListener('resize', resize); resize();
+  var reduce = (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  if(reduce){ paint(false); }
+  else { (function loop(){ t+=.0015; paint(true); requestAnimationFrame(loop); })(); }
+})();
 </script>
 </body>
 </html>
