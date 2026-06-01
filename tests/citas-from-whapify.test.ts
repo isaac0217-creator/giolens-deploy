@@ -139,7 +139,7 @@ function makeReq({
   return { method, query, headers: hdrs, body };
 }
 
-function tag(fields: { estado?: string; fecha?: string; hora?: string; ref?: string; int?: string; prod?: string; nombre?: string; tel?: string }) {
+function tag(fields: { estado?: string; fecha?: string; hora?: string; ref?: string; int?: string; prod?: string; nombre?: string; tel?: string; resumen?: string }) {
   const f = { estado: 'CITA_AGENDADA', fecha: '2026-05-28', hora: '14:00', int: 'I3', ...fields };
   const parts = [
     `ESTADO:${f.estado}`,
@@ -149,6 +149,7 @@ function tag(fields: { estado?: string; fecha?: string; hora?: string; ref?: str
     ...(f.prod !== undefined ? [`PROD:${f.prod}`] : []),
     ...(f.nombre !== undefined ? [`NOMBRE:${f.nombre}`] : []),
     ...(f.tel !== undefined ? [`TEL:${f.tel}`] : []),
+    ...(f.resumen !== undefined ? [`RESUMEN:${f.resumen}`] : []),
     `INT:${f.int}`,
   ];
   return `Listo, te confirmo tu cita. ##${parts.join('|')}##`;
@@ -637,5 +638,77 @@ describe('POST /api/citas/from-whapify — W2 rama B', () => {
     expect(mocks.calls.inserted[0].contact_id).toBe('contact-raw-99887766');
     // el contact_id raw nunca viaja en la respuesta del endpoint de captura.
     expect(JSON.stringify(res.body)).not.toMatch(/contact-raw|99887766/i);
+  });
+
+  // ── RESUMEN (resumen_expediente) — campo clínico opcional del tag (migration 031) ─--
+  it('RESUMEN presente → resumen_expediente saneado en la fila', async () => {
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 40, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    await handler(makeReq({ query: { secret: SECRET }, body: { message: tag({ resumen: 'Busca lentes progresivos, refiere visión borrosa de lejos; se sugiere examen refractivo' }), contact_id: 'c1' } }), res);
+    expect(res.body.action).toBe('created');
+    expect(mocks.calls.inserted[0].resumen_expediente).toBe('Busca lentes progresivos, refiere visión borrosa de lejos; se sugiere examen refractivo');
+  });
+
+  it('RESUMEN ausente → resumen_expediente null (opcional, nunca se inventa)', async () => {
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 41, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    await handler(makeReq({ query: { secret: SECRET }, body: { message: tag({}), contact_id: 'c1' } }), res);
+    expect(res.body.action).toBe('created');
+    expect(mocks.calls.inserted[0].resumen_expediente).toBeNull();
+  });
+
+  it('RESUMEN sólo espacios → null (no se inventa)', async () => {
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 42, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    await handler(makeReq({ query: { secret: SECRET }, body: { message: tag({ resumen: '    ' }), contact_id: 'c1' } }), res);
+    expect(res.body.action).toBe('created');
+    expect(mocks.calls.inserted[0].resumen_expediente).toBeNull();
+  });
+
+  it('RESUMEN con controles (\\t,\\n) + espacios → saneado, sin control chars', async () => {
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 43, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    const message = '##ESTADO:CITA_AGENDADA|FECHA:2026-05-28|HORA:14:00|RESUMEN:miopia\t  progresiva\n, urge\r lentes|INT:I3##';
+    await handler(makeReq({ query: { secret: SECRET }, body: { message, contact_id: 'c1' } }), res);
+    expect(res.body.action).toBe('created');
+    expect(mocks.calls.inserted[0].resumen_expediente).toBe('miopia progresiva , urge lentes');
+  });
+
+  it('RESUMEN con `#` y `|` → se quitan (no rompen el tag ni el parseo)', async () => {
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 44, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    // `|` dentro de RESUMEN: el parser greedy lo concatena (continuación), luego
+    // sanitizeResumen quita `|` y `#`. La cita igual se crea, sin caracteres peligrosos.
+    const message = '##ESTADO:CITA_AGENDADA|FECHA:2026-05-28|HORA:14:00|RESUMEN:busca lentes | #urgente#|INT:I3##';
+    await handler(makeReq({ query: { secret: SECRET }, body: { message, contact_id: 'c1' } }), res);
+    expect(res.body.action).toBe('created');
+    const r = String(mocks.calls.inserted[0].resumen_expediente);
+    expect(r).not.toMatch(/[|#]/);
+    expect(r).toBe('busca lentes urgente');
+  });
+
+  it('RESUMEN larguísimo → recortado a 300 chars', async () => {
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 45, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    await handler(makeReq({ query: { secret: SECRET }, body: { message: tag({ resumen: 'a'.repeat(800) }), contact_id: 'c1' } }), res);
+    expect(res.body.action).toBe('created');
+    expect(String(mocks.calls.inserted[0].resumen_expediente).length).toBe(300);
+  });
+
+  it('RESUMEN (clínico) NUNCA se loguea ni viaja en la respuesta', async () => {
+    const SENTINEL = 'PADECIMIENTO_CLINICO_SENSIBLE_XYZ';
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 46, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    await handler(makeReq({ query: { secret: SECRET }, body: { message: tag({ resumen: SENTINEL }), contact_id: 'c1' } }), res);
+    expect(res.body.action).toBe('created');
+    // Se persiste en la fila (acceso restringido)...
+    expect(mocks.calls.inserted[0].resumen_expediente).toBe(SENTINEL);
+    // ...pero JAMÁS en logs ni en la respuesta del endpoint.
+    const allLogs = [...logSpy.mock.calls, ...warnSpy.mock.calls, ...errSpy.mock.calls].flat().join(' ');
+    expect(allLogs).not.toContain(SENTINEL);
+    expect(JSON.stringify(res.body)).not.toContain(SENTINEL);
   });
 });

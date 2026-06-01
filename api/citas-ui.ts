@@ -20,9 +20,10 @@
  *   - Cache-Control: no-store.
  *   - PII de acceso interno: desde la rebanada "tarjeta de agenda enriquecida"
  *     (migration 029), este BFF SÍ devuelve nombre_paciente/telefono_paciente
- *     (PII) y producto_motivo (no PII) para la recepcionista. Esa PII se expone
- *     ÚNICAMENTE por este path Origin-gated + no-store — NUNCA por /api/citas
- *     (Bearer/programático, sigue no-PII) ni en logs. Email NUNCA se expone.
+ *     (PII) y producto_motivo (no PII) para la recepcionista. Desde migration 031
+ *     devuelve además resumen_expediente (información CLÍNICA sensible). Todo eso se
+ *     expone ÚNICAMENTE por este path Origin-gated + no-store — NUNCA por /api/citas
+ *     (Bearer/programático, sigue no-PII) ni en logs. Email/contact_id NUNCA se exponen.
  *
  * Query params: fecha_desde, fecha_hasta, estado, optometrista,
  *               page (default 1), page_size (default 50, max 100).
@@ -80,11 +81,13 @@ function setBaseHeaders(res: VercelLikeRes, origin: string): void {
 }
 
 // Columnas devueltas al dashboard. Incluye paciente_hash (identificador técnico) +
-// los 3 campos de enriquecimiento de la tarjeta de agenda (migration 029):
-//   - nombre_paciente, telefono_paciente: PII de acceso interno (solo este BFF).
-//   - producto_motivo: NO PII.
-// Email NUNCA se incluye (no se necesita en la tarjeta y se evita ampliar el blast
-// radius de PII). Esta es la ÚNICA ruta que expone estos 3 campos.
+// los campos de enriquecimiento de la tarjeta de agenda:
+//   - nombre_paciente, telefono_paciente: PII de acceso interno (migration 029, solo este BFF).
+//   - producto_motivo: NO PII (migration 029).
+//   - resumen_expediente: información CLÍNICA sensible (migration 031), acceso interno.
+// Email y contact_id (raw) NUNCA se incluyen (no se necesitan en la tarjeta y se evita
+// ampliar el blast radius de PII). Esta es la ÚNICA ruta que expone estos campos: NUNCA
+// se exponen por /api/citas (Bearer/programático, sigue no-PII) ni en logs.
 const SELECT_COLS = [
   'id',
   'fecha',
@@ -103,6 +106,7 @@ const SELECT_COLS = [
   'nombre_paciente',
   'telefono_paciente',
   'producto_motivo',
+  'resumen_expediente',
 ].join(', ');
 
 const ESTADOS_VALIDOS = ['agendada', 'confirmada', 'cancelada', 'realizada'];

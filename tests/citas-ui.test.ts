@@ -200,29 +200,30 @@ describe('GET /api/citas-ui — BFF de agenda (Origin-gated, sin Bearer)', () =>
   });
 
   // ── Exposición acotada de PII (rebanada tarjeta enriquecida, migration 029) ──
-  it('expone los 3 campos de enriquecimiento (nombre/teléfono/producto) pero NUNCA email/firma', async () => {
+  it('expone los campos de enriquecimiento (nombre/teléfono/producto/resumen) pero NUNCA email/firma/contact_id', async () => {
     const res = makeRes();
     await handler(makeReq({ headers: { origin: DASH } }), res);
     // Tokens exactos (evita falsos positivos tipo "confirmacion" ⊃ "firma").
     const colTokens = mocks.calls.selectCols.join(',').split(/[\s,]+/).filter(Boolean);
-    // Identificador técnico + enriquecimiento de la tarjeta.
-    for (const col of ['paciente_hash', 'nombre_paciente', 'telefono_paciente', 'producto_motivo']) {
+    // Identificador técnico + enriquecimiento de la tarjeta (incl. resumen clínico, mig 031).
+    for (const col of ['paciente_hash', 'nombre_paciente', 'telefono_paciente', 'producto_motivo', 'resumen_expediente']) {
       expect(colTokens).toContain(col);
     }
-    // Email/firma JAMÁS se exponen (blast radius de PII acotado al mínimo de la tarjeta).
-    for (const forbidden of ['email', 'paciente_email', 'firma', 'firma_data_url']) {
+    // Email/firma/contact_id JAMÁS se exponen (blast radius de PII acotado al mínimo de la tarjeta).
+    for (const forbidden of ['email', 'paciente_email', 'firma', 'firma_data_url', 'contact_id']) {
       expect(colTokens).not.toContain(forbidden);
     }
   });
 
-  it('devuelve nombre_paciente/telefono_paciente/producto_motivo de las filas', async () => {
-    mocks.setCfg({ rows: [{ id: 9, fecha: '2026-06-01', hora: '12:00:00', estado: 'confirmada', paciente_hash: 'h', nombre_paciente: 'Ana', telefono_paciente: '6641112233', producto_motivo: 'lentes de sol' }], count: 1 });
+  it('devuelve nombre_paciente/telefono_paciente/producto_motivo/resumen_expediente de las filas', async () => {
+    mocks.setCfg({ rows: [{ id: 9, fecha: '2026-06-01', hora: '12:00:00', estado: 'confirmada', paciente_hash: 'h', nombre_paciente: 'Ana', telefono_paciente: '6641112233', producto_motivo: 'lentes de sol', resumen_expediente: 'busca lentes de sol, sin padecimiento' }], count: 1 });
     const res = makeRes();
     await handler(makeReq({ headers: { origin: DASH }, query: { fecha_desde: '2026-06-01' } }), res);
     expect(res.statusCode).toBe(200);
     expect(res.body.citas[0].nombre_paciente).toBe('Ana');
     expect(res.body.citas[0].telefono_paciente).toBe('6641112233');
     expect(res.body.citas[0].producto_motivo).toBe('lentes de sol');
+    expect(res.body.citas[0].resumen_expediente).toBe('busca lentes de sol, sin padecimiento');
   });
 
   // ── Degradación ──────────────────────────────────────────────────────────
@@ -257,5 +258,28 @@ describe('public/index.html · agenda cableada al BFF de lectura (no al endpoint
     // Sólo deben quedar referencias a /api/citas? en las MUTACIONES (PUT/POST),
     // nunca como fetch GET de lectura (esas serían el 401 de regreso).
     expect(html).not.toMatch(/await fetch\(`\/api\/citas\?[^`]*`\)/);
+  });
+
+  it('el resumen_expediente (clínico) se renderiza SOLO si hay dato (condicional, sin undefined)', () => {
+    // El detalle de cita muestra "Resumen de conversación" únicamente cuando el campo
+    // viene con valor; null/vacío → no se renderiza la línea (back-compat citas viejas).
+    expect(html).toMatch(/resumen=String\(c\.resumen_expediente\|\|''\)\.trim\(\)/);
+    expect(html).toMatch(/resumen\?fila\('Resumen de conversación',esc\(resumen\)\):''/);
+  });
+});
+
+describe('citas-core (path Bearer /api/citas) · NO expone resumen_expediente ni PII', () => {
+  const core = readFileSync(resolve(process.cwd(), 'agents/_shared/citas/citas-core.ts'), 'utf8');
+  // Aísla el array SELECT_COLS (columnas que el endpoint Bearer/programático devuelve).
+  const selectColsBlock = (core.match(/const SELECT_COLS\s*=\s*\[([\s\S]*?)\]/) || [])[1] || '';
+
+  it('SELECT_COLS del path Bearer NO incluye el resumen clínico ni la PII de la tarjeta', () => {
+    for (const forbidden of ['resumen_expediente', 'nombre_paciente', 'telefono_paciente', 'producto_motivo', 'contact_id', 'email']) {
+      expect(selectColsBlock).not.toContain(forbidden);
+    }
+  });
+
+  it('ningún select(\'*\') sobre la tabla citas en el path Bearer (no expone columnas por accidente)', () => {
+    expect(core).not.toMatch(/\.select\(\s*['"`]\*/);
   });
 });

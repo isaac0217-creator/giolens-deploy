@@ -43,6 +43,11 @@
  *     Prioridad por campo: CRM válido > tag > null. Se guardan en `citas` (acceso
  *     restringido) PERO NUNCA se devuelven ni loguean.
  *   - producto_motivo: campo opcional `PROD:` del tag (NO PII). Ausente → NULL.
+ *   - resumen_expediente: campo opcional `RESUMEN:` del tag (migration 031). Resumen
+ *     breve de la conversación para llenar el expediente (qué busca el paciente,
+ *     padecimiento/síntomas, recomendación). INFORMACIÓN CLÍNICA SENSIBLE: se persiste en
+ *     columna de acceso restringido y NUNCA se loguea ni se devuelve (igual que NOMBRE/TEL,
+ *     y NUNCA por /api/citas Bearer). Ausente → NULL (nunca se inventa).
  *   - contact_id (raw): se persiste (migration 030) para re-enriquecer luego las citas
  *     cuyo lookup CRM falló. Acceso restringido: nunca se devuelve ni loguea.
  */
@@ -131,13 +136,18 @@ function parseBody(raw: unknown): ParsedBody | null {
 // teléfono (perfil de Messenger sin phone) — el bot los embebe en el tag. Opcionales
 // y tolerantes: ausentes → NULL. Son PII: se persisten en columna de acceso
 // restringido y NUNCA se loguean ni se devuelven (igual que nombre/teléfono del CRM).
-const KNOWN_KEYS = new Set(['ESTADO', 'FECHA', 'HORA', 'REF', 'INT', 'PROD', 'NOMBRE', 'TEL']);
+// RESUMEN: resumen clínico breve de la conversación para el expediente (migration 031).
+// Opcional y tolerante: ausente → NULL. Es información clínica sensible: se persiste en
+// columna de acceso restringido y NUNCA se loguea ni se devuelve (igual que NOMBRE/TEL).
+const KNOWN_KEYS = new Set(['ESTADO', 'FECHA', 'HORA', 'REF', 'INT', 'PROD', 'NOMBRE', 'TEL', 'RESUMEN']);
 
 /** Tope de longitud para producto_motivo (defensa contra tags abusivos). */
 const PRODUCTO_MOTIVO_MAX = 200;
 /** Topes para los campos PII del tag (defensa contra tags abusivos). */
 const NOMBRE_MAX = 120;
 const TELEFONO_MAX = 32;
+/** Tope de longitud para resumen_expediente (frase breve; defensa contra tags abusivos). */
+const RESUMEN_MAX = 300;
 
 /**
  * Sanea el valor `PROD:` del tag → texto plano breve o null.
@@ -192,6 +202,27 @@ function sanitizeTelefono(raw: string | null | undefined): string | null {
   return cleaned.slice(0, TELEFONO_MAX).trim();
 }
 
+/**
+ * Sanea el valor `RESUMEN:` del tag (información clínica sensible) → frase breve o null.
+ *   - quita caracteres de control (incl. \n, \r, \t),
+ *   - quita `|` y `#` (separador de campos y delimitador del tag — el sub-prompt no debe
+ *     emitirlos, pero si se colaran romperían el parseo/delimitador: se eliminan),
+ *   - colapsa espacios,
+ *   - recorta a RESUMEN_MAX,
+ *   - vacío tras limpiar → null (campo opcional: nunca se inventa).
+ * Tolera acentos/ñ y puntuación normal. Vacío/ausente → null.
+ */
+function sanitizeResumen(raw: string | null | undefined): string | null {
+  if (typeof raw !== 'string') return null;
+  const cleaned = raw
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ')
+    .replace(/[|#]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) return null;
+  return cleaned.slice(0, RESUMEN_MAX).trim();
+}
+
 /** Aísla el cuerpo del tag `##...##` que contiene ESTADO (ignora otros `##` del
  *  mensaje). Tolerante a posición: ESTADO no tiene que ser el primer campo. */
 function extractTagBody(message: string): string | null {
@@ -208,8 +239,10 @@ function extractTagBody(message: string): string | null {
  *   - Cada segmento `K:V` separado por `|`. Claves conocidas → se guardan;
  *     desconocidas (ej. `RUTA:` residual de sub-prompts viejos) → se IGNORAN
  *     pero actúan de límite (no contaminan el campo previo).
- *   - REF es greedy: un segmento sin `K:` se trata como continuación del campo
- *     actual (tolera un `|` literal dentro de REF hasta el próximo `K:` conocido).
+ *   - Continuación greedy: un segmento sin `K:` se trata como continuación del campo
+ *     actual (tolera un `|` literal dentro de cualquier campo —REF, PROD, RESUMEN…—
+ *     hasta el próximo `K:` conocido). Para RESUMEN, además, sanitizeResumen quita los
+ *     `|`/`#` residuales que hayan sobrevivido a la continuación.
  *   - Orden de campos arbitrario. REF/INT ausentes → simplemente no están (sin crash).
  * Devuelve null sólo si no hay bloque de tag con ESTADO.
  */
@@ -293,6 +326,10 @@ export default async function handler(
   const refCrudo = fields.REF ?? null;
   // Producto/motivo (NO PII): campo opcional del tag. Ausente/vacío → null.
   const productoMotivo = sanitizeProductoMotivo(fields.PROD ?? null);
+  // Resumen del expediente (información CLÍNICA sensible): campo opcional del tag.
+  // Ausente/vacío → null (nunca se inventa). Se persiste en columna de acceso
+  // restringido y NUNCA se loguea ni se devuelve (igual que NOMBRE/TEL).
+  const resumenExpediente = sanitizeResumen(fields.RESUMEN ?? null);
   // PII del tag (Vía B): canal CONFIABLE para Messenger (el CRM no trae teléfono).
   // Opcionales: ausentes → null. Se combinan abajo con el lookup CRM (Vía A).
   const nombreTag = sanitizeNombre(fields.NOMBRE ?? null);
@@ -364,6 +401,7 @@ export default async function handler(
 
   // 2️⃣ INSERT primero (gcal null) — captura la carrera vía índice único (mig 028).
   // Columnas PII (nombre/telefono) y producto_motivo añadidas por migration 029.
+  // resumen_expediente (clínico) añadido por migration 031 — acceso restringido como NOMBRE/TEL.
   // contact_id (raw) añadido por migration 030 — habilita re-enriquecer (Vía A) las
   // citas cuyo lookup CRM falló al agendar, sin re-hashear. PII de acceso restringido:
   // NUNCA se devuelve (ni por /api/citas Bearer ni por el BFF /api/citas-ui) ni se loguea.
@@ -384,6 +422,7 @@ export default async function handler(
       nombre_paciente: nombrePaciente,
       telefono_paciente: telefonoPaciente,
       producto_motivo: productoMotivo,
+      resumen_expediente: resumenExpediente,
     })
     .select('id, gcal_event_id')
     .single();

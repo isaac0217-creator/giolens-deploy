@@ -2072,6 +2072,9 @@ document.addEventListener('keydown',e=>{
     const nombre=String(c.nombre_paciente||'').trim();
     const tel=String(c.telefono_paciente||'').trim();
     const prod=String(c.producto_motivo||'').trim();
+    // Resumen de conversación para el expediente (migration 031). Información clínica:
+    // solo se renderiza si viene dato (null/vacío → no se muestra la línea, sin undefined).
+    const resumen=String(c.resumen_expediente||'').trim();
     return`
       <div style="margin-bottom:16px">
         <span class="${chip}" style="font-size:11px">${esc(c.estado||'agendada')}</span>
@@ -2082,6 +2085,7 @@ document.addEventListener('keydown',e=>{
       ${fila('Hora',esc(String(c.hora||'—').slice(0,5)))}
       ${fila('Tipo',esc(tipo))}
       ${prod?fila('Producto / motivo',esc(prod)):''}
+      ${resumen?fila('Resumen de conversación',esc(resumen)):''}
       ${fila('Optometrista',esc(c.optometrista||'—'))}
       ${fila('Hash paciente','<span style="font-family:monospace;font-size:11px;color:var(--faint)">'+esc(c.paciente_hash||'—')+'</span>')}
       ${fila('Duración',c.duracion_min?(c.duracion_min+' min'):'—')}
