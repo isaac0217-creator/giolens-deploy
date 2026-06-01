@@ -139,7 +139,7 @@ function makeReq({
   return { method, query, headers: hdrs, body };
 }
 
-function tag(fields: { estado?: string; fecha?: string; hora?: string; ref?: string; int?: string; prod?: string }) {
+function tag(fields: { estado?: string; fecha?: string; hora?: string; ref?: string; int?: string; prod?: string; nombre?: string; tel?: string }) {
   const f = { estado: 'CITA_AGENDADA', fecha: '2026-05-28', hora: '14:00', int: 'I3', ...fields };
   const parts = [
     `ESTADO:${f.estado}`,
@@ -147,6 +147,8 @@ function tag(fields: { estado?: string; fecha?: string; hora?: string; ref?: str
     `HORA:${f.hora}`,
     ...(f.ref !== undefined ? [`REF:${f.ref}`] : []),
     ...(f.prod !== undefined ? [`PROD:${f.prod}`] : []),
+    ...(f.nombre !== undefined ? [`NOMBRE:${f.nombre}`] : []),
+    ...(f.tel !== undefined ? [`TEL:${f.tel}`] : []),
     `INT:${f.int}`,
   ];
   return `Listo, te confirmo tu cita. ##${parts.join('|')}##`;
@@ -560,5 +562,80 @@ describe('POST /api/citas/from-whapify — W2 rama B', () => {
     await handler(makeReq({ query: { secret: SECRET }, body: { message: tag({}), contact_id: 'c1' } }), res);
     expect(res.body.action).toBe('idempotent');
     expect(crmLookups()).toHaveLength(0);
+  });
+
+  // ── Vía B: campos PII del tag (NOMBRE:/TEL:) — canal confiable para Messenger ──
+  it('Messenger (sin token CRM): NOMBRE:/TEL: del tag pueblan la fila', async () => {
+    // Sin WAPIFY_TOKEN → fetchContactPII devuelve null (simula Messenger sin teléfono CRM).
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 30, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    await handler(makeReq({ query: { secret: SECRET }, body: { message: tag({ nombre: 'Ana López', tel: '+52 664 111 2233' }), contact_id: 'msgr-1' } }), res);
+    expect(res.body.action).toBe('created');
+    expect(mocks.calls.inserted[0].nombre_paciente).toBe('Ana López');
+    expect(mocks.calls.inserted[0].telefono_paciente).toBe('+52 664 111 2233');
+    expect(res.body._warnings).toContain('nombre_from_tag');
+    expect(res.body._warnings).toContain('telefono_from_tag');
+    // PII del tag jamás en la respuesta.
+    expect(JSON.stringify(res.body)).not.toMatch(/Ana|López|1112233/i);
+  });
+
+  it('NOMBRE/TEL ausentes → columnas null (opcional, nunca se inventa)', async () => {
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 31, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    await handler(makeReq({ query: { secret: SECRET }, body: { message: tag({}), contact_id: 'c1' } }), res);
+    expect(res.body.action).toBe('created');
+    expect(mocks.calls.inserted[0].nombre_paciente).toBeNull();
+    expect(mocks.calls.inserted[0].telefono_paciente).toBeNull();
+  });
+
+  it('prioridad por campo: CRM gana en nombre; tag rellena el teléfono que el CRM no trae', async () => {
+    // WhatsApp típico enriquecido por CRM con nombre, pero sin phone en este caso →
+    // el TEL del tag rellena. El NOMBRE del CRM tiene prioridad sobre el del tag.
+    process.env.WAPIFY_TOKEN = 'tok';
+    contactResponse = { full_name: 'Nombre CRM', phone: '' }; // phone vacío → null
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 32, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    await handler(makeReq({ query: { secret: SECRET }, body: { message: tag({ nombre: 'Nombre Tag', tel: '6649998877' }), contact_id: 'c1' } }), res);
+    expect(mocks.calls.inserted[0].nombre_paciente).toBe('Nombre CRM');   // CRM > tag
+    expect(mocks.calls.inserted[0].telefono_paciente).toBe('6649998877'); // tag rellena
+    expect(res.body._warnings).toContain('telefono_from_tag');
+    expect(res.body._warnings).not.toContain('nombre_from_tag'); // CRM cubrió el nombre
+  });
+
+  it('TEL con basura no-telefónica → se descarta; sólo dígitos/+/-/() sobreviven', async () => {
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 33, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    await handler(makeReq({ query: { secret: SECRET }, body: { message: tag({ tel: 'llámame al (664) 123-4567 porfa' }), contact_id: 'c1' } }), res);
+    expect(res.body.action).toBe('created');
+    expect(mocks.calls.inserted[0].telefono_paciente).toBe('(664) 123-4567');
+  });
+
+  it('TEL sin ningún dígito → null (no es teléfono)', async () => {
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 34, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    await handler(makeReq({ query: { secret: SECRET }, body: { message: tag({ tel: 'no sé mi número' }), contact_id: 'c1' } }), res);
+    expect(mocks.calls.inserted[0].telefono_paciente).toBeNull();
+  });
+
+  it('NOMBRE con controles + espacios → saneado; larguísimo → recortado a 120', async () => {
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 35, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    const msg = '##ESTADO:CITA_AGENDADA|FECHA:2026-05-28|HORA:14:00|NOMBRE:María\t  José\nGarcía##';
+    await handler(makeReq({ query: { secret: SECRET }, body: { message: msg, contact_id: 'c1' } }), res);
+    expect(mocks.calls.inserted[0].nombre_paciente).toBe('María José García');
+    // tope 120
+    const res2 = makeRes();
+    await handler(makeReq({ query: { secret: SECRET }, body: { message: tag({ nombre: 'x'.repeat(300) }), contact_id: 'c2' } }), res2);
+    expect(String(mocks.calls.inserted[1].nombre_paciente).length).toBe(120);
+  });
+
+  it('contact_id (raw) se persiste en la fila PERO NUNCA en la respuesta', async () => {
+    mocks.setCfg({ insertImpl: () => ({ data: { id: 36, gcal_event_id: null }, error: null }) });
+    const res = makeRes();
+    await handler(makeReq({ query: { secret: SECRET }, body: { message: tag({}), contact_id: 'contact-raw-99887766' } }), res);
+    expect(res.body.action).toBe('created');
+    expect(mocks.calls.inserted[0].contact_id).toBe('contact-raw-99887766');
+    // el contact_id raw nunca viaja en la respuesta del endpoint de captura.
+    expect(JSON.stringify(res.body)).not.toMatch(/contact-raw|99887766/i);
   });
 });
