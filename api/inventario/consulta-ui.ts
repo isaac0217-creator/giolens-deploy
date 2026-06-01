@@ -126,7 +126,7 @@ export default async function handler(req: VercelLikeReq, res: VercelLikeRes): P
   if (!term) { res.status(400).json({ ok: false, error: 'q_o_slug_requerido' }); return; }
   // Sanea el término: quita caracteres que romperían el filtro .or()/ilike de PostgREST
   // (comas, paréntesis, %, _, backslash, comillas). Búsqueda parcial case-insensitive.
-  const safe = term.replace(/[,()%_\\"'*]/g, ' ').replace(/\s+/g, ' ').trim();
+  const safe = term.replace(/[,()%_\\"'*`]/g, ' ').replace(/\s+/g, ' ').trim();
   if (!safe) { res.status(200).json({ ok: true, productos: [] }); return; }
   const pattern = `%${safe}%`;
 

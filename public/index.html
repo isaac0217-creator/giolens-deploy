@@ -881,26 +881,26 @@
   <div class="sec-t">Inventario &middot; Productos y stock</div>
   <div class="chart" id="inv-panel">
     <div class="agenda-head">
-      <input id="inv-q" class="agenda-input" type="search" placeholder="Buscar producto por nombre o SKU…" style="flex:1;min-width:160px">
+      <input id="inv-q" class="agenda-input" type="search" aria-label="Buscar producto por nombre o SKU" placeholder="Buscar producto por nombre o SKU…" style="flex:1;min-width:160px">
       <button class="agenda-nueva-btn" id="inv-buscar-btn" type="button">Buscar</button>
     </div>
-    <div id="inv-status" style="font-size:12px;color:var(--faint);min-height:18px;margin:6px 0"></div>
+    <div id="inv-status" aria-live="polite" style="font-size:12px;color:var(--faint);min-height:18px;margin:6px 0"></div>
     <div class="agenda-list" id="inv-results"></div>
 
     <div id="inv-detail" style="display:none;margin-top:12px;padding:12px;border:1px solid var(--line,#2a2f3a);border-radius:10px">
       <div id="inv-prod-head" style="margin-bottom:10px"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-        <select id="inv-tipo" class="agenda-input" style="min-width:120px">
+        <select id="inv-tipo" class="agenda-input" aria-label="Tipo de movimiento" style="min-width:120px">
           <option value="entrada">Entrada</option>
           <option value="salida">Salida</option>
           <option value="ajuste">Ajuste</option>
           <option value="devolucion">Devolución</option>
         </select>
-        <input id="inv-cantidad" class="agenda-input" type="number" min="1" step="1" placeholder="Cantidad" style="width:110px">
-        <input id="inv-motivo" class="agenda-input" placeholder="Motivo (venta, uso, compra…)" style="flex:1;min-width:140px">
+        <input id="inv-cantidad" class="agenda-input" type="number" min="1" step="1" aria-label="Cantidad" placeholder="Cantidad" style="width:110px">
+        <input id="inv-motivo" class="agenda-input" aria-label="Motivo del movimiento" placeholder="Motivo (venta, uso, compra…)" style="flex:1;min-width:140px">
         <button class="agenda-btn-primary" id="inv-registrar" type="button" style="flex:none;padding:0 16px">Registrar</button>
       </div>
-      <span id="inv-mov-error" style="color:var(--down);font-size:12px"></span>
+      <span id="inv-mov-error" role="alert" style="color:var(--down);font-size:12px"></span>
       <div style="font-size:12px;color:var(--faint);margin:10px 0 4px">Últimos movimientos</div>
       <div class="agenda-list" id="inv-movimientos"></div>
     </div>
@@ -2299,14 +2299,16 @@ document.addEventListener('keydown',e=>{
 (function(){
   const TIPO_LBL={entrada:'Entrada',salida:'Salida',ajuste:'Ajuste',devolucion:'Devolución'};
   let SELSLUG=null;
+  let LASTRESULTS=[];   // productos de la última búsqueda; la selección lee por índice (el slug NUNCA entra al HTML → sin vector de inyección por atributo)
   function invStatus(html){const s=$('#inv-status');if(s)s.innerHTML=html;}
   function uuid(){try{return crypto.randomUUID();}catch(e){return 'inv-'+Date.now()+'-'+Math.random().toString(16).slice(2);}}
   function invRenderResultados(items){
+    LASTRESULTS=items||[];
     const list=$('#inv-results');if(!list)return;
     if(!items||items.length===0){list.innerHTML='<div class="agenda-empty">Sin productos.</div>';return;}
-    list.innerHTML=items.map(p=>{
+    list.innerHTML=items.map((p,i)=>{
       const stock=(p.stock_actual==null?'—':p.stock_actual);
-      return`<div class="agenda-cita" onclick="window.__invSel('${esc(String(p.slug)).replace(/'/g,'')}')">
+      return`<div class="agenda-cita" data-idx="${i}" role="button" tabindex="0">
         <div class="agenda-info">
           <div class="agenda-nombre">${esc(p.nombre||p.slug)}</div>
           <div class="agenda-opto">${esc(p.sku||'')} ${p.categoria?('· '+esc(p.categoria)):''}</div>
@@ -2381,11 +2383,18 @@ document.addEventListener('keydown',e=>{
     }catch(e){ if(err)err.textContent='Error: '+e.message; }
     finally{ if(btn)btn.disabled=false; }
   }
-  window.__invSel=invSeleccionar;
+  function invOnResultActivate(ev){
+    const el=ev.target.closest('[data-idx]');if(!el)return;
+    if(ev.type==='keydown'&&ev.key!=='Enter'&&ev.key!==' ')return;
+    if(ev.type==='keydown')ev.preventDefault();
+    const p=LASTRESULTS[+el.dataset.idx];if(p&&p.slug)invSeleccionar(p.slug);
+  }
   document.addEventListener('DOMContentLoaded',function(){
     const b=$('#inv-buscar-btn');if(b)b.addEventListener('click',invBuscar);
     const q=$('#inv-q');if(q)q.addEventListener('keydown',ev=>{if(ev.key==='Enter')invBuscar();});
     const reg=$('#inv-registrar');if(reg)reg.addEventListener('click',invRegistrar);
+    const results=$('#inv-results');
+    if(results){results.addEventListener('click',invOnResultActivate);results.addEventListener('keydown',invOnResultActivate);}
   });
 })();
 
