@@ -32,13 +32,19 @@
  *
  * PII: NUNCA loggea ni devuelve el body crudo, el message, el REF, el contact_id,
  *   el nombre ni el teléfono. paciente_hash = sha256(contact_id)[:16] (16 hex).
- *   El tag NO trae PII (PROD es producto/motivo, no identifica al paciente).
+ *   OJO: desde la Vía B (abajo) el tag SÍ puede traer PII (NOMBRE:/TEL:) — por eso el
+ *   message nunca se loguea ni se devuelve.
  *
- * Enriquecimiento de la tarjeta de agenda (rebanada aditiva):
- *   - nombre/teléfono: lookup BEST-EFFORT del CRM Whapify por contact_id
- *     (fetchContactPII). Falla → se persiste con NULL (nunca rompe la cita).
- *     Se guardan en `citas` (acceso restringido) PERO NUNCA se devuelven ni loguean.
+ * Enriquecimiento de la tarjeta de agenda (robusto a DOS fuentes, aditivo):
+ *   - nombre/teléfono — Vía A (CRM): lookup BEST-EFFORT del CRM Whapify por contact_id
+ *     (fetchContactPII). Fiable para WhatsApp. Falla → null (nunca rompe la cita).
+ *   - nombre/teléfono — Vía B (tag): campos opcionales `NOMBRE:`/`TEL:` del tag. Único
+ *     canal con teléfono para Messenger (cuyo perfil CRM no trae phone). PII.
+ *     Prioridad por campo: CRM válido > tag > null. Se guardan en `citas` (acceso
+ *     restringido) PERO NUNCA se devuelven ni loguean.
  *   - producto_motivo: campo opcional `PROD:` del tag (NO PII). Ausente → NULL.
+ *   - contact_id (raw): se persiste (migration 030) para re-enriquecer luego las citas
+ *     cuyo lookup CRM falló. Acceso restringido: nunca se devuelve ni loguea.
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -121,10 +127,17 @@ function parseBody(raw: unknown): ParsedBody | null {
   return { message, contactId };
 }
 
-const KNOWN_KEYS = new Set(['ESTADO', 'FECHA', 'HORA', 'REF', 'INT', 'PROD']);
+// NOMBRE/TEL: canal CONFIABLE de PII para Messenger, donde el CRM Whapify no trae
+// teléfono (perfil de Messenger sin phone) — el bot los embebe en el tag. Opcionales
+// y tolerantes: ausentes → NULL. Son PII: se persisten en columna de acceso
+// restringido y NUNCA se loguean ni se devuelven (igual que nombre/teléfono del CRM).
+const KNOWN_KEYS = new Set(['ESTADO', 'FECHA', 'HORA', 'REF', 'INT', 'PROD', 'NOMBRE', 'TEL']);
 
 /** Tope de longitud para producto_motivo (defensa contra tags abusivos). */
 const PRODUCTO_MOTIVO_MAX = 200;
+/** Topes para los campos PII del tag (defensa contra tags abusivos). */
+const NOMBRE_MAX = 120;
+const TELEFONO_MAX = 32;
 
 /**
  * Sanea el valor `PROD:` del tag → texto plano breve o null.
@@ -143,6 +156,40 @@ function sanitizeProductoMotivo(raw: string | null | undefined): string | null {
     .trim();
   if (!cleaned) return null;
   return cleaned.slice(0, PRODUCTO_MOTIVO_MAX).trim();
+}
+
+/**
+ * Sanea el valor `NOMBRE:` del tag (PII) → texto plano breve o null.
+ * Mismo saneo que producto_motivo (quita controles, colapsa espacios, recorta),
+ * pero con tope propio. Tolera acentos/ñ (no se filtra el set de caracteres del
+ * nombre). Vacío tras limpiar → null (campo opcional: nunca se inventa).
+ */
+function sanitizeNombre(raw: string | null | undefined): string | null {
+  if (typeof raw !== 'string') return null;
+  const cleaned = raw
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) return null;
+  return cleaned.slice(0, NOMBRE_MAX).trim();
+}
+
+/**
+ * Sanea el valor `TEL:` del tag (PII) → teléfono normalizado o null.
+ *   - conserva sólo dígitos, `+`, espacio, guion, paréntesis y punto,
+ *   - colapsa espacios y recorta a TELEFONO_MAX,
+ *   - si tras limpiar no queda ningún dígito → null (no es un teléfono).
+ * Tolerante: NO valida formato/longitud de país (el bot manda lo que capturó);
+ * sólo descarta basura no telefónica y campos vacíos. Nunca se inventa.
+ */
+function sanitizeTelefono(raw: string | null | undefined): string | null {
+  if (typeof raw !== 'string') return null;
+  const cleaned = raw
+    .replace(/[^\d+()\-.\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned || !/\d/.test(cleaned)) return null;
+  return cleaned.slice(0, TELEFONO_MAX).trim();
 }
 
 /** Aísla el cuerpo del tag `##...##` que contiene ESTADO (ignora otros `##` del
@@ -246,6 +293,10 @@ export default async function handler(
   const refCrudo = fields.REF ?? null;
   // Producto/motivo (NO PII): campo opcional del tag. Ausente/vacío → null.
   const productoMotivo = sanitizeProductoMotivo(fields.PROD ?? null);
+  // PII del tag (Vía B): canal CONFIABLE para Messenger (el CRM no trae teléfono).
+  // Opcionales: ausentes → null. Se combinan abajo con el lookup CRM (Vía A).
+  const nombreTag = sanitizeNombre(fields.NOMBRE ?? null);
+  const telefonoTag = sanitizeTelefono(fields.TEL ?? null);
 
   // ── Revalidación: el backend es la autoridad de la fecha ──
   const r = resolverYRevalidarCita(fechaTag, horaTag, refCrudo, new Date());
@@ -289,21 +340,33 @@ export default async function handler(
     return;
   }
 
-  // 1️⃣bis Enriquecimiento PII best-effort: nombre/teléfono del CRM Whapify por
-  // contact_id. NUNCA bloquea ni rompe la cita — falla → null + warning. Se hace
-  // sólo en la rama de creación (los hits idempotentes ya devolvieron arriba).
-  let nombrePaciente: string | null = null;
-  let telefonoPaciente: string | null = null;
+  // 1️⃣bis Enriquecimiento PII robusto a DOS fuentes (Vía A + Vía B). NUNCA bloquea
+  // ni rompe la cita. Se hace sólo en creación (los hits idempotentes ya devolvieron).
+  //   Vía A — lookup CRM Whapify por contact_id (best-effort, falla → null + warning).
+  //           Fiable para WhatsApp (perfil con full_name + phone).
+  //   Vía B — campos NOMBRE:/TEL: del tag. Único canal con teléfono para Messenger.
+  // Prioridad POR CAMPO: CRM válido > tag > null (el CRM es el dato "de sistema"; el
+  // tag rellena lo que el CRM no resuelve, p. ej. el teléfono de un contacto Messenger).
+  let nombreCrm: string | null = null;
+  let telefonoCrm: string | null = null;
   const pii = await fetchContactPII(parsed.contactId);
   if (pii) {
-    nombrePaciente = pii.nombre;
-    telefonoPaciente = pii.telefono;
+    nombreCrm = pii.nombre;
+    telefonoCrm = pii.telefono;
   } else {
     warnings.push('crm_lookup_skipped');
   }
+  const nombrePaciente = nombreCrm ?? nombreTag;
+  const telefonoPaciente = telefonoCrm ?? telefonoTag;
+  // Señal (sin PII) de que el tag cubrió un hueco que el CRM no resolvió.
+  if (!nombreCrm && nombreTag) warnings.push('nombre_from_tag');
+  if (!telefonoCrm && telefonoTag) warnings.push('telefono_from_tag');
 
   // 2️⃣ INSERT primero (gcal null) — captura la carrera vía índice único (mig 028).
   // Columnas PII (nombre/telefono) y producto_motivo añadidas por migration 029.
+  // contact_id (raw) añadido por migration 030 — habilita re-enriquecer (Vía A) las
+  // citas cuyo lookup CRM falló al agendar, sin re-hashear. PII de acceso restringido:
+  // NUNCA se devuelve (ni por /api/citas Bearer ni por el BFF /api/citas-ui) ni se loguea.
   const { data: inserted, error: insErr } = await supabase
     .from('citas')
     .insert({
@@ -311,6 +374,7 @@ export default async function handler(
       hora,
       duracion_min: DURACION_MIN,
       paciente_hash: pHash,
+      contact_id: parsed.contactId,
       optometrista: null,
       tipo_consulta: null,
       estado: 'confirmada',
