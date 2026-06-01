@@ -279,16 +279,18 @@ describe('GET/POST /api/atenciones-ui — M4 servicio al cliente', () => {
   });
 
   // ── Privacidad ──────────────────────────────────────────────────────────────
-  it('la nota (PII potencial) NUNCA se loguea', async () => {
+  it('la nota Y el contact_id (PII potencial) NUNCA se loguean', async () => {
     const SENTINEL = 'DATO_SENSIBLE_DEL_PACIENTE_XYZ';
+    const SENTINEL_CONTACT = 'CONTACTO_PII_ABC123';
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     // Forzamos también el path de error de insert para cubrir el console.error.
-    mocks.setCfg({ insertError: { code: '23505' } });
+    mocks.setCfg({ insertError: { code: '23505' }, contactExists: true });
     const res = makeRes();
-    await handler(makeReq({ method: 'POST', headers: { origin: DASH }, body: { canal: 'whatsapp', tipo: 'queja', nota: SENTINEL } }), res);
+    await handler(makeReq({ method: 'POST', headers: { origin: DASH }, body: { canal: 'whatsapp', tipo: 'queja', nota: SENTINEL, contact_id: SENTINEL_CONTACT } }), res);
     const allLogs = [...logSpy.mock.calls, ...warnSpy.mock.calls, ...errSpy.mock.calls].flat().join(' ');
     expect(allLogs).not.toContain(SENTINEL);
+    expect(allLogs).not.toContain(SENTINEL_CONTACT);
   });
 });

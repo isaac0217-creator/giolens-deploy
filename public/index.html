@@ -885,26 +885,26 @@
     </div>
     <div id="aten-form" style="display:none;margin:10px 0;padding:12px;border:1px solid var(--line,#2a2f3a);border-radius:10px">
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-        <select id="aten-canal" class="agenda-input" style="flex:1;min-width:120px">
+        <select id="aten-canal" class="agenda-input" aria-label="Canal de la atención" style="flex:1;min-width:120px">
           <option value="whatsapp">WhatsApp</option>
           <option value="llamada">Llamada</option>
           <option value="presencial">Presencial</option>
         </select>
-        <select id="aten-tipo" class="agenda-input" style="flex:1;min-width:120px">
+        <select id="aten-tipo" class="agenda-input" aria-label="Tipo de atención" style="flex:1;min-width:120px">
           <option value="consulta">Consulta</option>
           <option value="queja">Queja</option>
           <option value="seguimiento">Seguimiento</option>
         </select>
       </div>
-      <input id="aten-contact" class="agenda-input" placeholder="contact_id del paciente (opcional)" style="width:100%;margin-bottom:8px">
-      <textarea id="aten-nota" class="agenda-input" placeholder="Nota de la atención…" rows="3" style="width:100%;margin-bottom:8px"></textarea>
+      <input id="aten-contact" class="agenda-input" aria-label="contact_id del paciente (opcional)" placeholder="contact_id del paciente (opcional)" style="width:100%;margin-bottom:8px">
+      <textarea id="aten-nota" class="agenda-input" aria-label="Nota de la atención" placeholder="Nota de la atención…" rows="3" style="width:100%;margin-bottom:8px"></textarea>
       <div style="display:flex;gap:8px;align-items:center">
         <button class="agenda-btn-primary" id="aten-guardar" type="button" style="flex:none;padding:0 18px">Guardar</button>
         <button class="agenda-btn-ghost" id="aten-cancelar" type="button">Cancelar</button>
-        <span id="aten-error" style="color:var(--down);font-size:12px"></span>
+        <span id="aten-error" role="alert" style="color:var(--down);font-size:12px"></span>
       </div>
     </div>
-    <div id="aten-status" style="font-size:12px;color:var(--faint);min-height:18px;margin:6px 0"></div>
+    <div id="aten-status" aria-live="polite" style="font-size:12px;color:var(--faint);min-height:18px;margin:6px 0"></div>
     <div class="agenda-list" id="aten-list"></div>
   </div>
 
@@ -2301,7 +2301,10 @@ document.addEventListener('keydown',e=>{
 (function(){
   const TIPO_LBL={consulta:'Consulta',queja:'Queja',seguimiento:'Seguimiento'};
   const CANAL_LBL={whatsapp:'WhatsApp',llamada:'Llamada',presencial:'Presencial'};
+  // atenStatus: SOLO para HTML literal/estático (spinners). Para cualquier texto
+  // dinámico o derivado del servidor usar atenStatusText (textContent → sin riesgo XSS).
   function atenStatus(html){const s=$('#aten-status');if(s)s.innerHTML=html;}
+  function atenStatusText(msg){const s=$('#aten-status');if(s)s.textContent=msg;}
   function atenRender(items){
     const list=$('#aten-list');if(!list)return;
     if(!items||items.length===0){list.innerHTML='<div class="agenda-empty">Sin atenciones abiertas.</div>';return;}
@@ -2331,7 +2334,7 @@ document.addEventListener('keydown',e=>{
       if(!d||d.ok===false)throw new Error(d?.error||'Error del servidor');
       const items=d.atenciones||[];
       atenRender(items);
-      atenStatus(items.length===0?'Sin atenciones abiertas.':`${items.length} atención${items.length!==1?'es':''} abierta${items.length!==1?'s':''}.`);
+      atenStatusText(items.length===0?'Sin atenciones abiertas.':`${items.length} atención${items.length!==1?'es':''} abierta${items.length!==1?'s':''}.`);
     }catch(e){
       atenStatus('<span style="color:var(--down)">Error al cargar. Reintenta.</span>');
       if(list)list.innerHTML='<div class="agenda-empty" style="color:var(--down)">Error: '+esc(e.message)+'</div>';
