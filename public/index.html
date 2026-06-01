@@ -876,6 +876,38 @@
   <!-- Toast Agenda -->
   <div class="agenda-toast" id="agenda-toast"></div>
 
+  <!-- ══ M4 · Servicio al cliente / Atenciones (aditivo, BFF Origin-gated /api/atenciones-ui) ══ -->
+  <div class="sec-t">Servicio al cliente &middot; Atenciones</div>
+  <div class="chart" id="aten-panel">
+    <div class="agenda-head">
+      <div class="agenda-date-label" style="cursor:default">Atenciones abiertas</div>
+      <button class="agenda-nueva-btn" id="aten-nueva-btn" type="button">+ Nueva atención</button>
+    </div>
+    <div id="aten-form" style="display:none;margin:10px 0;padding:12px;border:1px solid var(--line,#2a2f3a);border-radius:10px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <select id="aten-canal" class="agenda-input" aria-label="Canal de la atención" style="flex:1;min-width:120px">
+          <option value="whatsapp">WhatsApp</option>
+          <option value="llamada">Llamada</option>
+          <option value="presencial">Presencial</option>
+        </select>
+        <select id="aten-tipo" class="agenda-input" aria-label="Tipo de atención" style="flex:1;min-width:120px">
+          <option value="consulta">Consulta</option>
+          <option value="queja">Queja</option>
+          <option value="seguimiento">Seguimiento</option>
+        </select>
+      </div>
+      <input id="aten-contact" class="agenda-input" aria-label="contact_id del paciente (opcional)" placeholder="contact_id del paciente (opcional)" style="width:100%;margin-bottom:8px">
+      <textarea id="aten-nota" class="agenda-input" aria-label="Nota de la atención" placeholder="Nota de la atención…" rows="3" style="width:100%;margin-bottom:8px"></textarea>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="agenda-btn-primary" id="aten-guardar" type="button" style="flex:none;padding:0 18px">Guardar</button>
+        <button class="agenda-btn-ghost" id="aten-cancelar" type="button">Cancelar</button>
+        <span id="aten-error" role="alert" style="color:var(--down);font-size:12px"></span>
+      </div>
+    </div>
+    <div id="aten-status" aria-live="polite" style="font-size:12px;color:var(--faint);min-height:18px;margin:6px 0"></div>
+    <div class="agenda-list" id="aten-list"></div>
+  </div>
+
   <div class="sec-t">Motores IA · Copilot Sales (Haiku)</div>
   <div id="motores"></div>
 
@@ -2260,6 +2292,92 @@ document.addEventListener('keydown',e=>{
   // Exponer para que otros módulos puedan navegar a una fecha
   window.agendaIrFecha = agendaSetFecha;
 
+})();
+
+/* ════ M4 · Servicio al cliente / Atenciones (aditivo) ════
+   Lee/escribe vía el BFF Origin-gated /api/atenciones-ui (mismo patrón que la agenda).
+   No toca selectores del contrato; ids propios prefijo `aten-`. nota = PII potencial:
+   no se loguea ni se deja en atributos data-*. */
+(function(){
+  const TIPO_LBL={consulta:'Consulta',queja:'Queja',seguimiento:'Seguimiento'};
+  const CANAL_LBL={whatsapp:'WhatsApp',llamada:'Llamada',presencial:'Presencial'};
+  // atenStatus: SOLO para HTML literal/estático (spinners). Para cualquier texto
+  // dinámico o derivado del servidor usar atenStatusText (textContent → sin riesgo XSS).
+  function atenStatus(html){const s=$('#aten-status');if(s)s.innerHTML=html;}
+  function atenStatusText(msg){const s=$('#aten-status');if(s)s.textContent=msg;}
+  function atenRender(items){
+    const list=$('#aten-list');if(!list)return;
+    if(!items||items.length===0){list.innerHTML='<div class="agenda-empty">Sin atenciones abiertas.</div>';return;}
+    list.innerHTML=items.map(a=>{
+      const canal=CANAL_LBL[a.canal]||a.canal||'—';
+      const tipo=TIPO_LBL[a.tipo]||a.tipo||'—';
+      const nota=String(a.nota||'').trim();
+      const cuando=a.creado_en?new Date(a.creado_en).toLocaleString('es-MX'):'';
+      const notaLine=nota?`<div class="agenda-producto">${esc(nota)}</div>`:'';
+      return`<div class="agenda-cita">
+        <div class="agenda-info">
+          <div class="agenda-nombre">${esc(tipo)} · ${esc(canal)}</div>
+          ${notaLine}
+          <div class="agenda-opto">${esc(cuando)}</div>
+        </div>
+        <button class="agenda-btn-ghost" type="button" onclick="window.__atenCerrar(${a.id})">Cerrar</button>
+      </div>`;
+    }).join('');
+  }
+  async function atenCargar(){
+    atenStatus('<span class="agenda-spinner"></span>Cargando…');
+    const list=$('#aten-list');if(list)list.innerHTML='<div class="agenda-empty"><span class="agenda-spinner"></span>Cargando…</div>';
+    try{
+      const r=await fetch('/api/atenciones-ui?estado=abierta&page_size=100');
+      if(!r.ok)throw new Error(`HTTP ${r.status}`);
+      const d=await r.json();
+      if(!d||d.ok===false)throw new Error(d?.error||'Error del servidor');
+      const items=d.atenciones||[];
+      atenRender(items);
+      atenStatusText(items.length===0?'Sin atenciones abiertas.':`${items.length} atención${items.length!==1?'es':''} abierta${items.length!==1?'s':''}.`);
+    }catch(e){
+      atenStatus('<span style="color:var(--down)">Error al cargar. Reintenta.</span>');
+      if(list)list.innerHTML='<div class="agenda-empty" style="color:var(--down)">Error: '+esc(e.message)+'</div>';
+    }
+  }
+  async function atenCrear(){
+    const err=$('#aten-error');if(err)err.textContent='';
+    const canal=($('#aten-canal')||{}).value||'';
+    const tipo=($('#aten-tipo')||{}).value||'';
+    const contact=(($('#aten-contact')||{}).value||'').trim();
+    const nota=(($('#aten-nota')||{}).value||'').trim();
+    const btn=$('#aten-guardar');if(btn)btn.disabled=true;
+    try{
+      const body={canal,tipo,nota};if(contact)body.contact_id=contact;
+      const r=await fetch('/api/atenciones-ui',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const d=await r.json().catch(()=>null);
+      if(!r.ok||!d||d.ok===false)throw new Error((d&&d.error)||`HTTP ${r.status}`);
+      const f=$('#aten-form');if(f)f.style.display='none';
+      const na=$('#aten-nota');if(na)na.value='';
+      const co=$('#aten-contact');if(co)co.value='';
+      atenCargar();
+    }catch(e){
+      if(err)err.textContent='Error: '+e.message;
+    }finally{ if(btn)btn.disabled=false; }
+  }
+  async function atenCerrar(id){
+    try{
+      const r=await fetch('/api/atenciones-ui',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,estado:'cerrada'})});
+      const d=await r.json().catch(()=>null);
+      if(!r.ok||!d||d.ok===false)throw new Error((d&&d.error)||`HTTP ${r.status}`);
+      atenCargar();
+    }catch(e){ atenStatus('<span style="color:var(--down)">No se pudo cerrar: '+esc(e.message)+'</span>'); }
+  }
+  window.__atenCerrar=atenCerrar;
+  document.addEventListener('DOMContentLoaded',function(){
+    const nueva=$('#aten-nueva-btn');
+    if(nueva)nueva.addEventListener('click',()=>{const f=$('#aten-form');if(f)f.style.display=f.style.display==='none'?'block':'none';});
+    const cancelar=$('#aten-cancelar');
+    if(cancelar)cancelar.addEventListener('click',()=>{const f=$('#aten-form');if(f)f.style.display='none';});
+    const guardar=$('#aten-guardar');
+    if(guardar)guardar.addEventListener('click',atenCrear);
+    if($('#aten-panel'))atenCargar();
+  });
 })();
 
 </script>
