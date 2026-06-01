@@ -876,6 +876,36 @@
   <!-- Toast Agenda -->
   <div class="agenda-toast" id="agenda-toast"></div>
 
+  <!-- ══ M3 · Inventario (aditivo). Lee /api/inventario/consulta-ui (Origin-gated),
+       escribe vía el BFF existente /api/inventario/operaciones-ui. Solo cantidades, sin dinero. ══ -->
+  <div class="sec-t">Inventario &middot; Productos y stock</div>
+  <div class="chart" id="inv-panel">
+    <div class="agenda-head">
+      <input id="inv-q" class="agenda-input" type="search" aria-label="Buscar producto por nombre o SKU" placeholder="Buscar producto por nombre o SKU…" style="flex:1;min-width:160px">
+      <button class="agenda-nueva-btn" id="inv-buscar-btn" type="button">Buscar</button>
+    </div>
+    <div id="inv-status" aria-live="polite" style="font-size:12px;color:var(--faint);min-height:18px;margin:6px 0"></div>
+    <div class="agenda-list" id="inv-results"></div>
+
+    <div id="inv-detail" style="display:none;margin-top:12px;padding:12px;border:1px solid var(--line,#2a2f3a);border-radius:10px">
+      <div id="inv-prod-head" style="margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+        <select id="inv-tipo" class="agenda-input" aria-label="Tipo de movimiento" style="min-width:120px">
+          <option value="entrada">Entrada</option>
+          <option value="salida">Salida</option>
+          <option value="ajuste">Ajuste</option>
+          <option value="devolucion">Devolución</option>
+        </select>
+        <input id="inv-cantidad" class="agenda-input" type="number" min="1" step="1" aria-label="Cantidad" placeholder="Cantidad" style="width:110px">
+        <input id="inv-motivo" class="agenda-input" aria-label="Motivo del movimiento" placeholder="Motivo (venta, uso, compra…)" style="flex:1;min-width:140px">
+        <button class="agenda-btn-primary" id="inv-registrar" type="button" style="flex:none;padding:0 16px">Registrar</button>
+      </div>
+      <span id="inv-mov-error" role="alert" style="color:var(--down);font-size:12px"></span>
+      <div style="font-size:12px;color:var(--faint);margin:10px 0 4px">Últimos movimientos</div>
+      <div class="agenda-list" id="inv-movimientos"></div>
+    </div>
+  </div>
+
   <div class="sec-t">Motores IA · Copilot Sales (Haiku)</div>
   <div id="motores"></div>
 
@@ -2260,6 +2290,112 @@ document.addEventListener('keydown',e=>{
   // Exponer para que otros módulos puedan navegar a una fecha
   window.agendaIrFecha = agendaSetFecha;
 
+})();
+
+/* ════ M3 · Inventario (aditivo) ════
+   Lee /api/inventario/consulta-ui (Origin-gated) y escribe vía el BFF existente
+   /api/inventario/operaciones-ui (no se modifica). Solo CANTIDADES, sin dinero.
+   idempotency_key por submit → evita doble registro (la RPC registrar_movimiento la honra). */
+(function(){
+  const TIPO_LBL={entrada:'Entrada',salida:'Salida',ajuste:'Ajuste',devolucion:'Devolución'};
+  let SELSLUG=null;
+  let LASTRESULTS=[];   // productos de la última búsqueda; la selección lee por índice (el slug NUNCA entra al HTML → sin vector de inyección por atributo)
+  function invStatus(html){const s=$('#inv-status');if(s)s.innerHTML=html;}
+  function uuid(){try{return crypto.randomUUID();}catch(e){return 'inv-'+Date.now()+'-'+Math.random().toString(16).slice(2);}}
+  function invRenderResultados(items){
+    LASTRESULTS=items||[];
+    const list=$('#inv-results');if(!list)return;
+    if(!items||items.length===0){list.innerHTML='<div class="agenda-empty">Sin productos.</div>';return;}
+    list.innerHTML=items.map((p,i)=>{
+      const stock=(p.stock_actual==null?'—':p.stock_actual);
+      return`<div class="agenda-cita" data-idx="${i}" role="button" tabindex="0">
+        <div class="agenda-info">
+          <div class="agenda-nombre">${esc(p.nombre||p.slug)}</div>
+          <div class="agenda-opto">${esc(p.sku||'')} ${p.categoria?('· '+esc(p.categoria)):''}</div>
+        </div>
+        <span class="agenda-chip agendada">stock ${esc(String(stock))}</span>
+      </div>`;
+    }).join('');
+  }
+  function invRenderMov(items){
+    const list=$('#inv-movimientos');if(!list)return;
+    if(!items||items.length===0){list.innerHTML='<div class="agenda-empty">Sin movimientos.</div>';return;}
+    list.innerHTML=items.map(m=>{
+      const cuando=m.created_at?new Date(m.created_at).toLocaleString('es-MX'):'';
+      return`<div class="agenda-cita">
+        <div class="agenda-info">
+          <div class="agenda-nombre">${esc(TIPO_LBL[m.tipo]||m.tipo)} · ${esc(String(m.cantidad))}</div>
+          <div class="agenda-opto">${esc(String(m.stock_anterior))} → ${esc(String(m.stock_nuevo))}${m.motivo?(' · '+esc(m.motivo)):''}</div>
+          <div class="agenda-opto">${esc(cuando)}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  function invRenderDetalle(p){
+    const head=$('#inv-prod-head');if(!head)return;
+    const stock=(p.stock_actual==null?'—':p.stock_actual);
+    const min=(p.stock_minimo==null?'—':p.stock_minimo);
+    head.innerHTML=`<div class="agenda-nombre">${esc(p.nombre||p.slug)}</div>
+      <div class="agenda-opto">${esc(p.sku||'')} · stock actual <b>${esc(String(stock))}</b> · mínimo ${esc(String(min))}</div>`;
+  }
+  async function invBuscar(){
+    const term=(($('#inv-q')||{}).value||'').trim();
+    if(!term){invStatus('Escribe un término de búsqueda.');return;}
+    invStatus('<span class="agenda-spinner"></span>Buscando…');
+    try{
+      const r=await fetch('/api/inventario/consulta-ui?q='+encodeURIComponent(term));
+      if(!r.ok)throw new Error(`HTTP ${r.status}`);
+      const d=await r.json();
+      if(!d||d.ok===false)throw new Error(d?.error||'Error');
+      invRenderResultados(d.productos||[]);
+      invStatus((d.productos||[]).length+' producto(s).');
+    }catch(e){ invStatus('<span style="color:var(--down)">Error: '+esc(e.message)+'</span>'); }
+  }
+  async function invSeleccionar(slug){
+    SELSLUG=slug;
+    const det=$('#inv-detail');if(det)det.style.display='block';
+    const head=$('#inv-prod-head');if(head)head.innerHTML='<span class="agenda-spinner"></span>Cargando…';
+    try{
+      const r=await fetch('/api/inventario/consulta-ui?slug='+encodeURIComponent(slug));
+      if(!r.ok)throw new Error(`HTTP ${r.status}`);
+      const d=await r.json();
+      if(!d||d.ok===false)throw new Error(d?.error||'Error');
+      invRenderDetalle(d.producto||{});
+      invRenderMov(d.movimientos||[]);
+    }catch(e){ if(head)head.innerHTML='<span style="color:var(--down)">Error: '+esc(e.message)+'</span>'; }
+  }
+  async function invRegistrar(){
+    const err=$('#inv-mov-error');if(err)err.textContent='';
+    if(!SELSLUG){if(err)err.textContent='Selecciona un producto primero.';return;}
+    const tipo=($('#inv-tipo')||{}).value||'';
+    const cantidad=parseInt((($('#inv-cantidad')||{}).value||''),10);
+    const motivo=(($('#inv-motivo')||{}).value||'').trim();
+    if(!Number.isInteger(cantidad)||cantidad<=0){if(err)err.textContent='Cantidad inválida (entero > 0).';return;}
+    const btn=$('#inv-registrar');if(btn)btn.disabled=true;
+    try{
+      const body={sku:SELSLUG,tipo,cantidad,idempotency_key:uuid()};if(motivo)body.motivo=motivo;
+      const r=await fetch('/api/inventario/operaciones-ui',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const d=await r.json().catch(()=>null);
+      if(!r.ok||!d||d.ok===false)throw new Error((d&&d.error)||`HTTP ${r.status}`);
+      const ca=$('#inv-cantidad');if(ca)ca.value='';
+      const mo=$('#inv-motivo');if(mo)mo.value='';
+      invSeleccionar(SELSLUG); // refresca stock + movimientos
+    }catch(e){ if(err)err.textContent='Error: '+e.message; }
+    finally{ if(btn)btn.disabled=false; }
+  }
+  function invOnResultActivate(ev){
+    const el=ev.target.closest('[data-idx]');if(!el)return;
+    if(ev.type==='keydown'&&ev.key!=='Enter'&&ev.key!==' ')return;
+    if(ev.type==='keydown')ev.preventDefault();
+    const p=LASTRESULTS[+el.dataset.idx];if(p&&p.slug)invSeleccionar(p.slug);
+  }
+  document.addEventListener('DOMContentLoaded',function(){
+    const b=$('#inv-buscar-btn');if(b)b.addEventListener('click',invBuscar);
+    const q=$('#inv-q');if(q)q.addEventListener('keydown',ev=>{if(ev.key==='Enter')invBuscar();});
+    const reg=$('#inv-registrar');if(reg)reg.addEventListener('click',invRegistrar);
+    const results=$('#inv-results');
+    if(results){results.addEventListener('click',invOnResultActivate);results.addEventListener('keydown',invOnResultActivate);}
+  });
 })();
 
 </script>
