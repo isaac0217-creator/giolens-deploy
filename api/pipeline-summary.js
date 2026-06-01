@@ -31,12 +31,24 @@
  */
 
 import { withSentry, captureException } from '../agents/_shared/sentry.js';
+import { getServiceClient } from '../agents/_shared/supabase.js';
 
 const WAPIFY_TOKEN = process.env.WAPIFY_TOKEN;
 const WAPIFY_BASE  = 'https://ap.whapify.ai/api';
 
 const ALL_PIPELINES = ['216977', '755062', '252999', '94103', '273944'];
 const STAGNANT_MS   = 48 * 60 * 60 * 1000; // 48 horas
+
+// Caché de snapshots (tabla app_config jsonb, ya existente — sin migración).
+const CACHE_TTL_MS  = 15 * 60 * 1000;      // un snapshot < 15 min se considera "fresco"
+const WAP_TIMEOUT_MS = 8000;               // tope por llamada upstream a Wapify
+// Presupuesto de paginación: bajo 429 sostenido, 50 páginas seriales × backoff podrían
+// superar el maxDuration:60 de Vercel → la función moriría ANTES de cachear (cold-start
+// en bucle). Cortamos antes (45s) LANZANDO → resilient() sirve snapshot stale o error
+// limpio, nunca un parcial silencioso ni un 504 sin manejar.
+const PAGINATE_BUDGET_MS = 45000;
+const cacheKey = (pid, mode) => `ps_cache:${pid}:${mode || 'default'}`;
+const sleep = ms => new Promise(res => setTimeout(res, ms));
 
 // Etapas terminales de éxito (case-insensitive, sin acento)
 const WIN_STAGE_NAMES = ['visita confirmada', 'venta confirmada', 'cliente ganado'];
@@ -50,15 +62,31 @@ function normalizeStage(s) {
 const WIN_STAGES  = { has: s => WIN_STAGE_NAMES.includes(normalizeStage(s)) };
 const LOST_STAGES = { has: s => LOST_STAGE_NAMES.includes(normalizeStage(s)) };
 
+// LANZA en cualquier fallo (red/timeout/429-agotado/!ok). Antes devolvía `null`, y
+// los paginadores interpretaban null como "fin de páginas" (`break`) → truncaban el
+// conteo EN SILENCIO bajo rate-limit → ése es el origen del bug "CRM en cero". Ahora
+// el fallo propaga y el caller decide (servir snapshot en caché o reportar error),
+// nunca un cero/total truncado falso.
 async function wapGet(path, retries = 3, backoffMs = 1200) {
-  const r = await fetch(`${WAPIFY_BASE}/${path}`, {
-    headers: { 'X-ACCESS-TOKEN': WAPIFY_TOKEN },
-  });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), WAP_TIMEOUT_MS);
+  let r;
+  try {
+    r = await fetch(`${WAPIFY_BASE}/${path}`, {
+      headers: { 'X-ACCESS-TOKEN': WAPIFY_TOKEN },
+      signal: ctrl.signal,
+    });
+  } catch (e) {
+    if (retries > 0) { await sleep(backoffMs); return wapGet(path, retries - 1, backoffMs * 1.5); }
+    throw new Error(`wapify_unreachable:${e.name === 'AbortError' ? 'timeout' : (e.message || 'fetch')}`);
+  } finally {
+    clearTimeout(timer);
+  }
   if (r.status === 429 && retries > 0) {
-    await new Promise(res => setTimeout(res, backoffMs));
+    await sleep(backoffMs);
     return wapGet(path, retries - 1, backoffMs * 1.5);
   }
-  if (!r.ok) return null;
+  if (!r.ok) throw new Error(`wapify_http_${r.status}`);
   return r.json();
 }
 
@@ -76,10 +104,11 @@ function classifyStage(name = '') {
 }
 
 // ── MODO MÉTRICAS: estancamiento, won/lost/active, tasa de cierre ──
-async function metricsForPipeline(pid) {
+async function metricsForPipeline(pid, deadline = 0) {
   const opportunities = [];
   let offset = 0;
   for (let page = 0; page < 50; page++) {
+    if (deadline && Date.now() > deadline) throw new Error('wapify_budget_exceeded');
     const r = await wapGet(`pipelines/${pid}/opportunities?offset=${offset}&limit=100`);
     const batch = r?.data || [];
     if (!batch.length) break;
@@ -134,7 +163,7 @@ async function metricsForPipeline(pid) {
 }
 
 // ── MODO ESTÁNDAR / JOURNEY: conteo por etapa + embudo ──
-async function summaryForPipeline(pid, journey) {
+async function summaryForPipeline(pid, journey, deadline = 0) {
   const stagesRes = await wapGet(`pipelines/${pid}/stages`);
   const stages    = stagesRes?.data || [];
 
@@ -149,6 +178,7 @@ async function summaryForPipeline(pid, journey) {
   let offset = 0;
 
   for (let page = 0; page < 50; page++) {
+    if (deadline && Date.now() > deadline) throw new Error('wapify_budget_exceeded');
     const r     = await wapGet(`pipelines/${pid}/opportunities?offset=${offset}&limit=100`);
     const batch = r?.data || [];
     if (!batch.length) break;
@@ -209,18 +239,67 @@ async function summaryForPipeline(pid, journey) {
   };
 }
 
+// ── Caché de snapshots (app_config) — TTL + stale-on-error ──────────────────
+async function cacheGet(db, pid, mode) {
+  if (!db) return null;
+  try {
+    const { data } = await db.from('app_config')
+      .select('value, updated_at')
+      .eq('key', cacheKey(pid, mode))
+      .maybeSingle();
+    if (!data || !data.value) return null;
+    const ageMs = Date.now() - new Date(data.updated_at).getTime();
+    return { value: data.value, ageMs, fresh: ageMs < CACHE_TTL_MS };
+  } catch { return null; }
+}
+
+async function cacheSet(db, pid, mode, value) {
+  if (!db) return;
+  try {
+    await db.from('app_config').upsert(
+      { key: cacheKey(pid, mode), value, updated_by: 'pipeline-summary', updated_at: new Date().toISOString() },
+      { onConflict: 'key' },
+    );
+  } catch (e) {
+    console.warn('[pipeline-summary] cacheSet falló:', e.message);
+  }
+}
+
+function computeFor(pid, mode, deadline) {
+  if (mode === 'metrics') return metricsForPipeline(pid, deadline);
+  return summaryForPipeline(pid, mode === 'journey', deadline);
+}
+
+// Resiliente: snapshot fresco (<TTL) → instantáneo (sin pegarle a Wapify). Si no,
+// calcula en vivo y cachea. Si el cálculo en vivo FALLA (rate-limit/timeout), sirve
+// el último snapshot conocido marcado `stale:true`; sólo si NO hay snapshot propaga
+// el error → el front muestra "sin conexión", NUNCA un cero falso.
+async function resilient(db, pid, mode) {
+  const cached = await cacheGet(db, pid, mode);
+  if (cached && cached.fresh) return { ...cached.value, _cache: 'fresh' };
+  try {
+    const fresh = await computeFor(pid, mode, Date.now() + PAGINATE_BUDGET_MS);
+    await cacheSet(db, pid, mode, fresh);
+    return { ...fresh, _cache: 'live' };
+  } catch (e) {
+    if (cached) return { ...cached.value, _cache: 'stale', stale: true, stale_age_ms: cached.ageMs };
+    throw e;
+  }
+}
+
 async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const { pipeline_id: pid, mode, all } = req.query;
+  const db = getServiceClient();
 
   try {
     // ── MODO MÉTRICAS ──
     if (mode === 'metrics') {
       if (all === '1') {
-        const results = await Promise.allSettled(ALL_PIPELINES.map(metricsForPipeline));
+        const results = await Promise.allSettled(ALL_PIPELINES.map(p => resilient(db, p, 'metrics')));
         const data = results.map((r, i) =>
           r.status === 'fulfilled'
             ? r.value
@@ -229,13 +308,13 @@ async function handler(req, res) {
         return res.status(200).json({ data });
       }
       if (!pid) return res.status(400).json({ error: 'pipeline_id o all=1 requerido' });
-      return res.status(200).json(await metricsForPipeline(pid));
+      return res.status(200).json(await resilient(db, pid, 'metrics'));
     }
 
     // ── MODO ESTÁNDAR / JOURNEY ──
     if (!pid) return res.status(400).json({ error: 'pipeline_id requerido' });
-    const journey = mode === 'journey';
-    return res.status(200).json(await summaryForPipeline(pid, journey));
+    const mode2 = mode === 'journey' ? 'journey' : 'default';
+    return res.status(200).json(await resilient(db, pid, mode2));
 
   } catch (err) {
     console.error('[pipeline-summary]', err.message);

@@ -974,6 +974,17 @@ const pct=n=>(n>0?'+':'')+n.toFixed(1)+'%';
 const num=v=>{const n=parseFloat(v);return isFinite(n)?n:0;};
 const esc=s=>String(s==null?'':s).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
 async function getJSON(u){const r=await fetch(u);if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}
+// Limitador de concurrencia: a lo sumo `n` tareas en vuelo. Acota la ráfaga inicial
+// de llamadas a /api/pipeline-summary (5 pipelines × metrics+journey = 10) que pegaba
+// contra el rate-limit del CRM en cold-start; con caché backend, tras el warm-up casi
+// no se usa. Nunca rechaza: una tarea que falla deja undefined en su posición.
+async function mapPool(items,n,fn){
+  const out=new Array(items.length);let i=0;
+  await Promise.all(Array.from({length:Math.min(n,items.length||1)},async()=>{
+    while(i<items.length){const k=i++;try{out[k]=await fn(items[k],k);}catch(e){out[k]=undefined;}}
+  }));
+  return out;
+}
 async function postJSON(u,body){
   const r=await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});
   if(r.status===404)throw new Error('endpoint no desplegado (404)');
@@ -1187,7 +1198,7 @@ function renderPipe(p,d,i){
   const el=document.createElement('div');el.className='pipe';el.style.animationDelay=(i*70)+'ms';
   if(!d||d.error){
     el.innerHTML=`<div class="pn">${p.name}</div><div class="pid">${p.id}</div>
-      <div class="pt err" style="font-size:14px;margin-top:14px">sin datos</div>`;
+      <div class="pt err" style="font-size:14px;margin-top:14px">sin conexión</div>`;
     $('#pipes').appendChild(el);return;
   }
   const bp=d.by_phase||{},fr=d.funnel_rates||{},total=num(d.total);
@@ -1528,9 +1539,9 @@ async function load(){
     renderPortafolios();renderComparativo();
   }catch(e){$('#h-sub').innerHTML='<span class="err">error cargando Meta Ads</span>';}
   $('#pipes').innerHTML='';
-  await Promise.all(PIPES.map((p,i)=>
+  await mapPool(PIPES,3,(p,i)=>
     getJSON(`/api/pipeline-summary?pipeline_id=${p.id}&mode=journey`)
-      .then(d=>renderPipe(p,d,i)).catch(()=>renderPipe(p,null,i))));
+      .then(d=>renderPipe(p,d,i)).catch(()=>renderPipe(p,null,i)));
   try{
     const t=await getJSON('/api/token-status');
     $('#foot').innerHTML=`<span><b>Fuentes:</b></span>`
@@ -1732,7 +1743,8 @@ function renderCrmMetrics(data){
       </div>
     </div>`;
   }).join('');
-  const ts=$('#crm-metrics-ts');if(ts)ts.textContent=`Act: ${new Date().toLocaleTimeString('es-MX')}`;
+  const anyStale=data.some(d=>d&&d.stale);
+  const ts=$('#crm-metrics-ts');if(ts)ts.textContent=`Act: ${new Date().toLocaleTimeString('es-MX')}${anyStale?' · caché':''}`;
 }
 
 async function fetchCrmMetrics(){
@@ -1741,8 +1753,11 @@ async function fetchCrmMetrics(){
   if(btn){btn.disabled=true;btn.textContent='⏳';}
   if(ts)ts.textContent='Cargando 5 pipelines…';
   try{
-    const results=await Promise.allSettled(ALL_PIPELINE_IDS.map(pid=>fetch(`/api/pipeline-summary?pipeline_id=${pid}&mode=metrics`).then(r=>r.ok?r.json():Promise.reject(new Error(`HTTP ${r.status}`)))));
-    const data=results.map((r,i)=>r.status==='fulfilled'?r.value:{pipeline_id:ALL_PIPELINE_IDS[i],error:r.reason?.message||'Error'});
+    const data=await mapPool(ALL_PIPELINE_IDS,3,async pid=>{
+      try{const r=await fetch(`/api/pipeline-summary?pipeline_id=${pid}&mode=metrics`);
+        if(!r.ok)throw new Error(`HTTP ${r.status}`);return await r.json();}
+      catch(e){return {pipeline_id:pid,error:e.message||'sin conexión'};}
+    });
     renderCrmMetrics(data);
   }catch(e){
     const grid=$('#crm-metrics-grid');
