@@ -603,6 +603,43 @@
     #bg2{display:none!important}
   }
   /* ── fin Reskin Fase 2 ─────────────────────────────────────────────────── */
+
+  /* ╔══════════════════════════════════════════════════════════════════════╗
+     ║ REBANADA 4 · RESKIN FASE 3 — "capa viva": profundidad 3D (tilt+brillo)  ║
+     ║ ADITIVO y REVERTIBLE. Solo agrega reglas nuevas sobre clases existentes ║
+     ║ (no renombra, no reestructura). Para revertir: borrar este bloque CSS   ║
+     ║ + el bloque JS "Fase 3" del final + restaurar el cuerpo de tilt().      ║
+     ║ NO toca markup, selectores, data-*, #g1 ni la posición del <script>.    ║
+     ╚══════════════════════════════════════════════════════════════════════╝ */
+  /* Tilt 3D delegado (un listener pointermove; ver bloque JS Fase 3). El tilt
+     es transform inline → no necesita contenedor posicionado. preserve-3d da
+     profundidad real al rotar; will-change evita repaints en cada frame. */
+  .card,.pipe,.chart,.motor,.proj,.port,.consumo-kpi,.crm-m-card{
+    transform-style:preserve-3d;will-change:transform;
+  }
+  /* Brillo especular SOBRIO que sigue el puntero. Reutiliza el ::before que
+     .card/.pipe YA tienen (líneas 75/99, alimentado por --mx/--my): aquí solo
+     lo hacemos perceptible sobre el vidrio CLARO y visible también al inclinar
+     (no solo :hover). Peak bajo (.16) → no lava el texto oscuro. */
+  .card::before,.pipe::before{
+    background:radial-gradient(260px circle at var(--mx,50%) var(--my,50%),
+      rgba(255,255,255,.16),rgba(255,255,255,0) 58%);
+  }
+  .card.is-tilting::before,.pipe.is-tilting::before,
+  .card.is-tilting:hover::before,.pipe.is-tilting:hover::before{opacity:1}
+
+  /* Accesibilidad + export: sin movimiento 3D ni sheen. El @media print Fase 2
+     ya aplana el vidrio; aquí además reseteamos cualquier transform de tilt. */
+  @media(prefers-reduced-motion:reduce){
+    .card,.pipe,.chart,.motor,.proj,.port,.consumo-kpi,.crm-m-card{transform:none!important}
+  }
+  @media print{
+    .card,.pipe,.chart,.motor,.proj,.port,.consumo-kpi,.crm-m-card{
+      transform:none!important;will-change:auto!important}
+    .card::before,.pipe::before{opacity:0!important}
+    #bg2{display:none!important}  /* self-contained: no depende del gate de Fase 2 */
+  }
+  /* ── fin Reskin Fase 3 ─────────────────────────────────────────────────── */
 </style>
 </head>
 <body>
@@ -950,25 +987,31 @@ function countUp(el,to,fmt){
   (function tk(t){let p=Math.min(1,(t-t0)/dur);p=p===1?1:1-Math.pow(2,-10*p);
     el.textContent=fmt(to*p);if(p<1)requestAnimationFrame(tk);})(t0);
 }
-function tilt(el,max=9){
-  el.addEventListener('mousemove',e=>{
-    const r=el.getBoundingClientRect(),px=(e.clientX-r.left)/r.width,py=(e.clientY-r.top)/r.height;
-    el.style.transform=`perspective(820px) rotateY(${(px-.5)*max*2}deg) rotateX(${(.5-py)*max*2}deg) translateZ(6px)`;
-    el.style.setProperty('--mx',px*100+'%');el.style.setProperty('--my',py*100+'%');
-  });
-  el.addEventListener('mouseleave',()=>{el.style.transform='';});
-}
+/* [Reskin Fase 3] El tilt 3D + brillo ahora es DELEGADO (un solo listener
+   pointermove sobre document, en el bloque "Fase 3" al final del archivo) → cubre
+   también las tarjetas que el dashboard re-renderiza. Este tilt() por-elemento se
+   anula para no doble-bindear; los call-sites tilt(card)/tilt(el,6) siguen válidos. */
+function tilt(){}
 
-/* ════ fondo de partículas 3D ═══════════════════════════════════════ */
+/* ════ fondo de partículas 3D (legado, canvas #bg) ══════════════════════
+   [Reskin Fase 3 · perf] Bajo el reskin claro (Fase 2) #bg queda display:none, así
+   que este loop O(n²) estaría quemando CPU/batería dibujando un canvas OCULTO. Lo
+   GATEAMOS: solo corre si #bg es visible y la pestaña está activa; se detiene solo
+   si se oculta y RE-ARRANCA si vuelve a verse (no se destruye el canvas). */
 (function bg(){
-  const c=$('#bg'),x=c.getContext('2d');let w,h,ps,mx=.5,my=.5;
+  const c=$('#bg'),x=c.getContext('2d');let w,h,ps,mx=.5,my=.5,running=false;
+  // Visibilidad de #bg: se evalúa SOLO en start() (eventos: load/resize/visibilitychange),
+  // no por frame → sin getComputedStyle en el hot loop. El loop solo mira document.hidden.
+  function shown(){return getComputedStyle(c).display!=='none';}
   function size(){w=c.width=innerWidth;h=c.height=innerHeight;
     const n=innerWidth<700?34:70;
     ps=Array.from({length:n},()=>({x:Math.random(),y:Math.random(),z:Math.random()*.85+.15,
       vx:(Math.random()-.5)*.0006,vy:(Math.random()-.5)*.0006}));}
-  size();addEventListener('resize',size);
+  size();addEventListener('resize',()=>{size();start();});
   addEventListener('mousemove',e=>{mx=e.clientX/innerWidth;my=e.clientY/innerHeight;});
-  (function loop(){
+  document.addEventListener('visibilitychange',start);
+  function loop(){
+    if(document.hidden){running=false;return;}  // pestaña en background → frena (re-arranca en visibilitychange)
     x.clearRect(0,0,w,h);
     for(const p of ps){
       p.x+=p.vx;p.y+=p.vy;
@@ -985,7 +1028,9 @@ function tilt(el,max=9){
         x.strokeStyle='rgba(120,150,210,'+(.07*(1-d/108))+')';x.lineWidth=1;x.stroke();}
     }
     requestAnimationFrame(loop);
-  })();
+  }
+  function start(){if(running||document.hidden||!shown())return;running=true;requestAnimationFrame(loop);}
+  start();
 })();
 
 /* ════ estado Meta ══════════════════════════════════════════════════ */
@@ -1434,7 +1479,7 @@ function renderProject(){
   el.innerHTML=`
     <div class="phead">
       <div class="ring">
-        <svg width="96" height="96"><circle cx="48" cy="48" r="40" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="7"/>
+        <svg width="96" height="96"><circle cx="48" cy="48" r="40" fill="none" stroke="var(--line)" stroke-width="7"/>
           <circle cx="48" cy="48" r="40" fill="none" stroke="url(#g1)" stroke-width="7" stroke-linecap="round"
             stroke-dasharray="${C}" stroke-dashoffset="${C}" id="ringp"/></svg>
         <div class="pc"><b id="ringn">0%</b><s>avance</s></div>
@@ -1588,7 +1633,16 @@ async function loadWebhook(){
       const ctx=canvas.getContext('2d');
       if(consumoChart){consumoChart.destroy();consumoChart=null;}
       const bd=data.by_day||[];
-      consumoChart=new Chart(ctx,{type:'line',data:{labels:bd.map(d=>d.date.slice(5)),datasets:[{label:'USD/día',data:bd.map(d=>d.cost_usd),borderColor:'#22d3ee',backgroundColor:'rgba(34,211,238,0.08)',fill:true,tension:.35,borderWidth:2,pointRadius:0,pointHoverRadius:4}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmtUSD(c.parsed.y)}}},scales:{x:{ticks:{font:{size:9},maxTicksLimit:8,maxRotation:0},grid:{display:false},border:{color:'rgba(255,255,255,.08)'}},y:{ticks:{font:{size:10},callback:v=>'$'+v,color:'rgba(255,255,255,.35)'},grid:{color:'rgba(255,255,255,.06)'},border:{color:'rgba(255,255,255,.08)'},beginAtZero:true}}}});
+      /* [Reskin Fase 3] tema del gráfico leído del CSS (getComputedStyle) en vez de
+         colores oscuros hardcodeados → legible sobre el fondo claro. Se relee en cada
+         build, así sigue al tema (claro/oscuro) sin tocar el contrato de datos. */
+      const cs=getComputedStyle(document.documentElement);
+      const cssv=(n,f)=>{const v=cs.getPropertyValue(n).trim();return v||f;};
+      const hexA=(hex,a)=>{const h=String(hex).replace('#','');if(h.length!==6)return hex;
+        const n=parseInt(h,16);return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')';};
+      const TH={accent:cssv('--a1','#22d3ee'),tick:cssv('--faint','#8a8c99'),
+        grid:cssv('--line','rgba(255,255,255,.06)'),border:cssv('--line','rgba(255,255,255,.08)')};
+      consumoChart=new Chart(ctx,{type:'line',data:{labels:bd.map(d=>d.date.slice(5)),datasets:[{label:'USD/día',data:bd.map(d=>d.cost_usd),borderColor:TH.accent,backgroundColor:hexA(TH.accent,0.10),fill:true,tension:.35,borderWidth:2,pointRadius:0,pointHoverRadius:4}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmtUSD(c.parsed.y)}}},scales:{x:{ticks:{font:{size:9},maxTicksLimit:8,maxRotation:0,color:TH.tick},grid:{display:false},border:{color:TH.border}},y:{ticks:{font:{size:10},callback:v=>'$'+v,color:TH.tick},grid:{color:TH.grid},border:{color:TH.border},beginAtZero:true}}}});
     }
     const ld=$('#consumo-chart-loading');if(ld)ld.style.display='none';
   }
@@ -2191,37 +2245,136 @@ document.addEventListener('keydown',e=>{
 
 </script>
 <script>
-/* ════ Reskin Fase 2 · fondo "liquid glass" claro — canvas aislado #bg2 ════
-   Aditivo y autocontenido: solo toca #bg2. z-index detrás de todo,
-   pointer-events:none (vía CSS). Degradado base #f6f8fc→#e8ecf5 + blobs lentos.
-   Respeta prefers-reduced-motion (pinta un frame estático). */
+/* ════ Reskin Fase 3 · fondo "capa viva" — canvas #bg2 (supersede el loop Fase 2) ════
+   Port de la MECÁNICA visual del mockup v6 aprobado por Isaac (no su layout):
+   partículas con profundidad (parallax al cursor) + líneas tipo constelación +
+   manchas/aurora pálidas que derivan, sobre el degradado claro. Aditivo y
+   autocontenido: SOLO toca #bg2 (z-index detrás de todo, pointer-events:none vía CSS).
+   Perf: nº de partículas RESPONSIVO, SIN shadowBlur (las manchas dan el glow), DPR
+   cap 1.5, vars de tema cacheadas (no getComputedStyle por frame) y PAUSA total cuando
+   la pestaña no está visible. prefers-reduced-motion → un frame estático (sin rAF). */
 (function(){
   var c=document.getElementById('bg2'); if(!c||!c.getContext) return;
-  var x=c.getContext('2d'), w=0, h=0, t=0;
+  var x=c.getContext('2d'), W=0,H=0,DPR=1, mt=0, mx=.5,my=.5, running=false, SPEED=1, AMB=1;
+  var reduce=(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+  /* lee ajustes si existen (--bg-speed / --amb); cacheado, no por frame */
+  function readVars(){
+    var cs=getComputedStyle(document.documentElement);
+    var s=parseFloat(cs.getPropertyValue('--bg-speed')); SPEED=isFinite(s)?s:1;
+    var a=parseFloat(cs.getPropertyValue('--amb'));       AMB=isFinite(a)?a:1;
+  }
+  function size(){
+    DPR=Math.min(1.5,window.devicePixelRatio||1);
+    W=innerWidth;H=innerHeight;
+    c.width=W*DPR;c.height=H*DPR;c.style.width=W+'px';c.style.height=H+'px';
+    x.setTransform(DPR,0,0,DPR,0,0);
+  }
   var blobs=[
-    {rgb:'120,150,225', r:.42, ox:.18, oy:.14, sx:.6, sy:.5},
-    {rgb:'150,130,210', r:.40, ox:.82, oy:.80, sx:.5, sy:.7},
-    {rgb:'120,190,205', r:.34, ox:.60, oy:.28, sx:.7, sy:.4}
+    {x:.22,y:.18,r:.55,c:'150,180,235',ph:0,sp:.00050},
+    {x:.82,y:.12,r:.50,c:'196,184,232',ph:2,sp:.00062},
+    {x:.64,y:.86,r:.60,c:'170,214,202',ph:4,sp:.00040},
+    {x:.10,y:.82,r:.46,c:'205,214,236',ph:1,sp:.00056}
   ];
-  function paint(animated){
-    var g=x.createLinearGradient(0,0,0,h);
-    g.addColorStop(0,'#f6f8fc'); g.addColorStop(1,'#e8ecf5');
-    x.fillStyle=g; x.fillRect(0,0,w,h);
-    for(var i=0;i<blobs.length;i++){
-      var b=blobs[i];
-      var cx=(b.ox + (animated?Math.sin(t*b.sx+i)*.06:0))*w;
-      var cy=(b.oy + (animated?Math.cos(t*b.sy+i*1.7)*.06:0))*h;
-      var rad=b.r*Math.max(w,h);
-      var rg=x.createRadialGradient(cx,cy,0,cx,cy,rad);
-      rg.addColorStop(0,'rgba('+b.rgb+',.14)'); rg.addColorStop(1,'rgba('+b.rgb+',0)');
-      x.fillStyle=rg; x.beginPath(); x.arc(cx,cy,rad,0,6.2832); x.fill();
+  var PCOL=['120,150,220','150,135,210','110,190,175','90,120,180','170,150,205'];
+  var parts=[];
+  function seed(){
+    var n=innerWidth<700?36:(innerWidth<1100?60:84);
+    parts.length=0;
+    for(var i=0;i<n;i++){var z=Math.random();
+      parts.push({x:Math.random(),y:Math.random(),z:z,
+        vy:.00018+z*.00050, vx:(Math.random()-.5)*.00022,
+        r:1.0+z*2.8, a:.16+z*.34, col:PCOL[(Math.random()*PCOL.length)|0],
+        tw:Math.random()*6.28, tws:.0010+Math.random()*.0020});
     }
   }
-  function resize(){ w=c.width=innerWidth; h=c.height=innerHeight; }
-  addEventListener('resize', resize); resize();
-  var reduce = (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
-  if(reduce){ paint(false); }
-  else { (function loop(){ t+=.0015; paint(true); requestAnimationFrame(loop); })(); }
+  addEventListener('mousemove',function(e){mx=e.clientX/innerWidth;my=e.clientY/innerHeight;},{passive:true});
+  addEventListener('resize',function(){size();seed();readVars(); if(reduce)frame(false,0); else start();});
+
+  function frame(animated,dt){
+    var g0=x.createLinearGradient(0,0,W,H);
+    g0.addColorStop(0,'#f6f8fc');g0.addColorStop(1,'#e8ecf5');
+    x.fillStyle=g0;x.fillRect(0,0,W,H);
+    var i,j;
+    x.globalCompositeOperation='multiply';
+    for(var k=0;k<blobs.length;k++){var b=blobs[k];
+      if(animated)b.ph+=b.sp*dt;
+      var bx=(b.x+Math.cos(b.ph)*.05+(mx-.5)*.05)*W;
+      var by=(b.y+Math.sin(b.ph*1.3)*.05+(my-.5)*.05)*H;
+      var rr=b.r*Math.max(W,H)*(.9+Math.sin(b.ph*.7)*.07);
+      var rg=x.createRadialGradient(bx,by,0,bx,by,rr);
+      var al=.15*AMB;
+      rg.addColorStop(0,'rgba('+b.c+','+al+')');
+      rg.addColorStop(.5,'rgba('+b.c+','+(al*.4)+')');
+      rg.addColorStop(1,'rgba(255,255,255,0)');
+      x.fillStyle=rg;x.beginPath();x.arc(bx,by,rr,0,7);x.fill();
+    }
+    x.globalCompositeOperation='source-over';
+    var PX=[],PY=[];
+    for(i=0;i<parts.length;i++){var p=parts[i];
+      if(animated){p.y-=p.vy*dt;p.x+=p.vx*dt;p.tw+=p.tws*dt;
+        if(p.y<-.03){p.y=1.03;p.x=Math.random();}
+        if(p.x<-.03)p.x=1.03;else if(p.x>1.03)p.x=-.03;}
+      PX.push((p.x+(mx-.5)*p.z*.16)*W);
+      PY.push((p.y+(my-.5)*p.z*.09)*H);
+    }
+    var LINK=120;x.lineWidth=1;
+    for(i=0;i<parts.length;i++){for(j=i+1;j<parts.length;j++){
+      var dx=PX[i]-PX[j],dy=PY[i]-PY[j],dd=Math.sqrt(dx*dx+dy*dy);
+      if(dd<LINK){var o=(1-dd/LINK)*.14*Math.min(parts[i].z+.4,1);
+        x.strokeStyle='rgba(90,110,160,'+o.toFixed(3)+')';
+        x.beginPath();x.moveTo(PX[i],PY[i]);x.lineTo(PX[j],PY[j]);x.stroke();}
+    }}
+    for(i=0;i<parts.length;i++){var q=parts[i];
+      var tw=.72+Math.sin(q.tw)*.28, a=q.a*tw;
+      x.fillStyle='rgba('+q.col+','+a.toFixed(3)+')';
+      x.beginPath();x.arc(PX[i],PY[i],q.r,0,7);x.fill();
+    }
+  }
+  function loop(now){
+    if(document.hidden){running=false;return;}   // pestaña en background → frena (batería)
+    var dt=Math.min(60,now-mt)*SPEED;mt=now;
+    frame(true,dt);
+    requestAnimationFrame(loop);
+  }
+  function start(){if(reduce||running||document.hidden)return;running=true;mt=performance.now();requestAnimationFrame(loop);}
+  document.addEventListener('visibilitychange',start);
+  readVars();size();seed();
+  if(reduce){frame(false,0);} else {start();}
+})();
+
+/* ════ Reskin Fase 3 · profundidad 3D estilo Apple — tilt + brillo DELEGADOS ════
+   Un solo listener pointermove en document → funciona también con las tarjetas que
+   el dashboard RE-RENDERIZA (no hay que re-bindear por elemento). Reemplaza al
+   tilt() por-elemento (ahora no-op). El sheen lo dan los ::before/::after del CSS
+   Fase 3 vía --mx/--my + clase .is-tilting. Paneles grandes → tilt más sutil.
+   prefers-reduced-motion → desactivado por completo. */
+(function(){
+  if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var SEL='.card,.pipe,.chart,.motor,.proj,.port,.consumo-kpi,.crm-m-card';
+  var BIG=/\b(chart|motor|proj|port)\b/;
+  var curr=null, raf=0;
+  function reset(el){ el.classList.remove('is-tilting');
+    el.style.transition='transform .5s cubic-bezier(.2,.7,.2,1)'; el.style.transform=''; }
+  document.addEventListener('pointermove',function(e){
+    var el=e.target&&e.target.closest?e.target.closest(SEL):null;
+    if(el!==curr){ if(curr)reset(curr); curr=el; if(el)el.classList.add('is-tilting'); }
+    if(!el) return;
+    var r=el.getBoundingClientRect(); if(!r.width||!r.height) return;
+    var cx=(e.clientX-r.left)/r.width, cy=(e.clientY-r.top)/r.height;
+    var MAX=BIG.test(el.className)?3.5:7;
+    var ry=(cx-.5)*2*MAX, rx=-(cy-.5)*2*MAX;
+    el.style.setProperty('--mx',(cx*100).toFixed(1)+'%');
+    el.style.setProperty('--my',(cy*100).toFixed(1)+'%');
+    if(raf)cancelAnimationFrame(raf);
+    raf=requestAnimationFrame(function(){
+      el.style.transition='transform .08s ease-out';
+      el.style.transform='perspective(900px) rotateX('+rx.toFixed(2)+'deg) rotateY('+ry.toFixed(2)+'deg)';
+    });
+  },{passive:true});
+  function clear(){ if(curr){reset(curr);curr=null;} }
+  document.addEventListener('pointerleave',clear);
+  document.addEventListener('pointercancel',clear);  // touch→scroll en móvil emite pointercancel: no dejar el tilt pegado
+  window.addEventListener('blur',clear);
 })();
 </script>
 </body>
