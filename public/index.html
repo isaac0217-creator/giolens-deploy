@@ -876,6 +876,26 @@
   <!-- Toast Agenda -->
   <div class="agenda-toast" id="agenda-toast"></div>
 
+  <!-- ══ M2 · Expediente del paciente (aditivo, solo lectura). /api/expediente-ui (Origin-gated):
+       une paciente + citas + atenciones + expedientes por contact_id. ══ -->
+  <div class="sec-t">Expediente del paciente &middot; Historial</div>
+  <div class="chart" id="pexp-panel">
+    <div class="agenda-head">
+      <input id="pexp-q" class="agenda-input" type="search" aria-label="contact_id del paciente" placeholder="contact_id del paciente…" style="flex:1;min-width:160px">
+      <button class="agenda-nueva-btn" id="pexp-ver-btn" type="button">Ver expediente</button>
+    </div>
+    <div id="pexp-status" aria-live="polite" style="font-size:12px;color:var(--faint);min-height:18px;margin:6px 0"></div>
+    <div id="pexp-detail" style="display:none">
+      <div id="pexp-head" style="margin-bottom:10px"></div>
+      <div style="font-size:12px;color:var(--faint);margin:8px 0 4px">Citas</div>
+      <div class="agenda-list" id="pexp-citas"></div>
+      <div style="font-size:12px;color:var(--faint);margin:10px 0 4px">Atenciones</div>
+      <div class="agenda-list" id="pexp-atenciones"></div>
+      <div style="font-size:12px;color:var(--faint);margin:10px 0 4px">Expedientes clínicos</div>
+      <div class="agenda-list" id="pexp-expedientes"></div>
+    </div>
+  </div>
+
   <div class="sec-t">Motores IA · Copilot Sales (Haiku)</div>
   <div id="motores"></div>
 
@@ -2260,6 +2280,68 @@ document.addEventListener('keydown',e=>{
   // Exponer para que otros módulos puedan navegar a una fecha
   window.agendaIrFecha = agendaSetFecha;
 
+})();
+
+/* ════ M2 · Expediente del paciente (aditivo, solo lectura) ════
+   /api/expediente-ui (Origin-gated) une paciente + citas + atenciones + expedientes por
+   contact_id. esc() en todo; PII no se loguea ni se deja en data-*. */
+(function(){
+  const CITA_ESTADO={agendada:'Agendada',confirmada:'Confirmada',cancelada:'Cancelada',realizada:'Realizada'};
+  function expStatus(html){const s=$('#pexp-status');if(s)s.innerHTML=html;}
+  function expStatusText(msg){const s=$('#pexp-status');if(s)s.textContent=msg;}
+  function row(title,sub){
+    return`<div class="agenda-cita"><div class="agenda-info">
+      <div class="agenda-nombre">${title}</div>
+      ${sub?`<div class="agenda-opto">${sub}</div>`:''}
+    </div></div>`;
+  }
+  function fill(id,items,fn,vacio){
+    const el=$(id);if(!el)return;
+    el.innerHTML=(!items||items.length===0)?`<div class="agenda-empty">${vacio}</div>`:items.map(fn).join('');
+  }
+  function expRender(d){
+    const head=$('#pexp-head');const p=d.paciente;
+    if(head){
+      head.innerHTML=p
+        ?`<div class="agenda-nombre">${esc(p.name||'(sin nombre)')}</div><div class="agenda-opto">${esc(p.phone||'')}${p.email?(' · '+esc(p.email)):''}</div>`
+        :'<div class="agenda-opto">Paciente no está en el CRM (contacts); se muestra su historial por contact_id.</div>';
+    }
+    fill('#pexp-citas',d.citas,c=>{
+      const f=esc(String(c.fecha||'—'))+' '+esc(String(c.hora||'').slice(0,5));
+      const est=CITA_ESTADO[c.estado]||c.estado||'';
+      const prod=c.producto_motivo?(' · '+esc(c.producto_motivo)):'';
+      return row(f,esc(est)+prod);
+    },'Sin citas todavía.');
+    const atVacio=d.atenciones_disponible===false?'Atenciones no disponibles (módulo no instalado).':'Sin atenciones.';
+    fill('#pexp-atenciones',d.atenciones,a=>{
+      const nota=a.nota?(' · '+esc(a.nota)):'';
+      return row(esc((a.tipo||'—'))+' · '+esc((a.canal||'—')),esc(a.estado||'')+nota);
+    },atVacio);
+    fill('#pexp-expedientes',d.expedientes,e=>{
+      const origen=e.capturado_desde?(' · '+esc(e.capturado_desde)):'';
+      const obs=e.observaciones?(' · '+esc(e.observaciones)):'';
+      return row('Examen '+esc(String(e.fecha_examen||'—')),esc(e.optometrista||'—')+(e.venta_cerrada?' · venta cerrada':'')+origen+obs);
+    },'Sin expedientes clínicos.');
+  }
+  async function expVer(){
+    const term=(($('#pexp-q')||{}).value||'').trim();
+    if(!term){expStatusText('Escribe un contact_id.');return;}
+    expStatus('<span class="agenda-spinner"></span>Cargando…');
+    const det=$('#pexp-detail');if(det)det.style.display='none';
+    try{
+      const r=await fetch('/api/expediente-ui?contact_id='+encodeURIComponent(term));
+      if(!r.ok&&r.status!==404)throw new Error(`HTTP ${r.status}`);
+      const d=await r.json();
+      if(!d||d.ok===false)throw new Error(d?.error||'Error');
+      expRender(d);
+      if(det)det.style.display='block';
+      expStatusText('Expediente cargado.');
+    }catch(e){ expStatus('<span style="color:var(--down)">Error: '+esc(e.message)+'</span>'); }
+  }
+  document.addEventListener('DOMContentLoaded',function(){
+    const b=$('#pexp-ver-btn');if(b)b.addEventListener('click',expVer);
+    const q=$('#pexp-q');if(q)q.addEventListener('keydown',ev=>{if(ev.key==='Enter')expVer();});
+  });
 })();
 
 </script>
