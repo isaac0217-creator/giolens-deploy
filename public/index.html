@@ -876,6 +876,27 @@
   <!-- Toast Agenda -->
   <div class="agenda-toast" id="agenda-toast"></div>
 
+  <!-- ══ M1 · Pacientes (aditivo). Lectura/búsqueda sobre /api/pacientes-ui (Origin-gated).
+       NO escribe en contacts (cache Wapify); "asegurar expediente" escribe solo en expedientes. ══ -->
+  <div class="sec-t">Pacientes &middot; Búsqueda y expediente</div>
+  <div class="chart" id="pac-panel">
+    <div class="agenda-head">
+      <input id="pac-q" class="agenda-input" type="search" aria-label="Buscar paciente por nombre o teléfono" placeholder="Buscar paciente por nombre o teléfono…" style="flex:1;min-width:160px">
+      <button class="agenda-nueva-btn" id="pac-buscar-btn" type="button">Buscar</button>
+    </div>
+    <div id="pac-status" aria-live="polite" style="font-size:12px;color:var(--faint);min-height:18px;margin:6px 0"></div>
+    <div class="agenda-list" id="pac-results"></div>
+
+    <div id="pac-detail" style="display:none;margin-top:12px;padding:12px;border:1px solid var(--line,#2a2f3a);border-radius:10px">
+      <div id="pac-prod-head" style="margin-bottom:10px"></div>
+      <div id="pac-exp-list" class="agenda-list"></div>
+      <div id="pac-alta-wrap" style="display:none;margin-top:10px">
+        <button class="agenda-btn-primary" id="pac-asegurar" type="button" style="flex:none;padding:0 16px">Asegurar expediente</button>
+        <span id="pac-alta-msg" role="alert" style="margin-left:8px;font-size:12px;color:var(--faint)"></span>
+      </div>
+    </div>
+  </div>
+
   <div class="sec-t">Motores IA · Copilot Sales (Haiku)</div>
   <div id="motores"></div>
 
@@ -2260,6 +2281,102 @@ document.addEventListener('keydown',e=>{
   // Exponer para que otros módulos puedan navegar a una fecha
   window.agendaIrFecha = agendaSetFecha;
 
+})();
+
+/* ════ M1 · Pacientes (aditivo) ════
+   Lee /api/pacientes-ui (Origin-gated). Selección por data-idx (el contact_id NUNCA entra
+   al HTML como atributo → sin vector de inyección). PII no se loguea ni se deja en data-*. */
+(function(){
+  let PAC_RESULTS=[];
+  let PAC_SEL=null;        // contact_id seleccionado (en memoria, no en el DOM)
+  function pacStatus(html){const s=$('#pac-status');if(s)s.innerHTML=html;}
+  function pacStatusText(msg){const s=$('#pac-status');if(s)s.textContent=msg;}
+  function pacRenderResultados(items){
+    PAC_RESULTS=items||[];
+    const list=$('#pac-results');if(!list)return;
+    if(!items||items.length===0){list.innerHTML='<div class="agenda-empty">Sin pacientes.</div>';return;}
+    list.innerHTML=items.map((p,i)=>{
+      const badge=p.has_expediente?'<span class="agenda-chip agendada">con expediente</span>':'<span class="agenda-chip">sin expediente</span>';
+      return`<div class="agenda-cita" data-idx="${i}" role="button" tabindex="0">
+        <div class="agenda-info">
+          <div class="agenda-nombre">${esc(p.name||'(sin nombre)')}</div>
+          <div class="agenda-opto">${esc(p.phone||'')}</div>
+        </div>
+        ${badge}
+      </div>`;
+    }).join('');
+  }
+  function pacRenderDetalle(d){
+    const head=$('#pac-prod-head');const expList=$('#pac-exp-list');const altaWrap=$('#pac-alta-wrap');
+    const p=d.paciente||{};const exps=d.expedientes||[];
+    if(head)head.innerHTML=`<div class="agenda-nombre">${esc(p.name||'(sin nombre)')}</div>
+      <div class="agenda-opto">${esc(p.phone||'')}${p.email?(' · '+esc(p.email)):''}</div>`;
+    if(expList){
+      expList.innerHTML=exps.length===0?'<div class="agenda-empty">Sin expedientes.</div>':exps.map(e=>{
+        const f=e.fecha_examen?esc(String(e.fecha_examen)):'—';
+        const origen=e.capturado_desde?(' · '+esc(e.capturado_desde)):'';
+        return`<div class="agenda-cita"><div class="agenda-info">
+          <div class="agenda-nombre">Examen ${f}</div>
+          <div class="agenda-opto">${esc(e.optometrista||'—')}${e.venta_cerrada?' · venta cerrada':''}${origen}</div>
+        </div></div>`;
+      }).join('');
+    }
+    // El botón "Asegurar expediente" solo si NO tiene ninguno.
+    if(altaWrap)altaWrap.style.display=exps.length===0?'block':'none';
+    const msg=$('#pac-alta-msg');if(msg)msg.textContent='';
+  }
+  async function pacBuscar(){
+    const term=(($('#pac-q')||{}).value||'').trim();
+    if(!term){pacStatusText('Escribe un nombre o teléfono.');return;}
+    pacStatus('<span class="agenda-spinner"></span>Buscando…');
+    const det=$('#pac-detail');if(det)det.style.display='none';
+    try{
+      const r=await fetch('/api/pacientes-ui?q='+encodeURIComponent(term));
+      if(!r.ok)throw new Error(`HTTP ${r.status}`);
+      const d=await r.json();
+      if(!d||d.ok===false)throw new Error(d?.error||'Error');
+      pacRenderResultados(d.pacientes||[]);
+      pacStatusText((d.pacientes||[]).length+' paciente(s).');
+    }catch(e){ pacStatus('<span style="color:var(--down)">Error: '+esc(e.message)+'</span>'); }
+  }
+  async function pacSeleccionar(contactId){
+    PAC_SEL=contactId;
+    const det=$('#pac-detail');if(det)det.style.display='block';
+    const head=$('#pac-prod-head');if(head)head.innerHTML='<span class="agenda-spinner"></span>Cargando…';
+    try{
+      const r=await fetch('/api/pacientes-ui?contact_id='+encodeURIComponent(contactId));
+      if(!r.ok)throw new Error(`HTTP ${r.status}`);
+      const d=await r.json();
+      if(!d||d.ok===false)throw new Error(d?.error||'Error');
+      pacRenderDetalle(d);
+    }catch(e){ if(head)head.innerHTML='<span style="color:var(--down)">Error: '+esc(e.message)+'</span>'; }
+  }
+  async function pacAsegurar(){
+    if(!PAC_SEL)return;
+    const msg=$('#pac-alta-msg');if(msg)msg.textContent='Procesando…';
+    const btn=$('#pac-asegurar');if(btn)btn.disabled=true;
+    try{
+      const r=await fetch('/api/pacientes-ui',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contact_id:PAC_SEL})});
+      const d=await r.json().catch(()=>null);
+      if(!r.ok||!d||d.ok===false)throw new Error((d&&d.error)||`HTTP ${r.status}`);
+      if(msg)msg.textContent=d.created?'Expediente creado.':'Ya tenía expediente.';
+      pacSeleccionar(PAC_SEL); // refresca
+    }catch(e){ if(msg)msg.textContent='Error: '+e.message; }
+    finally{ if(btn)btn.disabled=false; }
+  }
+  function pacOnActivate(ev){
+    const el=ev.target.closest('[data-idx]');if(!el)return;
+    if(ev.type==='keydown'&&ev.key!=='Enter'&&ev.key!==' ')return;
+    if(ev.type==='keydown')ev.preventDefault();
+    const p=PAC_RESULTS[+el.dataset.idx];if(p&&p.contact_id)pacSeleccionar(p.contact_id);
+  }
+  document.addEventListener('DOMContentLoaded',function(){
+    const b=$('#pac-buscar-btn');if(b)b.addEventListener('click',pacBuscar);
+    const q=$('#pac-q');if(q)q.addEventListener('keydown',ev=>{if(ev.key==='Enter')pacBuscar();});
+    const as=$('#pac-asegurar');if(as)as.addEventListener('click',pacAsegurar);
+    const results=$('#pac-results');
+    if(results){results.addEventListener('click',pacOnActivate);results.addEventListener('keydown',pacOnActivate);}
+  });
 })();
 
 </script>
