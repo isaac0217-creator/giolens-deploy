@@ -884,7 +884,7 @@
       <input id="exp-q" class="agenda-input" type="search" aria-label="contact_id del paciente" placeholder="contact_id del paciente…" style="flex:1;min-width:160px">
       <button class="agenda-nueva-btn" id="exp-ver-btn" type="button">Ver expediente</button>
     </div>
-    <div id="exp-status" aria-live="polite" style="font-size:12px;color:var(--faint);min-height:18px;margin:6px 0"></div>
+    <div id="pexp-status" aria-live="polite" style="font-size:12px;color:var(--faint);min-height:18px;margin:6px 0"></div>
     <div id="exp-detail" style="display:none">
       <div id="exp-head" style="margin-bottom:10px"></div>
       <div style="font-size:12px;color:var(--faint);margin:8px 0 4px">Citas</div>
@@ -2287,8 +2287,8 @@ document.addEventListener('keydown',e=>{
    contact_id. esc() en todo; PII no se loguea ni se deja en data-*. */
 (function(){
   const CITA_ESTADO={agendada:'Agendada',confirmada:'Confirmada',cancelada:'Cancelada',realizada:'Realizada'};
-  function expStatus(html){const s=$('#exp-status');if(s)s.innerHTML=html;}
-  function expStatusText(msg){const s=$('#exp-status');if(s)s.textContent=msg;}
+  function expStatus(html){const s=$('#pexp-status');if(s)s.innerHTML=html;}
+  function expStatusText(msg){const s=$('#pexp-status');if(s)s.textContent=msg;}
   function row(title,sub){
     return`<div class="agenda-cita"><div class="agenda-info">
       <div class="agenda-nombre">${title}</div>

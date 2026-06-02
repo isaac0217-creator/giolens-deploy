@@ -69,9 +69,10 @@ function setBaseHeaders(res: VercelLikeRes, origin: string): void {
 
 const CONTACT_COLS = 'contact_id, name, phone, email';
 const EXP_COLS = 'id, fecha_examen, optometrista, venta_cerrada, capturado_desde, observaciones, created_at';
-// Citas: incluye PII de la tarjeta (nombre/telefono/producto/resumen) — Origin-gated, igual
-// que citas-ui. NO incluye paciente_hash crudo extra ni datos sensibles fuera de lo necesario.
-const CITA_COLS = 'id, fecha, hora, estado, tipo_consulta, producto_motivo, nombre_paciente, telefono_paciente, resumen_expediente, created_at';
+// Citas: SOLO lo que la vista M2 muestra (fecha/hora/estado/tipo/producto). Se excluyen
+// nombre_paciente/telefono_paciente/resumen_expediente (PII/clínico) — el nombre ya viene
+// en la cabecera (paciente, de contacts); no se amplía la superficie PII en transporte.
+const CITA_COLS = 'id, fecha, hora, estado, tipo_consulta, producto_motivo, created_at';
 const ATEN_COLS = 'id, canal, tipo, nota, estado, creado_en';
 
 function firstStr(v: string | string[] | undefined): string | null {
