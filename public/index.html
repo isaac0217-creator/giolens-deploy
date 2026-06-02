@@ -879,20 +879,20 @@
   <!-- ══ M2 · Expediente del paciente (aditivo, solo lectura). /api/expediente-ui (Origin-gated):
        une paciente + citas + atenciones + expedientes por contact_id. ══ -->
   <div class="sec-t">Expediente del paciente &middot; Historial</div>
-  <div class="chart" id="exp-panel">
+  <div class="chart" id="pexp-panel">
     <div class="agenda-head">
-      <input id="exp-q" class="agenda-input" type="search" aria-label="contact_id del paciente" placeholder="contact_id del paciente…" style="flex:1;min-width:160px">
-      <button class="agenda-nueva-btn" id="exp-ver-btn" type="button">Ver expediente</button>
+      <input id="pexp-q" class="agenda-input" type="search" aria-label="contact_id del paciente" placeholder="contact_id del paciente…" style="flex:1;min-width:160px">
+      <button class="agenda-nueva-btn" id="pexp-ver-btn" type="button">Ver expediente</button>
     </div>
     <div id="pexp-status" aria-live="polite" style="font-size:12px;color:var(--faint);min-height:18px;margin:6px 0"></div>
-    <div id="exp-detail" style="display:none">
-      <div id="exp-head" style="margin-bottom:10px"></div>
+    <div id="pexp-detail" style="display:none">
+      <div id="pexp-head" style="margin-bottom:10px"></div>
       <div style="font-size:12px;color:var(--faint);margin:8px 0 4px">Citas</div>
-      <div class="agenda-list" id="exp-citas"></div>
+      <div class="agenda-list" id="pexp-citas"></div>
       <div style="font-size:12px;color:var(--faint);margin:10px 0 4px">Atenciones</div>
-      <div class="agenda-list" id="exp-atenciones"></div>
+      <div class="agenda-list" id="pexp-atenciones"></div>
       <div style="font-size:12px;color:var(--faint);margin:10px 0 4px">Expedientes clínicos</div>
-      <div class="agenda-list" id="exp-expedientes"></div>
+      <div class="agenda-list" id="pexp-expedientes"></div>
     </div>
   </div>
 
@@ -2300,34 +2300,34 @@ document.addEventListener('keydown',e=>{
     el.innerHTML=(!items||items.length===0)?`<div class="agenda-empty">${vacio}</div>`:items.map(fn).join('');
   }
   function expRender(d){
-    const head=$('#exp-head');const p=d.paciente;
+    const head=$('#pexp-head');const p=d.paciente;
     if(head){
       head.innerHTML=p
         ?`<div class="agenda-nombre">${esc(p.name||'(sin nombre)')}</div><div class="agenda-opto">${esc(p.phone||'')}${p.email?(' · '+esc(p.email)):''}</div>`
         :'<div class="agenda-opto">Paciente no está en el CRM (contacts); se muestra su historial por contact_id.</div>';
     }
-    fill('#exp-citas',d.citas,c=>{
+    fill('#pexp-citas',d.citas,c=>{
       const f=esc(String(c.fecha||'—'))+' '+esc(String(c.hora||'').slice(0,5));
       const est=CITA_ESTADO[c.estado]||c.estado||'';
       const prod=c.producto_motivo?(' · '+esc(c.producto_motivo)):'';
       return row(f,esc(est)+prod);
     },'Sin citas todavía.');
     const atVacio=d.atenciones_disponible===false?'Atenciones no disponibles (módulo no instalado).':'Sin atenciones.';
-    fill('#exp-atenciones',d.atenciones,a=>{
+    fill('#pexp-atenciones',d.atenciones,a=>{
       const nota=a.nota?(' · '+esc(a.nota)):'';
       return row(esc((a.tipo||'—'))+' · '+esc((a.canal||'—')),esc(a.estado||'')+nota);
     },atVacio);
-    fill('#exp-expedientes',d.expedientes,e=>{
+    fill('#pexp-expedientes',d.expedientes,e=>{
       const origen=e.capturado_desde?(' · '+esc(e.capturado_desde)):'';
       const obs=e.observaciones?(' · '+esc(e.observaciones)):'';
       return row('Examen '+esc(String(e.fecha_examen||'—')),esc(e.optometrista||'—')+(e.venta_cerrada?' · venta cerrada':'')+origen+obs);
     },'Sin expedientes clínicos.');
   }
   async function expVer(){
-    const term=(($('#exp-q')||{}).value||'').trim();
+    const term=(($('#pexp-q')||{}).value||'').trim();
     if(!term){expStatusText('Escribe un contact_id.');return;}
     expStatus('<span class="agenda-spinner"></span>Cargando…');
-    const det=$('#exp-detail');if(det)det.style.display='none';
+    const det=$('#pexp-detail');if(det)det.style.display='none';
     try{
       const r=await fetch('/api/expediente-ui?contact_id='+encodeURIComponent(term));
       if(!r.ok&&r.status!==404)throw new Error(`HTTP ${r.status}`);
@@ -2339,8 +2339,8 @@ document.addEventListener('keydown',e=>{
     }catch(e){ expStatus('<span style="color:var(--down)">Error: '+esc(e.message)+'</span>'); }
   }
   document.addEventListener('DOMContentLoaded',function(){
-    const b=$('#exp-ver-btn');if(b)b.addEventListener('click',expVer);
-    const q=$('#exp-q');if(q)q.addEventListener('keydown',ev=>{if(ev.key==='Enter')expVer();});
+    const b=$('#pexp-ver-btn');if(b)b.addEventListener('click',expVer);
+    const q=$('#pexp-q');if(q)q.addEventListener('keydown',ev=>{if(ev.key==='Enter')expVer();});
   });
 })();
 
